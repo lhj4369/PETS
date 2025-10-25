@@ -1,14 +1,33 @@
 import { Tabs } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function TabsLayout() {
   return (
-    <Tabs screenOptions={{ headerShown: false }}>
-      <Tabs.Screen name="home" options={{ title: "메인" }} />
-      <Tabs.Screen name="timer" options={{ title: "타이머" }} />
-      <Tabs.Screen name="records" options={{ title: "기록" }} />
-      <Tabs.Screen name="ranking" options={{ title: "랭킹" }} />
-      <Tabs.Screen name="challenges" options={{ title: "도전" }} />
-      <Tabs.Screen name="settings" options={{ title: "설정" }} />
+    <Tabs 
+      screenOptions={{ 
+        headerShown: false,
+        tabBarActiveTintColor: "#4CAF50",
+        tabBarInactiveTintColor: "#666",
+        tabBarStyle: {
+          backgroundColor: "white",
+          borderTopWidth: 1,
+          borderTopColor: "#e0e0e0",
+          paddingBottom: 5,
+          paddingTop: 5,
+          height: 60,
+        }
+      }}
+      initialRouteName="records"
+    >
+      <Tabs.Screen 
+        name="records" 
+        options={{ 
+          title: "운동 기록",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar" size={size} color={color} />
+          ),
+        }} 
+      />
     </Tabs>
   );
 }
