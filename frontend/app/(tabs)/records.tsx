@@ -35,6 +35,7 @@ export default function RecordsScreen() {
   const [workoutRecords, setWorkoutRecords] = useState<WorkoutRecord[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showMonthYearModal, setShowMonthYearModal] = useState(false);
   const [selectedDayRecords, setSelectedDayRecords] = useState<WorkoutRecord[]>([]);
 
   // 샘플 데이터 로드
@@ -178,6 +179,20 @@ export default function RecordsScreen() {
     }
   };
 
+  const getWorkoutSummary = (dateStr: string) => {
+    const dayRecords = workoutRecords.filter(record => record.date === dateStr);
+    if (dayRecords.length === 0) return null;
+    
+    // 모든 운동을 각각 표시
+    return dayRecords.map(record => `${record.type} ${record.duration}분`).join('\n');
+  };
+
+  const handleMonthYearSelect = (year: number, month: number) => {
+    const newDate = new Date(year, month);
+    setCurrentDate(newDate);
+    setShowMonthYearModal(false);
+  };
+
   const days = getDaysInMonth(currentDate);
   const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -205,9 +220,11 @@ export default function RecordsScreen() {
           <TouchableOpacity onPress={() => navigateMonth('prev')}>
             <Ionicons name="chevron-back" size={24} color="#666" />
           </TouchableOpacity>
-          <Text style={styles.monthYear}>
-            {currentDate.getFullYear()}년 {getMonthName(currentDate)}
-          </Text>
+          <TouchableOpacity onPress={() => setShowMonthYearModal(true)}>
+            <Text style={styles.monthYear}>
+              {currentDate.getFullYear()}년 {getMonthName(currentDate)}
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => navigateMonth('next')}>
             <Ionicons name="chevron-forward" size={24} color="#666" />
           </TouchableOpacity>
@@ -230,32 +247,44 @@ export default function RecordsScreen() {
 
           {/* 날짜 그리드 */}
           <View style={styles.daysGrid}>
-            {days.map((day, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.dayCell,
-                  !day.isCurrentMonth && styles.otherMonthDay,
-                  day.isToday && styles.todayDay,
-                  day.hasWorkout && styles.workoutDay
-                ]}
-                onPress={() => handleDatePress(day)}
-              >
-                <Text style={[
-                  styles.dayText,
-                  !day.isCurrentMonth && styles.otherMonthText,
-                  day.isToday && styles.todayText,
-                  day.hasWorkout && styles.workoutText
-                ]}>
-                  {day.date}
-                </Text>
-                {day.hasWorkout && (
-                  <View style={styles.workoutIndicator}>
-                    <Text style={styles.workoutCount}>{day.workoutCount}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
+            {days.map((day, index) => {
+              const dateStr = day.isCurrentMonth 
+                ? `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}-${day.date.toString().padStart(2, '0')}`
+                : '';
+              const workoutSummary = day.isCurrentMonth ? getWorkoutSummary(dateStr) : null;
+              
+  return (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.dayCell,
+                    !day.isCurrentMonth && styles.otherMonthDay,
+                    day.isToday && styles.todayDay,
+                    day.hasWorkout && styles.workoutDay
+                  ]}
+                  onPress={() => handleDatePress(day)}
+                >
+                  <Text style={[
+                    styles.dayText,
+                    !day.isCurrentMonth && styles.otherMonthText,
+                    day.isToday && styles.todayText,
+                    day.hasWorkout && styles.workoutText
+                  ]}>
+                    {day.date}
+                  </Text>
+                  {day.hasWorkout && (
+                    <View style={styles.workoutIndicator}>
+                      <Text style={styles.workoutCount}>{day.workoutCount}</Text>
+                    </View>
+                  )}
+                  {workoutSummary && (
+                    <Text style={styles.workoutSummary} numberOfLines={3}>
+                      {workoutSummary}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
@@ -303,6 +332,19 @@ export default function RecordsScreen() {
             setShowDetailModal(false);
             setShowAddModal(true);
           }}
+        />
+      </Modal>
+
+      {/* 월/연도 선택 모달 */}
+      <Modal
+        visible={showMonthYearModal}
+        animationType="fade"
+        transparent={true}
+      >
+        <MonthYearPickerModal
+          currentDate={currentDate}
+          onSelect={handleMonthYearSelect}
+          onClose={() => setShowMonthYearModal(false)}
         />
       </Modal>
     </SafeAreaView>
@@ -486,11 +528,6 @@ const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
             )}
           </View>
         ))}
-
-        <TouchableOpacity style={styles.addNewButton} onPress={onAddNew}>
-          <Ionicons name="add" size={20} color="#4CAF50" />
-          <Text style={styles.addNewText}>운동 기록 추가</Text>
-        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -632,6 +669,14 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 10,
     fontWeight: "bold",
+  },
+  workoutSummary: {
+    fontSize: 7,
+    color: "#666",
+    textAlign: "center",
+    marginTop: 2,
+    fontWeight: "500",
+    lineHeight: 9,
   },
   bottomInputBar: {
     flexDirection: "row",
@@ -801,21 +846,209 @@ const styles = StyleSheet.create({
     color: "#666",
     fontStyle: "italic",
   },
-  addNewButton: {
-    flexDirection: "row",
-    alignItems: "center",
+  // 월/연도 선택 모달 스타일
+  monthYearModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
-    backgroundColor: "white",
-    borderRadius: 15,
-    padding: 20,
-    borderWidth: 2,
-    borderColor: "#4CAF50",
-    borderStyle: "dashed",
+    alignItems: "center",
   },
-  addNewText: {
-    fontSize: 16,
-    color: "#4CAF50",
+  monthYearModalContent: {
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 30,
+    width: "80%",
+    maxWidth: 300,
+  },
+  monthYearModalTitle: {
+    fontSize: 20,
     fontWeight: "600",
-    marginLeft: 8,
+    color: "#333",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  yearSelector: {
+    marginBottom: 20,
+  },
+  yearSelectorTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 10,
+  },
+  yearGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  yearButton: {
+    width: "30%",
+    backgroundColor: "#f5f5f5",
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    marginBottom: 8,
+    alignItems: "center",
+  },
+  selectedYearButton: {
+    backgroundColor: "#4CAF50",
+  },
+  yearButtonText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#333",
+  },
+  selectedYearButtonText: {
+    color: "white",
+    fontWeight: "600",
+  },
+  monthSelector: {
+    marginBottom: 20,
+  },
+  monthSelectorTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 10,
+  },
+  monthGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  monthButton: {
+    width: "22%",
+    backgroundColor: "#f5f5f5",
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    marginBottom: 8,
+    alignItems: "center",
+  },
+  selectedMonthButton: {
+    backgroundColor: "#4CAF50",
+  },
+  monthButtonText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#333",
+  },
+  selectedMonthButtonText: {
+    color: "white",
+    fontWeight: "600",
+  },
+  monthYearModalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  monthYearModalButton: {
+    flex: 1,
+    backgroundColor: "#4CAF50",
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginHorizontal: 5,
+  },
+  monthYearModalButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
+
+// 월/연도 선택 모달 컴포넌트
+interface MonthYearPickerModalProps {
+  currentDate: Date;
+  onSelect: (year: number, month: number) => void;
+  onClose: () => void;
+}
+
+const MonthYearPickerModal: React.FC<MonthYearPickerModalProps> = ({ 
+  currentDate, onSelect, onClose 
+}) => {
+  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
+
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
+  const months = [
+    "1월", "2월", "3월", "4월", "5월", "6월",
+    "7월", "8월", "9월", "10월", "11월", "12월"
+  ];
+
+  const handleConfirm = () => {
+    onSelect(selectedYear, selectedMonth);
+  };
+
+  return (
+    <View style={styles.monthYearModalOverlay}>
+      <View style={styles.monthYearModalContent}>
+        <Text style={styles.monthYearModalTitle}>월/연도 선택</Text>
+        
+        {/* 연도 선택 */}
+        <View style={styles.yearSelector}>
+          <Text style={styles.yearSelectorTitle}>연도</Text>
+          <View style={styles.yearGrid}>
+            {years.map((year) => (
+              <TouchableOpacity
+                key={year}
+                style={[
+                  styles.yearButton,
+                  selectedYear === year && styles.selectedYearButton
+                ]}
+                onPress={() => setSelectedYear(year)}
+              >
+                <Text style={[
+                  styles.yearButtonText,
+                  selectedYear === year && styles.selectedYearButtonText
+                ]}>
+                  {year}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* 월 선택 */}
+        <View style={styles.monthSelector}>
+          <Text style={styles.monthSelectorTitle}>월</Text>
+          <View style={styles.monthGrid}>
+            {months.map((month, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.monthButton,
+                  selectedMonth === index && styles.selectedMonthButton
+                ]}
+                onPress={() => setSelectedMonth(index)}
+              >
+                <Text style={[
+                  styles.monthButtonText,
+                  selectedMonth === index && styles.selectedMonthButtonText
+                ]}>
+                  {month}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* 버튼 */}
+        <View style={styles.monthYearModalButtons}>
+          <TouchableOpacity 
+            style={[styles.monthYearModalButton, { backgroundColor: "#666" }]}
+            onPress={onClose}
+          >
+            <Text style={styles.monthYearModalButtonText}>취소</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.monthYearModalButton}
+            onPress={handleConfirm}
+          >
+            <Text style={styles.monthYearModalButtonText}>확인</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+};
