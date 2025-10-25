@@ -1,33 +1,26 @@
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from "react-native";
 import { useState, useEffect, useRef } from "react";
-import { useTabBar } from "./_layout";
 
 export default function TimerScreen() {
   const [isRunning, setIsRunning] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [displayTime, setDisplayTime] = useState(0);
   
-  const { setTabBarVisible } = useTabBar();
-  
   const secondRotation = useRef(new Animated.Value(0)).current;
   const minuteRotation = useRef(new Animated.Value(0)).current;
   const startTimeRef = useRef<number | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
-  // 연속적인 애니메이션
   const animate = () => {
     if (startTimeRef.current !== null) {
       const now = Date.now();
       const elapsed = elapsedTime + (now - startTimeRef.current);
       
-      // 밀리초 단위로 각도 계산
-      const secondAngle = (elapsed / 1000) * 6; // 1초에 6도
-      const minuteAngle = (elapsed / 60000) * 6; // 1분에 6도
+      const secondAngle = (elapsed / 1000) * 6;
+      const minuteAngle = (elapsed / 60000) * 6;
       
       secondRotation.setValue(secondAngle % 360);
       minuteRotation.setValue(minuteAngle % 360);
-      
-      // 디스플레이 시간도 업데이트
       setDisplayTime(elapsed);
       
       animationFrameRef.current = requestAnimationFrame(animate);
@@ -38,7 +31,6 @@ export default function TimerScreen() {
     if (isRunning) {
       startTimeRef.current = Date.now();
       animationFrameRef.current = requestAnimationFrame(animate);
-      setTabBarVisible(false);
     } else {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -49,7 +41,6 @@ export default function TimerScreen() {
         setDisplayTime(newElapsed);
         startTimeRef.current = null;
       }
-      setTabBarVisible(true);
     }
     
     return () => {
@@ -57,7 +48,7 @@ export default function TimerScreen() {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [isRunning, setTabBarVisible, elapsedTime]);
+  }, [isRunning, elapsedTime]);
 
   const formatTime = (milliseconds: number) => {
     const totalSeconds = Math.floor(milliseconds / 1000);
@@ -83,19 +74,15 @@ export default function TimerScreen() {
 
   return (
     <View style={styles.container}>
-      {/* 아날로그 시계 */}
       <View style={styles.clockContainer}>
         <View style={styles.clockFace}>
-          {/* 시간 마커 (12, 3, 6, 9) */}
           <View style={[styles.marker, { top: 10, left: '50%', marginLeft: -1 }]} />
           <View style={[styles.marker, { top: '50%', right: 10, marginTop: -1, width: 20, height: 2 }]} />
           <View style={[styles.marker, { bottom: 10, left: '50%', marginLeft: -1 }]} />
           <View style={[styles.marker, { top: '50%', left: 10, marginTop: -1, width: 20, height: 2 }]} />
           
-          {/* 중앙 점 */}
           <View style={styles.centerDot} />
           
-          {/* 분침 */}
           <Animated.View 
             style={[
               styles.minuteHand, 
@@ -110,7 +97,6 @@ export default function TimerScreen() {
             ]} 
           />
           
-          {/* 초침 */}
           <Animated.View 
             style={[
               styles.secondHand, 
@@ -127,10 +113,8 @@ export default function TimerScreen() {
         </View>
       </View>
 
-      {/* 디지털 시간 표시 */}
       <Text style={styles.digitalTime}>{formatTime(displayTime)}</Text>
       
-      {/* 컨트롤 버튼 */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity 
           style={[styles.button, isRunning ? styles.stopButton : styles.startButton]}
