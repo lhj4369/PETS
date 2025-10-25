@@ -5,7 +5,7 @@ import { useState } from "react";
 interface HeaderProps {
   showBackButton?: boolean;
   showMenuButton?: boolean;
-  menuType?: 'home' | 'timer' | 'records' | 'ranking' | 'challenges' | 'settings' | 'customize';
+  menuType?: 'home' | 'timer' | 'records' | 'ranking' | 'challenges' | 'settings' | 'customize' | 'chatting' | 'achievement';
 }
 
 export default function Header({ showBackButton = false, showMenuButton = true, menuType = 'home' }: HeaderProps) {
@@ -82,7 +82,31 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
             { label: '기록', screen: 'records' },
             { label: '랭킹', screen: 'ranking' },
             { label: '도전과제', screen: 'challenges' },
+            { label: '채팅', screen: 'chatting' },
+            { label: '업적', screen: 'achievement' },
             { label: '설정', screen: 'settings' }, 
+        ];
+      case 'chatting':
+        return [
+            { label: '홈', screen: 'home' },
+            { label: '타이머', screen: 'timer' },
+            { label: '기록', screen: 'records' },
+            { label: '랭킹', screen: 'ranking' },
+            { label: '도전과제', screen: 'challenges' },
+            { label: '업적', screen: 'achievement' },
+            { label: '커스터마이징', screen: 'customize' },
+            { label: '설정', screen: 'settings' },
+        ];
+      case 'achievement':
+        return [
+            { label: '홈', screen: 'home' },
+            { label: '타이머', screen: 'timer' },
+            { label: '기록', screen: 'records' },
+            { label: '랭킹', screen: 'ranking' },
+            { label: '도전과제', screen: 'challenges' },
+            { label: '채팅', screen: 'chatting' },
+            { label: '커스터마이징', screen: 'customize' },
+            { label: '설정', screen: 'settings' },
         ];
       default: // home
         return [
@@ -90,6 +114,8 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
           { label: '기록', screen: 'records' },
           { label: '랭킹', screen: 'ranking' },
           { label: '도전과제', screen: 'challenges' },
+          { label: '채팅', screen: 'chatting' },
+          { label: '업적', screen: 'achievement' },
           { label: '커스터마이징', screen: 'customize' },
           { label: '설정', screen: 'settings' },          
         ];

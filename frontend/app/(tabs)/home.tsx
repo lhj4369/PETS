@@ -23,6 +23,10 @@ export default function HomeScreen() {
     router.push("/(tabs)/timer" as any);
   };
 
+  const navigateToChatting = () => {
+    router.push("/(tabs)/chatting" as any);
+  };
+
   return (
     <View style={styles.container}>
       {/* 우측 상단 메뉴 버튼 */}
@@ -49,10 +53,10 @@ export default function HomeScreen() {
             </View>
           </View>
           
-          <View style={styles.petImage}>
+          <TouchableOpacity style={styles.petImage} onPress={navigateToChatting}>
             <Text style={styles.petImageText}>🐕</Text>
             <Text style={styles.petImageLabel}>동물 이미지</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* 타이머 버튼들 */}

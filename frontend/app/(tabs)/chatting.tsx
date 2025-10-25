@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import Header from "../../components/Header";
 
 interface Message {
   id: string;
@@ -96,6 +97,7 @@ export default function ChattingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+       <Header showBackButton={true} showMenuButton={true} menuType="chatting" />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
