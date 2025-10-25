@@ -1,14 +1,12 @@
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from "react-native";
 import { useState, useEffect, useRef } from "react";
-import { useTabBar } from "./_layout";
 import Header from "../../components/Header";
 
 export default function TimerScreen() {
   const [isRunning, setIsRunning] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [displayTime, setDisplayTime] = useState(0);
-  
-  const { setTabBarVisible } = useTabBar();
+  const [displayTime, setDisplayTime] = useState(0); 
+
   
   const secondRotation = useRef(new Animated.Value(0)).current;
   const minuteRotation = useRef(new Animated.Value(0)).current;
@@ -38,8 +36,7 @@ export default function TimerScreen() {
   useEffect(() => {
     if (isRunning) {
       startTimeRef.current = Date.now();
-      animationFrameRef.current = requestAnimationFrame(animate);
-      setTabBarVisible(false);
+      animationFrameRef.current = requestAnimationFrame(animate);      
     } else {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -49,8 +46,7 @@ export default function TimerScreen() {
         setElapsedTime(newElapsed);
         setDisplayTime(newElapsed);
         startTimeRef.current = null;
-      }
-      setTabBarVisible(true);
+      }     
     }
     
     return () => {
@@ -58,7 +54,7 @@ export default function TimerScreen() {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [isRunning, setTabBarVisible, elapsedTime]);
+  }, [isRunning, elapsedTime]);
 
   const formatTime = (milliseconds: number) => {
     const totalSeconds = Math.floor(milliseconds / 1000);
