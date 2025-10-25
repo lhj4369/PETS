@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from "react-native";
 import { useState, useEffect, useRef } from "react";
 import { useTabBar } from "./_layout";
+import Header from "../../components/Header";
 
 export default function TimerScreen() {
   const [isRunning, setIsRunning] = useState(false);
@@ -83,6 +84,7 @@ export default function TimerScreen() {
 
   return (
     <View style={styles.container}>
+       <Header showBackButton={true} showMenuButton={true} menuType="timer" />
       {/* 아날로그 시계 */}
       <View style={styles.clockContainer}>
         <View style={styles.clockFace}>
@@ -250,14 +252,3 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 });
-import { View, Text } from "react-native";
-import Header from "../../components/Header";
-
-export default function TimerScreen() {
-  return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-      <Header showBackButton={true} showMenuButton={true} menuType="timer" />
-      <Text>타이머 화면</Text>
-    </View>
-  );
-}
