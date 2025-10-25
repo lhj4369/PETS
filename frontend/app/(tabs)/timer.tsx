@@ -9,11 +9,3 @@ export default function TimerScreen() {
     </View>
   );
 }
-
-
-
-
-
-
-
-
