@@ -8,7 +8,8 @@ import {
   SafeAreaView,
   ScrollView,
   Modal,
-  Alert
+  Alert,
+  Platform
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -36,7 +37,9 @@ export default function RecordsScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showMonthYearModal, setShowMonthYearModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedDayRecords, setSelectedDayRecords] = useState<WorkoutRecord[]>([]);
+  const [editingRecord, setEditingRecord] = useState<WorkoutRecord | null>(null);
 
   // 샘플 데이터 로드
   useEffect(() => {
@@ -138,26 +141,67 @@ export default function RecordsScreen() {
       ...record,
       id: Date.now().toString()
     };
+    // 전체 운동 기록에 추가
     setWorkoutRecords(prev => [...prev, newRecord]);
+    
+    // 현재 선택된 날짜와 같은 날짜라면 selectedDayRecords에도 추가
+    if (selectedDate && record.date === selectedDate) {
+      setSelectedDayRecords(prev => [...prev, newRecord]);
+    }
+    
     setShowAddModal(false);
   };
 
   const deleteWorkoutRecord = (id: string) => {
-    Alert.alert(
-      "기록 삭제",
-      "이 운동 기록을 삭제하시겠습니까?",
-      [
-        { text: "취소", style: "cancel" },
-        { 
-          text: "삭제", 
-          style: "destructive",
-          onPress: () => {
-            setWorkoutRecords(prev => prev.filter(record => record.id !== id));
-            setSelectedDayRecords(prev => prev.filter(record => record.id !== id));
-          }
+    console.log('삭제 버튼 클릭됨, ID:', id);
+    
+    const performDelete = () => {
+      console.log('삭제 확인됨, 삭제 실행:', id);
+      
+      // 함수형 업데이트로 최신 상태 사용
+      setWorkoutRecords(prev => {
+        const updatedRecords = prev.filter(record => record.id !== id);
+        console.log('삭제 전:', prev.length, '-> 삭제 후:', updatedRecords.length);
+        return updatedRecords;
+      });
+      
+      setSelectedDayRecords(prev => {
+        const updatedDayRecords = prev.filter(record => record.id !== id);
+        console.log('선택된 날짜 기록 - 삭제 전:', prev.length, '-> 삭제 후:', updatedDayRecords.length);
+        
+        // 기록이 없으면 모달 닫기
+        if (updatedDayRecords.length === 0) {
+          setShowDetailModal(false);
         }
-      ]
-    );
+        
+        return updatedDayRecords;
+      });
+    };
+    
+    // 웹 환경에서는 window.confirm 사용
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm("이 운동 기록을 삭제하시겠습니까?");
+      if (confirmed) {
+        performDelete();
+      }
+    } else {
+      // 앱 환경에서는 Alert.alert 사용
+      Alert.alert(
+        "기록 삭제",
+        "이 운동 기록을 삭제하시겠습니까?",
+        [
+          { 
+            text: "취소", 
+            style: "cancel"
+          },
+          { 
+            text: "삭제", 
+            style: "destructive",
+            onPress: performDelete
+          }
+        ]
+      );
+    }
   };
 
   const getMonthName = (date: Date) => {
@@ -183,14 +227,49 @@ export default function RecordsScreen() {
     const dayRecords = workoutRecords.filter(record => record.date === dateStr);
     if (dayRecords.length === 0) return null;
     
-    // 모든 운동을 각각 표시
-    return dayRecords.map(record => `${record.type} ${record.duration}분`).join('\n');
+    // 최대 10개까지 표시, 초과시 "..." 추가
+    const displayRecords = dayRecords.slice(0, 10);
+    const summary = displayRecords.map(record => `${record.type} ${record.duration}분`).join('\n');
+    
+    if (dayRecords.length > 10) {
+      return summary + '\n...';
+    }
+    
+    return summary;
   };
 
   const handleMonthYearSelect = (year: number, month: number) => {
     const newDate = new Date(year, month);
     setCurrentDate(newDate);
     setShowMonthYearModal(false);
+  };
+
+  const handleEditRecord = (record: WorkoutRecord) => {
+    setEditingRecord(record);
+    setShowDetailModal(false);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateRecord = (updatedRecord: Omit<WorkoutRecord, 'id'>) => {
+    if (!editingRecord) return;
+
+    const recordToUpdate: WorkoutRecord = {
+      ...updatedRecord,
+      id: editingRecord.id
+    };
+
+    // 전체 기록 업데이트
+    setWorkoutRecords(prev => 
+      prev.map(record => record.id === editingRecord.id ? recordToUpdate : record)
+    );
+
+    // 선택된 날짜의 기록도 업데이트
+    setSelectedDayRecords(prev => 
+      prev.map(record => record.id === editingRecord.id ? recordToUpdate : record)
+    );
+
+    setShowEditModal(false);
+    setEditingRecord(null);
   };
 
   const days = getDaysInMonth(currentDate);
@@ -278,7 +357,7 @@ export default function RecordsScreen() {
                     </View>
                   )}
                   {workoutSummary && (
-                    <Text style={styles.workoutSummary} numberOfLines={3}>
+                    <Text style={styles.workoutSummary} numberOfLines={10}>
                       {workoutSummary}
                     </Text>
                   )}
@@ -286,22 +365,8 @@ export default function RecordsScreen() {
               );
             })}
           </View>
-        </View>
-
-        {/* 하단 입력 바 */}
-        <View style={styles.bottomInputBar}>
-          <TextInput
-            style={styles.inputField}
-            placeholder={`${selectedDate || new Date().toISOString().split('T')[0]}에 운동 기록 추가`}
-            editable={false}
-          />
-          <TouchableOpacity 
-            style={styles.addButton}
-            onPress={() => setShowAddModal(true)}
-          >
-            <Ionicons name="add" size={24} color="white" />
-          </TouchableOpacity>
     </View>
+
       </ScrollView>
 
       {/* 운동 기록 추가 모달 */}
@@ -309,6 +374,7 @@ export default function RecordsScreen() {
         visible={showAddModal}
         animationType="slide"
         presentationStyle="pageSheet"
+        onRequestClose={() => setShowAddModal(false)}
       >
         <AddWorkoutModal
           selectedDate={selectedDate || new Date().toISOString().split('T')[0]}
@@ -322,6 +388,7 @@ export default function RecordsScreen() {
         visible={showDetailModal}
         animationType="slide"
         presentationStyle="pageSheet"
+        onRequestClose={() => setShowDetailModal(false)}
       >
         <WorkoutDetailModal
           date={selectedDate || ''}
@@ -332,6 +399,7 @@ export default function RecordsScreen() {
             setShowDetailModal(false);
             setShowAddModal(true);
           }}
+          onEdit={handleEditRecord}
         />
       </Modal>
 
@@ -340,11 +408,32 @@ export default function RecordsScreen() {
         visible={showMonthYearModal}
         animationType="fade"
         transparent={true}
+        onRequestClose={() => setShowMonthYearModal(false)}
       >
         <MonthYearPickerModal
           currentDate={currentDate}
           onSelect={handleMonthYearSelect}
           onClose={() => setShowMonthYearModal(false)}
+        />
+      </Modal>
+
+      {/* 운동 기록 편집 모달 */}
+      <Modal
+        visible={showEditModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          setShowEditModal(false);
+          setEditingRecord(null);
+        }}
+      >
+        <EditWorkoutModal
+          record={editingRecord}
+          onSave={handleUpdateRecord}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingRecord(null);
+          }}
         />
       </Modal>
     </SafeAreaView>
@@ -360,7 +449,7 @@ interface AddWorkoutModalProps {
 
 const AddWorkoutModal: React.FC<AddWorkoutModalProps> = ({ selectedDate, onSave, onClose }) => {
   const [workoutType, setWorkoutType] = useState("러닝");
-  const [duration, setDuration] = useState("30");
+  const [duration, setDuration] = useState("");
   const [calories, setCalories] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -427,9 +516,14 @@ const AddWorkoutModal: React.FC<AddWorkoutModalProps> = ({ selectedDate, onSave,
             <TextInput
               style={styles.textInput}
               value={duration}
-              onChangeText={setDuration}
+              onChangeText={(text) => {
+                // 빈 문자열이면 완전히 비우기
+                setDuration(text === '' ? '' : text);
+              }}
               keyboardType="numeric"
-              placeholder="30"
+              placeholder="운동 시간을 입력하세요"
+              selectTextOnFocus={true}
+              clearButtonMode="while-editing"
             />
           </View>
         </View>
@@ -440,9 +534,14 @@ const AddWorkoutModal: React.FC<AddWorkoutModalProps> = ({ selectedDate, onSave,
             <TextInput
               style={styles.textInput}
               value={calories}
-              onChangeText={setCalories}
+              onChangeText={(text) => {
+                // 빈 문자열이면 완전히 비우기
+                setCalories(text === '' ? '' : text);
+              }}
               keyboardType="numeric"
-              placeholder="300"
+              placeholder="칼로리를 입력하세요"
+              selectTextOnFocus={true}
+              clearButtonMode="while-editing"
             />
           </View>
         </View>
@@ -453,10 +552,14 @@ const AddWorkoutModal: React.FC<AddWorkoutModalProps> = ({ selectedDate, onSave,
             <TextInput
               style={[styles.textInput, styles.textArea]}
               value={notes}
-              onChangeText={setNotes}
-              placeholder="운동 내용이나 느낌을 기록해보세요"
+              onChangeText={(text) => {
+                // 빈 문자열이면 완전히 비우기
+                setNotes(text === '' ? '' : text);
+              }}
+              placeholder="메모를 입력하세요"
               multiline
               numberOfLines={3}
+              selectTextOnFocus={true}
             />
           </View>
         </View>
@@ -471,6 +574,148 @@ const AddWorkoutModal: React.FC<AddWorkoutModalProps> = ({ selectedDate, onSave,
   );
 };
 
+// 운동 기록 편집 모달 컴포넌트
+interface EditWorkoutModalProps {
+  record: WorkoutRecord | null;
+  onSave: (record: Omit<WorkoutRecord, 'id'>) => void;
+  onClose: () => void;
+}
+
+const EditWorkoutModal: React.FC<EditWorkoutModalProps> = ({ record, onSave, onClose }) => {
+  const [workoutType, setWorkoutType] = useState(record?.type || "러닝");
+  const [duration, setDuration] = useState(record?.duration.toString() || "");
+  const [calories, setCalories] = useState(record?.calories?.toString() || "");
+  const [notes, setNotes] = useState(record?.notes || "");
+
+  const workoutTypes = ["러닝", "헬스", "요가", "사이클링", "수영", "기타"];
+
+  useEffect(() => {
+    if (record) {
+      setWorkoutType(record.type);
+      setDuration(record.duration.toString());
+      setCalories(record.calories?.toString() || "");
+      setNotes(record.notes || "");
+    }
+  }, [record]);
+
+  const handleSave = () => {
+    if (!duration || isNaN(Number(duration))) {
+      Alert.alert("오류", "올바른 운동 시간을 입력해주세요.");
+      return;
+    }
+
+    const updatedRecord: Omit<WorkoutRecord, 'id'> = {
+      date: record?.date || "",
+      duration: Number(duration),
+      type: workoutType,
+      calories: calories ? Number(calories) : undefined,
+      notes: notes || undefined
+    };
+
+    onSave(updatedRecord);
+  };
+
+  if (!record) return null;
+
+  return (
+    <SafeAreaView style={styles.modalContainer}>
+      <View style={styles.modalHeader}>
+        <Text style={styles.modalTitle}>운동 기록 수정</Text>
+        <TouchableOpacity onPress={onClose}>
+          <Ionicons name="close" size={24} color="#666" />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView style={styles.modalContent}>
+        <View style={styles.inputSection}>
+          <Text style={styles.inputLabel}>날짜</Text>
+          <Text style={styles.dateDisplay}>{record.date}</Text>
+        </View>
+
+        <View style={styles.inputSection}>
+          <Text style={styles.inputLabel}>운동 타입</Text>
+          <View style={styles.typeSelector}>
+            {workoutTypes.map((type) => (
+              <TouchableOpacity
+                key={type}
+                style={[
+                  styles.typeOption,
+                  workoutType === type && styles.selectedType
+                ]}
+                onPress={() => setWorkoutType(type)}
+              >
+                <Text style={[
+                  styles.typeOptionText,
+                  workoutType === type && styles.selectedTypeText
+                ]}>
+                  {type}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.inputSection}>
+          <Text style={styles.inputLabel}>운동 시간 (분)</Text>
+          <View style={styles.timeInput}>
+            <TextInput
+              style={styles.textInput}
+              value={duration}
+              onChangeText={(text) => {
+                setDuration(text === '' ? '' : text);
+              }}
+              keyboardType="numeric"
+              placeholder="운동 시간을 입력하세요"
+              selectTextOnFocus={true}
+              clearButtonMode="while-editing"
+            />
+          </View>
+        </View>
+
+        <View style={styles.inputSection}>
+          <Text style={styles.inputLabel}>칼로리 (선택사항)</Text>
+          <View style={styles.timeInput}>
+            <TextInput
+              style={styles.textInput}
+              value={calories}
+              onChangeText={(text) => {
+                setCalories(text === '' ? '' : text);
+              }}
+              keyboardType="numeric"
+              placeholder="칼로리를 입력하세요"
+              selectTextOnFocus={true}
+              clearButtonMode="while-editing"
+            />
+          </View>
+        </View>
+
+        <View style={styles.inputSection}>
+          <Text style={styles.inputLabel}>메모 (선택사항)</Text>
+          <View style={styles.timeInput}>
+            <TextInput
+              style={[styles.textInput, styles.textArea]}
+              value={notes}
+              onChangeText={(text) => {
+                setNotes(text === '' ? '' : text);
+              }}
+              placeholder="메모를 입력하세요"
+              multiline
+              numberOfLines={3}
+              selectTextOnFocus={true}
+            />
+          </View>
+        </View>
+      </ScrollView>
+
+      <View style={styles.modalFooter}>
+        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+          <Text style={styles.saveButtonText}>수정 저장</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+};
+
 // 운동 기록 상세 모달 컴포넌트
 interface WorkoutDetailModalProps {
   date: string;
@@ -478,10 +723,11 @@ interface WorkoutDetailModalProps {
   onDelete: (id: string) => void;
   onClose: () => void;
   onAddNew: () => void;
+  onEdit: (record: WorkoutRecord) => void;
 }
 
 const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({ 
-  date, records, onDelete, onClose, onAddNew 
+  date, records, onDelete, onClose, onAddNew, onEdit 
 }) => {
   const getWorkoutTypeIcon = (type: string) => {
     switch (type) {
@@ -494,6 +740,8 @@ const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
     }
   };
 
+  console.log('WorkoutDetailModal 렌더링, records 개수:', records.length);
+
   return (
     <SafeAreaView style={styles.modalContainer}>
       <View style={styles.modalHeader}>
@@ -504,8 +752,18 @@ const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
       </View>
 
       <ScrollView style={styles.modalContent}>
-        {records.map((record) => (
-          <View key={record.id} style={styles.recordCard}>
+        {records.length === 0 ? (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <Text style={{ color: '#666', fontSize: 16 }}>운동 기록이 없습니다</Text>
+          </View>
+        ) : (
+          records.map((record) => (
+          <TouchableOpacity
+            key={record.id}
+            style={styles.recordCard}
+            onPress={() => onEdit(record)}
+            activeOpacity={0.7}
+          >
             <View style={styles.recordHeader}>
               <View style={styles.recordTypeInfo}>
                 <Text style={styles.recordEmoji}>{getWorkoutTypeIcon(record.type)}</Text>
@@ -514,7 +772,15 @@ const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
                   <Text style={styles.recordDuration}>{record.duration}분</Text>
                 </View>
               </View>
-              <TouchableOpacity onPress={() => onDelete(record.id)}>
+              <TouchableOpacity 
+                style={styles.deleteButton}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  console.log('휴지통 아이콘 클릭됨, 기록 ID:', record.id);
+                  onDelete(record.id);
+                }}
+                activeOpacity={0.7}
+              >
                 <Ionicons name="trash" size={20} color="#f44336" />
               </TouchableOpacity>
             </View>
@@ -526,9 +792,15 @@ const WorkoutDetailModal: React.FC<WorkoutDetailModalProps> = ({
             {record.notes && (
               <Text style={styles.recordNotes}>{record.notes}</Text>
             )}
-          </View>
-        ))}
+          </TouchableOpacity>
+        )))}
       </ScrollView>
+
+      {/* 운동 기록 추가 버튼 */}
+      <TouchableOpacity style={styles.addNewButton} onPress={onAddNew}>
+        <Ionicons name="add" size={24} color="#4CAF50" />
+        <Text style={styles.addNewText}>+ 운동 기록 추가</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 };
@@ -677,33 +949,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: "500",
     lineHeight: 9,
-  },
-  bottomInputBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "white",
-    borderRadius: 25,
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  inputField: {
-    flex: 1,
-    fontSize: 16,
-    color: "#666",
-  },
-  addButton: {
-    backgroundColor: "#4CAF50",
-    borderRadius: 20,
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 10,
   },
   modalContainer: {
     flex: 1,
@@ -953,6 +1198,31 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+  addNewButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "white",
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: "#4CAF50",
+    borderStyle: "dashed",
+  },
+  addNewText: {
+    color: "#4CAF50",
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+  deleteButton: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: "#fff5f5",
   },
 });
 
