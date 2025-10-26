@@ -32,56 +32,66 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
     switch (menuType) {
       case 'timer':
         return [
-            { label: '홈', screen: 'home' },
-            { label: '기록', screen: 'records' },
-            { label: '랭킹', screen: 'ranking' },
-            { label: '도전과제', screen: 'challenges' },
-            { label: '커스터마이징', screen: 'customize' },
-            { label: '설정', screen: 'settings' },  
-        ];
+          { label: '홈', screen: 'home' },   
+          { label: '운동 기록', screen: 'records' },           
+          { label: '랭킹', screen: 'ranking' },      
+          { label: '기록 도전', screen: 'challenges' },            
+          { label: '채팅', screen: 'chatting' },
+          { label: '업적', screen: 'achievement' },
+          { label: '커스터마이징', screen: 'customize' },
+          { label: '설정', screen: 'settings' }, 
+      ];
       case 'records':
         return [
-            { label: '홈', screen: 'home' },
-            { label: '타이머', screen: 'timer' },
-            { label: '랭킹', screen: 'ranking' },
-            { label: '도전과제', screen: 'challenges' },
-            { label: '커스터마이징', screen: 'customize' },
-            { label: '설정', screen: 'settings' },  
-        ];
+          { label: '홈', screen: 'home' },
+          { label: '타이머', screen: 'timer' },    
+          { label: '랭킹', screen: 'ranking' },      
+          { label: '기록 도전', screen: 'challenges' },            
+          { label: '채팅', screen: 'chatting' },
+          { label: '업적', screen: 'achievement' },
+          { label: '커스터마이징', screen: 'customize' },
+          { label: '설정', screen: 'settings' }, 
+      ];
       case 'ranking':
         return [
-            { label: '홈', screen: 'home' },
-            { label: '타이머', screen: 'timer' },
-            { label: '기록', screen: 'records' },
-            { label: '도전과제', screen: 'challenges' },
-            { label: '커스터마이징', screen: 'customize' },
-            { label: '설정', screen: 'settings' },  
-        ];
+          { label: '홈', screen: 'home' },
+          { label: '타이머', screen: 'timer' },
+          { label: '운동 기록', screen: 'records' },
+          { label: '기록 도전', screen: 'challenges' },            
+          { label: '채팅', screen: 'chatting' },
+          { label: '업적', screen: 'achievement' },
+          { label: '커스터마이징', screen: 'customize' },
+          { label: '설정', screen: 'settings' }, 
+      ];
       case 'challenges':
         return [
             { label: '홈', screen: 'home' },
             { label: '타이머', screen: 'timer' },
-            { label: '기록', screen: 'records' },
-            { label: '랭킹', screen: 'ranking' },
+            { label: '운동 기록', screen: 'records' },
+            { label: '랭킹', screen: 'ranking' },            
+            { label: '채팅', screen: 'chatting' },
+            { label: '업적', screen: 'achievement' },
             { label: '커스터마이징', screen: 'customize' },
-            { label: '설정', screen: 'settings' },  
+            { label: '설정', screen: 'settings' }, 
         ];
       case 'settings':
         return [
             { label: '홈', screen: 'home' },
             { label: '타이머', screen: 'timer' },
-            { label: '기록', screen: 'records' },
+            { label: '운동 기록', screen: 'records' },
             { label: '랭킹', screen: 'ranking' },
-            { label: '도전과제', screen: 'challenges' },
-            { label: '커스터마이즈', screen: 'customize' }, 
-        ];
+            { label: '기록 도전', screen: 'challenges' },
+            { label: '채팅', screen: 'chatting' },
+            { label: '업적', screen: 'achievement' },
+            { label: '커스터마이징', screen: 'customize' },
+          ];
       case 'customize':
         return [
             { label: '홈', screen: 'home' },
             { label: '타이머', screen: 'timer' },
-            { label: '기록', screen: 'records' },
+            { label: '운동 기록', screen: 'records' },
             { label: '랭킹', screen: 'ranking' },
-            { label: '도전과제', screen: 'challenges' },
+            { label: '기록 도전', screen: 'challenges' },
             { label: '채팅', screen: 'chatting' },
             { label: '업적', screen: 'achievement' },
             { label: '설정', screen: 'settings' }, 
@@ -90,9 +100,9 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
         return [
             { label: '홈', screen: 'home' },
             { label: '타이머', screen: 'timer' },
-            { label: '기록', screen: 'records' },
+            { label: '운동 기록', screen: 'records' },
             { label: '랭킹', screen: 'ranking' },
-            { label: '도전과제', screen: 'challenges' },
+            { label: '기록 도전', screen: 'challenges' },
             { label: '업적', screen: 'achievement' },
             { label: '커스터마이징', screen: 'customize' },
             { label: '설정', screen: 'settings' },
@@ -101,9 +111,9 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
         return [
             { label: '홈', screen: 'home' },
             { label: '타이머', screen: 'timer' },
-            { label: '기록', screen: 'records' },
+            { label: '운동 기록', screen: 'records' },
             { label: '랭킹', screen: 'ranking' },
-            { label: '도전과제', screen: 'challenges' },
+            { label: '기록 도전', screen: 'challenges' },
             { label: '채팅', screen: 'chatting' },
             { label: '커스터마이징', screen: 'customize' },
             { label: '설정', screen: 'settings' },
@@ -111,9 +121,9 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
       default: // home
         return [
           { label: '타이머', screen: 'timer' },
-          { label: '기록', screen: 'records' },
+          { label: '운동 기록', screen: 'records' },
           { label: '랭킹', screen: 'ranking' },
-          { label: '도전과제', screen: 'challenges' },
+          { label: '기록 도전', screen: 'challenges' },
           { label: '채팅', screen: 'chatting' },
           { label: '업적', screen: 'achievement' },
           { label: '커스터마이징', screen: 'customize' },
