@@ -218,18 +218,18 @@ export default function AchievementScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1a1a2e",
+    backgroundColor: "#fff",
   },
   header: {
-    backgroundColor: "#16213e",
+    backgroundColor: "#f8f9fa",
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "#0f3460",
+    borderBottomColor: "#e9ecef",
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#e94560",
+    color: "#333",
     textAlign: "center",
     marginBottom: 15,
   },
@@ -242,13 +242,13 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 14,
-    color: "#a8a8a8",
+    color: "#666",
     marginBottom: 5,
   },
   statValue: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#e94560",
+    color: "#4CAF50",
   },
   content: {
     flex: 1,
@@ -256,51 +256,51 @@ const styles = StyleSheet.create({
   },
   categoryPanel: {
     width: 120,
-    backgroundColor: "#16213e",
+    backgroundColor: "#f8f9fa",
     borderRightWidth: 1,
-    borderRightColor: "#0f3460",
+    borderRightColor: "#e9ecef",
   },
   categoryItem: {
     paddingVertical: 15,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#0f3460",
+    borderBottomColor: "#e9ecef",
   },
   activeCategory: {
-    backgroundColor: "#0f3460",
+    backgroundColor: "#e3f2fd",
   },
   categoryText: {
     fontSize: 16,
-    color: "#a8a8a8",
+    color: "#666",
     textAlign: "center",
   },
   activeCategoryText: {
-    color: "#e94560",
+    color: "#2196F3",
     fontWeight: "bold",
   },
   achievementsPanel: {
     flex: 1,
-    backgroundColor: "#1a1a2e",
+    backgroundColor: "#fff",
     padding: 10,
   },
   achievementCard: {
     flexDirection: "row",
-    backgroundColor: "#16213e",
+    backgroundColor: "#f8f9fa",
     borderRadius: 10,
     padding: 15,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#0f3460",
+    borderColor: "#e9ecef",
   },
   completedCard: {
-    borderColor: "#e94560",
-    backgroundColor: "#2a1a2e",
+    borderColor: "#4CAF50",
+    backgroundColor: "#e8f5e9",
   },
   achievementIcon: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: "#0f3460",
+    backgroundColor: "#e3f2fd",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 15,
@@ -315,17 +315,17 @@ const styles = StyleSheet.create({
   achievementTitle: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#fff",
+    color: "#333",
     marginBottom: 5,
   },
   achievementDescription: {
     fontSize: 14,
-    color: "#a8a8a8",
+    color: "#666",
     marginBottom: 5,
   },
   completedDate: {
     fontSize: 12,
-    color: "#e94560",
+    color: "#4CAF50",
   },
   rewardSection: {
     alignItems: "center",
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   rewardBadge: {
-    backgroundColor: "#e94560",
+    backgroundColor: "#4CAF50",
     borderRadius: 15,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   claimButton: {
-    backgroundColor: "#e94560",
+    backgroundColor: "#4CAF50",
     borderRadius: 15,
     paddingHorizontal: 12,
     paddingVertical: 6,
