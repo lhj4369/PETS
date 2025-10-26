@@ -341,7 +341,12 @@ function WorkoutDetailModal({ visible, date, records, onDelete, onClose, onAddNe
 }
 
 // 월/연도 선택 모달
-function MonthYearModal({ visible, currentDate, onSelect, onClose }: any) {
+function MonthYearModal({ visible, currentDate, onSelect, onClose }: {
+  visible: boolean;
+  currentDate: Date;
+  onSelect: (date: Date) => void;
+  onClose: () => void;
+}) {
   const [selectedDate, setSelectedDate] = useState(currentDate);
 
   const handleConfirm = () => {
