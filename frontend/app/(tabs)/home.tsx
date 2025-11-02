@@ -1,6 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, Modal, SafeAreaView } from "react-native";
-import { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Alert, SafeAreaView } from "react-native";
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import Header from "../../components/Header";
@@ -88,9 +86,7 @@ export default function HomeScreen() {
         </View>
 
       </View>      
-    </SafeAreaView>
-
-      </View>
+       
 
       {/* 개인정보 입력 모달 */}
       <Modal
@@ -137,8 +133,8 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
-    </View>
+      </Modal>    
+  </SafeAreaView>  
 
   );
 }
