@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
-    zIndex: 10,
+    zIndex: 999,
   },
   buttonText: {
     color: '#fff',

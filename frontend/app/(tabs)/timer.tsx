@@ -1,6 +1,7 @@
 //타이머 화면
 import { View, Text, TouchableOpacity, StyleSheet, Animated, SafeAreaView } from "react-native";
 import { useState, useEffect, useRef } from "react";
+import { router } from "expo-router";
 import Header from "../../components/Header";
 import Navigator from "../../components/Navigator";
 
@@ -80,6 +81,10 @@ export default function TimerScreen() {
     minuteRotation.setValue(0);
   };
 
+  const navigateToChallenges = () => {
+    router.push("/(tabs)/challenges" as any);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
        <Header showBackButton={true} showMenuButton={true} menuType="timer" />
@@ -149,6 +154,15 @@ export default function TimerScreen() {
           <Text style={styles.buttonText}>↻</Text>
         </TouchableOpacity>
       </View>
+
+      {/* 기록 도전 버튼 */}
+      <TouchableOpacity 
+        style={styles.challengeButton}
+        onPress={navigateToChallenges}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.challengeButtonText}>기록 도전</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -249,5 +263,27 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 28,
     fontWeight: "bold",
+  },
+  challengeButton: {
+    position: "absolute",
+    bottom: 40,
+    left: 20,
+    right: 20,
+    backgroundColor: "#9b59b6",
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  challengeButtonText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "600",
   },
 });

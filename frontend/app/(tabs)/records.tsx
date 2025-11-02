@@ -1,4 +1,4 @@
-//기록 화면
+//운동 기록 화면
 import { useState, useEffect } from "react";
 import {
   View,
