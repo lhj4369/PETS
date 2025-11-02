@@ -10,6 +10,7 @@ import {
   Image,
 } from "react-native";
 import Header from "../../components/Header";
+import Navigator from "../../components/Navigator";
 
 interface Achievement {
   id: string;
@@ -164,6 +165,7 @@ export default function AchievementScreen() {
   return (
     <SafeAreaView style={styles.container}>
        <Header showBackButton={true} showMenuButton={true} menuType="achievement" />
+       <Navigator />
       {/* 헤더 */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>업적</Text>

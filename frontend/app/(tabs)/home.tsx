@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Alert, Safe
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import Header from "../../components/Header";
+import Navigator from "../../components/Navigator";
 
 export default function HomeScreen() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -50,6 +51,7 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       {/* 우측 상단 메뉴 버튼 */}
       <Header showBackButton={false} showMenuButton={true} menuType="home" />
+      <Navigator />
       {/* 메인 컨텐츠 */}
       <View style={styles.mainContent}>
         {/* 동물 이미지 영역 */}

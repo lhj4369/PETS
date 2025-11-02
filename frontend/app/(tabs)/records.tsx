@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Header from "../../components/Header";
+import Navigator from "../../components/Navigator";
 
 interface WorkoutRecord {
   id: string;
@@ -147,6 +148,7 @@ export default function RecordsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Header showBackButton={true} showMenuButton={true} menuType="records" />
+      <Navigator />
       <ScrollView style={styles.scrollView}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigateMonth('prev')}>
