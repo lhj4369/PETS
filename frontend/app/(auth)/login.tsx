@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView } from 
 import { useState } from "react";
 import { router } from "expo-router";
 import AuthManager from "../../utils/AuthManager";
+import Navigator from "../../components/Navigator";
 
 export default function LoginScreen() {
   const [userId, setUserId] = useState("");
@@ -48,6 +49,7 @@ export default function LoginScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <Navigator />
       <View style={styles.container}>
         <Text style={styles.title}>PETS</Text>
         <Text style={styles.subtitle}>당신의 운동 파트너</Text>
