@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform, Alert, SafeAreaView } from "react-native";
 import Header from "../../components/Header";
+import Navigator from "../../components/Navigator";
 
 export default function ChallengesScreen() {
   const [achievements, setAchievements] = useState([
@@ -114,7 +115,8 @@ export default function ChallengesScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB", paddingTop: 100 }}>
       <Header showBackButton={true} showMenuButton={true} menuType="challenges" />
-
+      <Navigator />
+      
       {/* 전체 달성률 표시 */}
       <View style={styles.progressContainer}>
         <Text style={styles.progressLabel}>

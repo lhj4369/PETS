@@ -12,6 +12,7 @@ import {
   Platform,
 } from "react-native";
 import Header from "../../components/Header";
+import Navigator from "../../components/Navigator";
 
 interface Message {
   id: string;
@@ -99,6 +100,7 @@ export default function ChattingScreen() {
   return (
     <SafeAreaView style={styles.container}>
        <Header showBackButton={true} showMenuButton={true} menuType="chatting" />
+       <Navigator />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
