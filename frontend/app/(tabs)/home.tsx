@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet, Modal } from "react-native";
+//메인 화면
+import { View, Text, TouchableOpacity, StyleSheet, Modal, SafeAreaView } from "react-native";
 import { useState } from "react";
 import { router } from "expo-router";
 import Header from "../../components/Header";
@@ -28,7 +29,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* 우측 상단 메뉴 버튼 */}
       <Header showBackButton={false} showMenuButton={true} menuType="home" />
       {/* 메인 컨텐츠 */}
@@ -66,7 +67,7 @@ export default function HomeScreen() {
           </TouchableOpacity>          
         </View>
       </View>      
-    </View>
+    </SafeAreaView>
   );
 }
 
