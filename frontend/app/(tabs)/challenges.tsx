@@ -1,5 +1,6 @@
+//기록 도전 화면
 import { useState } from "react";
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform, Alert } from "react-native";
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform, Alert, SafeAreaView } from "react-native";
 import Header from "../../components/Header";
 
 export default function ChallengesScreen() {
@@ -111,7 +112,7 @@ export default function ChallengesScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#F9FAFB" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB", paddingTop: 100 }}>
       <Header showBackButton={true} showMenuButton={true} menuType="challenges" />
 
       {/* 전체 달성률 표시 */}
@@ -158,7 +159,7 @@ export default function ChallengesScreen() {
           </TouchableOpacity>
         ))}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

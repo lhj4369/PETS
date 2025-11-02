@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from "react-native";
+//타이머 화면
+import { View, Text, TouchableOpacity, StyleSheet, Animated, SafeAreaView } from "react-native";
 import { useState, useEffect, useRef } from "react";
 import Header from "../../components/Header";
 
@@ -79,7 +80,7 @@ export default function TimerScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
        <Header showBackButton={true} showMenuButton={true} menuType="timer" />
       {/* 아날로그 시계 */}
       <View style={styles.clockContainer}>
@@ -146,7 +147,7 @@ export default function TimerScreen() {
           <Text style={styles.buttonText}>↻</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
