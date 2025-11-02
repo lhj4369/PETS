@@ -1,11 +1,21 @@
-//메인 화면
 import { View, Text, TouchableOpacity, StyleSheet, Modal, SafeAreaView } from "react-native";
 import { useState } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Alert } from "react-native";
+import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import Header from "../../components/Header";
 
 export default function HomeScreen() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showUserInfoModal, setShowUserInfoModal] = useState(false);
+  const [nickname, setNickname] = useState("");
+  const [height, setHeight] = useState("");
+  const [weight, setWeight] = useState("");
+
+  // 홈 화면 진입 시 개인정보 입력 모달 표시
+  useEffect(() => {
+    setShowUserInfoModal(true);
+  }, []);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -28,6 +38,16 @@ export default function HomeScreen() {
     router.push("/(tabs)/chatting" as any);
   };
 
+  const handleSaveUserInfo = () => {
+    if (!nickname.trim() || !height.trim() || !weight.trim()) {
+      Alert.alert("알림", "모든 정보를 입력해주세요.");
+      return;
+    }
+    // TODO: 실제 서버 저장 로직 추가
+    console.log("사용자 정보 저장:", { nickname, height, weight });
+    setShowUserInfoModal(false);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* 우측 상단 메뉴 버튼 */}
@@ -38,7 +58,7 @@ export default function HomeScreen() {
         <View style={styles.petContainer}>
           {/* 상태창 - 동물 이미지 바로 위에 직사각형 */}
           <View style={styles.statusBar}>
-            <Text style={styles.petName}>멍멍이</Text>
+            <Text style={styles.petName}>{nickname}</Text>
             <Text style={styles.statusText}>레벨 5 | 경험치 120/200</Text>
             
             {/* 스탯들 */}
@@ -66,8 +86,60 @@ export default function HomeScreen() {
             <Text style={styles.timerButtonText}>타이머</Text>
           </TouchableOpacity>          
         </View>
+
       </View>      
     </SafeAreaView>
+
+      </View>
+
+      {/* 개인정보 입력 모달 */}
+      <Modal
+        visible={showUserInfoModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={styles.modalOverlayUserInfo}>
+          <View style={styles.userInfoModal}>
+            <Text style={styles.userInfoTitle}>개인정보 입력</Text>
+            <Text style={styles.userInfoSubtitle}>
+              서비스를 이용하기 위해 정보를 입력해주세요
+            </Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="닉네임을 입력하세요"
+              value={nickname}
+              onChangeText={setNickname}
+              placeholderTextColor="#999"
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="키(cm)를 입력하세요"
+              value={height}
+              onChangeText={setHeight}
+              keyboardType="numeric"
+              placeholderTextColor="#999"
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="몸무게(kg)를 입력하세요"
+              value={weight}
+              onChangeText={setWeight}
+              keyboardType="numeric"
+              placeholderTextColor="#999"
+            />
+
+            <TouchableOpacity style={styles.saveButton} onPress={handleSaveUserInfo}>
+              <Text style={styles.saveButtonText}>저장하기</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
+
   );
 }
 
@@ -245,6 +317,60 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     textAlign: 'center',
+  },
+  modalOverlayUserInfo: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  userInfoModal: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  userInfoTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  userInfoSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  input: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  saveButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
