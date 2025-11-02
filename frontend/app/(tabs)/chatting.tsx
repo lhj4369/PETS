@@ -1,3 +1,4 @@
+//채팅 화면
 import React, { useState } from "react";
 import {
   View,
@@ -181,6 +182,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
+    paddingTop: 50,
   },
   tabContainer: {
     flexDirection: "row",

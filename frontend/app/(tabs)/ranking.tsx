@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal } from "react-native";
+//랭킹 화면
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, SafeAreaView } from "react-native";
 import { useState } from "react";
 import Header from "../../components/Header";
 
@@ -85,7 +86,7 @@ export default function RankingScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollContainer}>
         <Header showBackButton={true} showMenuButton={true} menuType="ranking" />
         <Text style={styles.title}>전체 랭킹</Text>
@@ -228,7 +229,7 @@ export default function RankingScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 

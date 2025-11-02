@@ -1,6 +1,7 @@
 import { View, TouchableOpacity, StyleSheet, Modal, Text, Image } from "react-native";
 import { router } from "expo-router";
 import { useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface HeaderProps {
   showBackButton?: boolean;
@@ -10,6 +11,7 @@ interface HeaderProps {
 
 export default function Header({ showBackButton = false, showMenuButton = true, menuType = 'home' }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const goBack = () => {
     router.back();
@@ -134,6 +136,7 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
 
   const containerStyle = {
     ...styles.container,
+    top: insets.top + 10, // Safe Area top + 추가 여백
     justifyContent: (showBackButton ? 'space-between' : 'flex-end') as 'space-between' | 'flex-end',
   };
 
@@ -190,7 +193,6 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 50,
     left: 0,
     right: 0,
     flexDirection: 'row',

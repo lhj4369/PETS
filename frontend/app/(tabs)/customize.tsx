@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+//커스터마이징 화면
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView } from "react-native";
 import { useState } from "react";
 import Header from "../../components/Header";
 
@@ -78,7 +79,7 @@ export default function CustomizeScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Header showBackButton={true} showMenuButton={true} menuType="customize" />
       
       {/* 미리보기 영역 - 홈화면과 유사하지만 스탯 없이 */}
@@ -129,7 +130,7 @@ export default function CustomizeScreen() {
           <Text style={styles.saveButtonText}>저장</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
