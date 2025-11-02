@@ -78,6 +78,13 @@ export default function HomeScreen() {
             <Text style={styles.petImageText}>🐕</Text>
             <Text style={styles.petImageLabel}>동물 이미지</Text>
           </TouchableOpacity>
+
+          {/* 시계 버튼 - 동물 이미지 왼쪽 상단 */}
+          <View style={styles.clockButtonContainer}>
+            <TouchableOpacity style={styles.clockButton} onPress={navigateToTimer}>
+              <Text style={styles.clockButtonText}>(시계 오브젝트)</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* 타이머 버튼들 */}
@@ -233,6 +240,7 @@ const styles = StyleSheet.create({
   petContainer: {
     alignItems: 'center',
     marginBottom: 40,
+    position: 'relative',
   },
   petImage: {
     width: 200,
@@ -257,6 +265,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     fontWeight: '500',
+  },
+  clockButtonContainer: {
+    position: 'absolute',
+    top: 100,
+    left: -150,
+    zIndex: 10,
+    alignItems: 'center',
+  },
+  clockButton: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#ddd',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  clockButtonText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+    textAlign: 'center',
   },
   timerButtons: {
     flexDirection: 'row',
