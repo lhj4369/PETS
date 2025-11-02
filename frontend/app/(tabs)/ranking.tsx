@@ -2,6 +2,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, SafeAreaView } from "react-native";
 import { useState } from "react";
 import Header from "../../components/Header";
+import Navigator from "../../components/Navigator";
 
 export default function RankingScreen() {
   const [selectedAnimal, setSelectedAnimal] = useState<any>(null);
@@ -87,8 +88,9 @@ export default function RankingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Header showBackButton={true} showMenuButton={true} menuType="ranking" />
+      <Navigator />
       <ScrollView style={styles.scrollContainer}>
-        <Header showBackButton={true} showMenuButton={true} menuType="ranking" />
         <Text style={styles.title}>전체 랭킹</Text>
         
         {/* 시상대 */}

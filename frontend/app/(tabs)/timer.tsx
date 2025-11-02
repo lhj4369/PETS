@@ -2,6 +2,7 @@
 import { View, Text, TouchableOpacity, StyleSheet, Animated, SafeAreaView } from "react-native";
 import { useState, useEffect, useRef } from "react";
 import Header from "../../components/Header";
+import Navigator from "../../components/Navigator";
 
 export default function TimerScreen() {
   const [isRunning, setIsRunning] = useState(false);
@@ -82,6 +83,7 @@ export default function TimerScreen() {
   return (
     <SafeAreaView style={styles.container}>
        <Header showBackButton={true} showMenuButton={true} menuType="timer" />
+       <Navigator />
       {/* 아날로그 시계 */}
       <View style={styles.clockContainer}>
         <View style={styles.clockFace}>
