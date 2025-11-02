@@ -1,3 +1,4 @@
+//기록 화면
 import { useState, useEffect } from "react";
 import {
   View,
@@ -406,6 +407,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+    paddingTop: 100,
   },
   scrollView: {
     flex: 1,
