@@ -1,8 +1,7 @@
 //커스터마이징 화면
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView } from "react-native";
 import { useState } from "react";
-import Header from "../../components/Header";
-import Navigator from "../../components/Navigator";
+import HomeButton from "../../components/HomeButton";
 
 export default function CustomizeScreen() {
   const [selectedMenu, setSelectedMenu] = useState('동물');
@@ -81,8 +80,7 @@ export default function CustomizeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header showBackButton={true} showMenuButton={true} menuType="customize" />      
-      <Navigator />
+      <HomeButton />
       {/* 미리보기 영역 - 홈화면과 유사하지만 스탯 없이 */}
       <View style={styles.previewContainer}>
         <View style={styles.previewPetContainer}>

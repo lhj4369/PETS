@@ -9,8 +9,7 @@ import {
   SafeAreaView,
   Image,
 } from "react-native";
-import Header from "../../components/Header";
-import Navigator from "../../components/Navigator";
+import HomeButton from "../../components/HomeButton";
 
 interface Achievement {
   id: string;
@@ -164,8 +163,7 @@ export default function AchievementScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-       <Header showBackButton={true} showMenuButton={true} menuType="achievement" />
-       <Navigator />
+       <HomeButton />
       {/* 헤더 */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>업적</Text>
