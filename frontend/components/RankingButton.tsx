@@ -2,29 +2,29 @@ import { TouchableOpacity, StyleSheet, Text } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-export default function ChatBubbleButton() {
+export default function RankingButton() {
   const insets = useSafeAreaInsets();
 
-  const navigateToChatting = () => {
-    router.push("/(tabs)/chatting" as any);
+  const navigateToRanking = () => {
+    router.push("/(tabs)/ranking" as any);
   };
 
   return (
     <TouchableOpacity
       style={[
-        styles.chatBubbleButton,
-        { top: insets.top + 10, right: 20 }
+        styles.rankingButton,
+        { top: insets.top + 60, right: 20 }
       ]}
-      onPress={navigateToChatting}
+      onPress={navigateToRanking}
       activeOpacity={0.7}
     >
-      <Text style={styles.chatBubbleIcon}>💬</Text>
+      <Text style={styles.rankingIcon}>📊</Text>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  chatBubbleButton: {
+  rankingButton: {
     position: "absolute",
     alignItems: "center",
     justifyContent: "center",
@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
     // shadowRadius: 4,
     // elevation: 3,
   },
-  chatBubbleIcon: {
+  rankingIcon: {
     fontSize: 24,
     includeFontPadding: false
   }

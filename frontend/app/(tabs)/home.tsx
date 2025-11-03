@@ -3,9 +3,9 @@ import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Header from "../../components/Header";
-import Navigator from "../../components/Navigator";
 import ChatBubbleButton from "../../components/ChatBubbleButton";
 import SettingsButton from "../../components/SettingsButton";
+import RankingButton from "../../components/RankingButton";
 
 export default function HomeScreen() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -57,9 +57,9 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Navigator />
       <ChatBubbleButton />
       <SettingsButton />
+      <RankingButton />
 
       <View style={styles.mainContent}>
         {/* 상단 상태 */}
