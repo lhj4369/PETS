@@ -148,7 +148,7 @@ export default function HomeScreen() {
               activeOpacity={0.7}
             >
               <Image 
-                source={require('./calendar.png')} 
+                source={require('../../assets/images/calendar.png')} 
                 style={[styles.recordsButtonIcon, { width: btnSize * 1.3, height: cardH * 1.2 }]} 
               />
             </TouchableOpacity>
