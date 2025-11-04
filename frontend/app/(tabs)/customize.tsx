@@ -1,5 +1,5 @@
 //커스터마이징 화면
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView, Image } from "react-native";
 import { useState } from "react";
 import HomeButton from "../../components/HomeButton";
 
@@ -85,7 +85,10 @@ export default function CustomizeScreen() {
       <View style={styles.previewContainer}>
         <View style={styles.previewPetContainer}>
           <View style={styles.previewPetImage}>
-            <Text style={styles.previewPetText}>{selectedAnimal}</Text>
+            <Image 
+              source={require('../../assets/images/dog_character.png')} 
+              style={styles.previewPetIcon} 
+            />
             <Text style={styles.previewPetLabel}>동물 이미지</Text>
           </View>
         </View>
@@ -164,6 +167,12 @@ const styles = StyleSheet.create({
   },
   previewPetText: {
     fontSize: 60,
+    marginBottom: 5,
+  },
+  previewPetIcon: {
+    width: 120,
+    height: 120,
+    resizeMode: 'contain',
     marginBottom: 5,
   },
   previewPetLabel: {

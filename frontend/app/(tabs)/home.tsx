@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Alert, SafeAreaView, useWindowDimensions } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Alert, SafeAreaView, useWindowDimensions, Image, ImageBackground } from "react-native";
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,6 +27,7 @@ export default function HomeScreen() {
   const petSize = Math.min(240, screenWidth * 0.5);
   const btnSize = Math.max(96, Math.min(144, screenWidth * 0.3));
   const cardH   = Math.max(140, Math.min(200, screenWidth * 0.45));
+  const clockIconSize = Math.max(60, Math.min(100, screenWidth * 0.25)); // 시계 아이콘 크기 반응형
 
   useEffect(() => {
     setShowUserInfoModal(true);
@@ -56,12 +57,17 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ChatBubbleButton />
-      <SettingsButton />
-      <RankingButton />
+    <ImageBackground 
+      source={require('../../assets/images/background_test.png')} 
+      style={styles.backgroundImage}
+      resizeMode="contain"
+    >
+      <SafeAreaView style={styles.container}>
+        <ChatBubbleButton />
+        <SettingsButton />
+        <RankingButton />
 
-      <View style={styles.mainContent}>
+        <View style={styles.mainContent}>
         {/* 상단 상태 */}
         <View style={[styles.statusBarContainer, { paddingTop: insets.top + 20 }]}>
           <TouchableOpacity
@@ -94,30 +100,35 @@ export default function HomeScreen() {
           <TouchableOpacity
             style={[
               styles.petImage,
-              { width: petSize, height: petSize, borderRadius: petSize / 2, marginTop: -150 } //동물 이미지 위치 조정
+              { width: petSize * 0.8, height: petSize * 0.8, marginTop: -150 } //동물 이미지 위치 조정
             ]}
             onPress={navigateToCustomize}
+            activeOpacity={0.7}
           >
-            <Text style={styles.petImageText}>🐕</Text>
-            <Text style={styles.petImageLabel}>동물 이미지</Text>
+            <Image 
+              source={require('../../assets/images/dog_character.png')} 
+              style={[styles.petImageIcon, { width: petSize * 0.8, height: petSize * 0.8 }]} 
+            />
           </TouchableOpacity>
 
           {/* 시계 버튼: 중앙(50%,50%) 기준 단일 스케일 오프셋 */}
           <View
             style={[
               styles.clockButtonContainer,
-              { transform: [{ translateX: -150 * k }, { translateY: -300 * k }] } //시계 위치 조정
+              { transform: [{ translateX: -150 * k }, { translateY: -100 * k }] } //시계 위치 조정
             ]}
           >
             <TouchableOpacity
               style={[
                 styles.clockButton,
-                { width: btnSize, height: btnSize, borderRadius: btnSize / 2 }
+                { width: clockIconSize, height: clockIconSize }
               ]}
               onPress={navigateToTimer}
             >
-              <Text style={styles.clockButtonIcon}>⏰</Text>
-              <Text style={styles.clockButtonText}>(시계 오브젝트)</Text>
+              <Image 
+                source={require('../../assets/images/clock_icon.png')} 
+                style={[styles.clockButtonIcon, { width: clockIconSize, height: clockIconSize }]} 
+              />
             </TouchableOpacity>
           </View>
 
@@ -125,18 +136,21 @@ export default function HomeScreen() {
           <View
             style={[
               styles.recordsButtonContainer,
-              { transform: [{ translateX: 50 * k }, { translateY: 30 * k }] } //달력 위치 조정
+              { transform: [{ translateX: 30 * k }, { translateY: 20 * k }] } //달력 위치 조정
             ]}
           >
             <TouchableOpacity
               style={[
                 styles.recordsButton,
-                { width: btnSize * 1.1, height: cardH }
+                { width: btnSize * 1.3, height: cardH * 1.2 }
               ]}
               onPress={navigateToRecords}
+              activeOpacity={0.7}
             >
-              <Text style={styles.recordsButtonIcon}>📅</Text>
-              <Text style={styles.recordsButtonText}>(달력 오브젝트)</Text>
+              <Image 
+                source={require('./calendar.png')} 
+                style={[styles.recordsButtonIcon, { width: btnSize * 1.3, height: cardH * 1.2 }]} 
+              />
             </TouchableOpacity>
           </View>
 
@@ -144,7 +158,7 @@ export default function HomeScreen() {
           <View
             style={[
               styles.trophyButtonContainer,
-              { transform: [{ translateX: -180 * k }, { translateY: 30 * k }] } //트로피 위치 조정 (왼쪽 하단)
+              { transform: [{ translateX: -180 * k }, { translateY: 20 * k }] } //트로피 위치 조정 (왼쪽 하단)
             ]}
           >
             <TouchableOpacity
@@ -153,9 +167,12 @@ export default function HomeScreen() {
                 { width: btnSize * 1.1, height: cardH }
               ]}
               onPress={navigateToAchievement}
+              activeOpacity={0.7}
             >
-              <Text style={styles.trophyButtonIcon}>🏆</Text>
-              <Text style={styles.trophyButtonText}>(트로피 오브젝트)</Text>
+              <Image 
+                source={require('../../assets/images/trophy.png')} 
+                style={[styles.trophyButtonIcon, { width: btnSize * 1.1, height: cardH }]} 
+              />
             </TouchableOpacity>
           </View>
         </View>
@@ -207,12 +224,18 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  container: { flex: 1, backgroundColor: "transparent" },
 
   header: {
     position: "absolute",
@@ -293,19 +316,16 @@ const styles = StyleSheet.create({
   centerContainer: { flex: 1, justifyContent: "center", alignItems: "center", position: "relative" },
 
   petImage: {
-    backgroundColor: "#fff",
+    backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 3,
-    borderColor: "#ddd",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
   },
 
   petImageText: { fontSize: 80, marginBottom: 10, includeFontPadding: false },
+
+  petImageIcon: {
+    resizeMode: 'contain'
+  },
 
   petImageLabel: { fontSize: 16, color: "#666", fontWeight: "500", includeFontPadding: false },
 
@@ -319,19 +339,13 @@ const styles = StyleSheet.create({
   },
 
   clockButton: {
-    backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 3,
-    borderColor: "#ddd",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
   },
 
-  clockButtonIcon: { fontSize: 50, marginBottom: 5, includeFontPadding: false },
+  clockButtonIcon: {
+    resizeMode: 'contain'
+  },
 
   clockButtonText: {
     fontSize: 12,
@@ -350,27 +364,13 @@ const styles = StyleSheet.create({
   },
 
   recordsButton: {
-    backgroundColor: "#fff",
+    backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 3,
-    borderColor: "#ddd",
-    borderRadius: 15,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
   },
 
-  recordsButtonIcon: { fontSize: 60, marginBottom: 5, includeFontPadding: false },
-
-  recordsButtonText: {
-    fontSize: 12,
-    color: "#333",
-    fontWeight: "500",
-    textAlign: "center",
-    includeFontPadding: false
+  recordsButtonIcon: {
+    resizeMode: 'contain'
   },
 
   trophyButtonContainer: {
@@ -382,27 +382,13 @@ const styles = StyleSheet.create({
   },
 
   trophyButton: {
-    backgroundColor: "#fff",
+    backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 3,
-    borderColor: "#ddd",
-    borderRadius: 15,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3
   },
 
-  trophyButtonIcon: { fontSize: 60, marginBottom: 5, includeFontPadding: false },
-
-  trophyButtonText: {
-    fontSize: 12,
-    color: "#333",
-    fontWeight: "500",
-    textAlign: "center",
-    includeFontPadding: false
+  trophyButtonIcon: {
+    resizeMode: 'contain'
   },
 
   modalOverlay: {
