@@ -8,11 +8,14 @@ import API_BASE_URL from "../../config/api";
 
 export default function HomeScreen() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [showUserInfoModal, setShowUserInfoModal] = useState(false);
+  const [showAnimalModal, setShowAnimalModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [nickname, setNickname] = useState("");
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
   const [selectedAnimal, setSelectedAnimal] = useState<string | null>(null);
+  const [pendingAnimal, setPendingAnimal] = useState<string | null>(null);
+  const [showAnimalConfirm, setShowAnimalConfirm] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [accountName, setAccountName] = useState<string>("");
 
@@ -71,9 +74,15 @@ export default function HomeScreen() {
               : ""
           );
           setSelectedAnimal(data.profile.animalType ?? null);
-          setShowUserInfoModal(false);
+          setShowAnimalModal(false);
+          setShowProfileModal(false);
         } else {
-          setShowUserInfoModal(true);
+          setSelectedAnimal(null);
+          setNickname("");
+          setHeight("");
+          setWeight("");
+          setShowAnimalModal(true);
+          setShowProfileModal(false);
         }
       } catch (error) {
         console.error("프로필 불러오기 실패:", error);
@@ -148,7 +157,7 @@ export default function HomeScreen() {
       }
 
       Alert.alert("완료", "프로필이 저장되었습니다.");
-      setShowUserInfoModal(false);
+      setShowProfileModal(false);
     } catch (error) {
       console.error("프로필 저장 실패:", error);
       Alert.alert("오류", "프로필 저장 중 문제가 발생했습니다.");
@@ -156,7 +165,28 @@ export default function HomeScreen() {
   };
 
   const handleEditProfile = () => {
-    setShowUserInfoModal(true);
+    setShowProfileModal(true);
+  };
+
+  const handleSelectAnimal = (animalId: string) => {
+    setPendingAnimal(animalId);
+    setShowAnimalConfirm(true);
+  };
+
+  const confirmAnimalSelection = () => {
+    if (!pendingAnimal) {
+      return;
+    }
+    setSelectedAnimal(pendingAnimal);
+    setPendingAnimal(null);
+    setShowAnimalConfirm(false);
+    setShowAnimalModal(false);
+    setShowProfileModal(true);
+  };
+
+  const cancelAnimalSelection = () => {
+    setPendingAnimal(null);
+    setShowAnimalConfirm(false);
   };
 
   return (
@@ -219,9 +249,72 @@ export default function HomeScreen() {
       </View>      
        
 
-      {/* 개인정보 입력 모달 */}
+      {/* 동물 선택 모달 */}
       <Modal
-        visible={showUserInfoModal}
+        visible={showAnimalModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={styles.modalOverlayUserInfo}>
+          <View style={styles.animalModal}>
+            <Text style={styles.animalModalTitle}>함께할 동물을 골라주세요</Text>
+            <Text style={styles.animalModalSubtitle}>
+              선택한 동물은 특정 도전 과제를 완료하기 전까지 변경할 수 없어요.
+            </Text>
+
+            <View style={styles.animalOptions}>
+              {animalOptions.map((animal) => {
+                const isSelected =
+                  pendingAnimal === animal.id || selectedAnimal === animal.id;
+                return (
+                  <TouchableOpacity
+                    key={animal.id}
+                    style={[
+                      styles.animalOption,
+                      isSelected && styles.animalOptionSelected,
+                    ]}
+                    onPress={() => handleSelectAnimal(animal.id)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.animalEmoji}>{animal.emoji}</Text>
+                    <Text style={styles.animalLabel}>{animal.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {showAnimalConfirm && pendingAnimal && (
+              <View style={styles.animalConfirmBox}>
+                <Text style={styles.animalConfirmTitle}>이 동물과 함께할까요?</Text>
+                <Text style={styles.animalConfirmSubtitle}>
+                  특정 도전 과제를 완료하기 전까지 변경할 수 없어요.
+                </Text>
+                <View style={styles.animalConfirmButtons}>
+                  <TouchableOpacity
+                    style={[styles.animalConfirmButton, styles.animalConfirmCancel]}
+                    onPress={cancelAnimalSelection}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.animalConfirmCancelText}>취소</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.animalConfirmButton, styles.animalConfirmOk]}
+                    onPress={confirmAnimalSelection}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.animalConfirmOkText}>확인</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* 프로필 정보 입력 모달 */}
+      <Modal
+        visible={showProfileModal}
         transparent={true}
         animationType="fade"
         onRequestClose={() => {}}
@@ -229,29 +322,21 @@ export default function HomeScreen() {
         <View style={styles.modalOverlayUserInfo}>
           <ScrollView contentContainerStyle={styles.userInfoScroll}>
             <View style={styles.userInfoModal}>
-              <Text style={styles.userInfoTitle}>프로필 설정</Text>
+              <Text style={styles.userInfoTitle}>기본 정보 입력</Text>
               <Text style={styles.userInfoSubtitle}>
-                함께할 동물과 기본 정보를 입력해주세요
+                선택한 동물과 함께할 준비가 되었어요. 정보를 입력해주세요.
               </Text>
 
-              <View style={styles.animalOptions}>
-                {animalOptions.map((animal) => {
-                  const isSelected = selectedAnimal === animal.id;
-                  return (
-                    <TouchableOpacity
-                      key={animal.id}
-                      style={[
-                        styles.animalOption,
-                        isSelected && styles.animalOptionSelected,
-                      ]}
-                      onPress={() => setSelectedAnimal(animal.id)}
-                    >
-                      <Text style={styles.animalEmoji}>{animal.emoji}</Text>
-                      <Text style={styles.animalLabel}>{animal.label}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              {currentAnimal && (
+                <View style={styles.selectedAnimalSummary}>
+                  <Text style={styles.selectedAnimalEmoji}>
+                    {currentAnimal.emoji}
+                  </Text>
+                  <Text style={styles.selectedAnimalLabel}>
+                    {currentAnimal.label}
+                  </Text>
+                </View>
+              )}
 
               <TextInput
                 style={styles.input}
@@ -285,19 +370,10 @@ export default function HomeScreen() {
               >
                 <Text style={styles.saveButtonText}>저장하기</Text>
               </TouchableOpacity>
-
-              {selectedAnimal && (
-                <TouchableOpacity
-                  style={styles.editCancelButton}
-                  onPress={() => setShowUserInfoModal(false)}
-                >
-                  <Text style={styles.editCancelText}>취소</Text>
-                </TouchableOpacity>
-              )}
             </View>
           </ScrollView>
         </View>
-      </Modal>    
+      </Modal>
   </SafeAreaView>  
 
   );
@@ -516,6 +592,31 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     gap: 12,
   },
+  animalModal: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 24,
+    width: "100%",
+    maxWidth: 400,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  animalModalTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  animalModalSubtitle: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 24,
+  },
   animalOption: {
     flexBasis: "48%",
     backgroundColor: "#f5f5f5",
@@ -537,6 +638,54 @@ const styles = StyleSheet.create({
   animalLabel: {
     fontSize: 14,
     color: "#333",
+    fontWeight: "600",
+  },
+  animalConfirmBox: {
+    marginTop: 16,
+    backgroundColor: "#F8F9FF",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#CCD6FF",
+  },
+  animalConfirmTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1F3B73",
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  animalConfirmSubtitle: {
+    fontSize: 13,
+    color: "#4A5A88",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  animalConfirmButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  animalConfirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  animalConfirmCancel: {
+    backgroundColor: "#E8ECF8",
+  },
+  animalConfirmOk: {
+    backgroundColor: "#007AFF",
+  },
+  animalConfirmCancelText: {
+    color: "#4A5A88",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  animalConfirmOkText: {
+    color: "#FFFFFF",
+    fontSize: 14,
     fontWeight: "600",
   },
   userInfoTitle: {
@@ -587,13 +736,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
-  editCancelButton: {
-    marginTop: 12,
+  selectedAnimalSummary: {
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 20,
+    backgroundColor: "#F0F4FF",
+    borderRadius: 12,
+    paddingVertical: 12,
   },
-  editCancelText: {
-    color: "#666",
-    fontSize: 14,
+  selectedAnimalEmoji: {
+    fontSize: 32,
+  },
+  selectedAnimalLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
   },
 });
 
