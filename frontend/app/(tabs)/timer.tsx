@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Image,
+  Modal,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -22,11 +23,17 @@ type SummaryStat = {
   value: number;
 };
 
+type IntervalConfig = {
+  workMs: number;
+  restMs: number;
+};
+
 type SummaryData = {
   mode: Mode;
   elapsedMs: number;
   heartRate: number;
   stats: SummaryStat[];
+  intervalConfig?: IntervalConfig;
   laps?: number[];
   intervalInfo?: {
     completedRounds: number;
@@ -34,8 +41,12 @@ type SummaryData = {
   };
 };
 
-const INTERVAL_PRESET = {
-  totalRounds: 5,
+const INTERVAL_TOTAL_ROUNDS = 5;
+const INTERVAL_STEP_MS = 5_000;
+const INTERVAL_MIN_MS = 0;
+const INTERVAL_WORK_MAX_MS = 90_000; // 1분 30초
+const INTERVAL_REST_MAX_MS = 45_000; // 45초
+const DEFAULT_INTERVAL_CONFIG: IntervalConfig = {
   workMs: 30_000,
   restMs: 15_000,
 };
@@ -45,6 +56,15 @@ export default function TimerScreen() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [laps, setLaps] = useState<number[]>([]);
+  const [intervalConfig, setIntervalConfig] = useState<IntervalConfig>(
+    DEFAULT_INTERVAL_CONFIG
+  );
+  const [activeIntervalConfig, setActiveIntervalConfig] =
+    useState<IntervalConfig>(DEFAULT_INTERVAL_CONFIG);
+  const [showIntervalConfigurator, setShowIntervalConfigurator] =
+    useState(false);
+  const [showStopConfirm, setShowStopConfirm] = useState(false);
+  const [pausedForConfirm, setPausedForConfirm] = useState(false);
   const timer = useWorkoutTimer();
 
   const handleStart = () => {
@@ -52,6 +72,12 @@ export default function TimerScreen() {
     timer.start();
     setSummary(null);
     setLaps([]);
+    if (mode === "interval") {
+      setActiveIntervalConfig({ ...intervalConfig });
+    } else {
+      setActiveIntervalConfig({ ...DEFAULT_INTERVAL_CONFIG });
+    }
+    setShowIntervalConfigurator(false);
     setPhase("running");
   };
 
@@ -66,18 +92,48 @@ export default function TimerScreen() {
     }
   };
 
-  const handleStop = () => {
-    const finalElapsed = timer.stop();
-    const summaryData = buildSummary(mode, finalElapsed, { laps });
-    setSummary(summaryData);
-    setPhase("summary");
-  };
-
   const handleAddLap = () => {
     if (!timer.isRunning || timer.isPaused) {
       return;
     }
     setLaps((prev) => [...prev, timer.elapsedMs]);
+  };
+
+  const handleAdjustInterval = (
+    key: keyof IntervalConfig,
+    deltaMs: number
+  ) => {
+    setIntervalConfig((prev) => {
+      const max =
+        key === "workMs" ? INTERVAL_WORK_MAX_MS : INTERVAL_REST_MAX_MS;
+      const nextValue = Math.min(
+        max,
+        Math.max(INTERVAL_MIN_MS, prev[key] + deltaMs)
+      );
+      const snapped =
+        Math.round(nextValue / INTERVAL_STEP_MS) * INTERVAL_STEP_MS;
+      return {
+        ...prev,
+        [key]: snapped,
+      };
+    });
+  };
+
+  const handleResetIntervalConfig = () => {
+    setIntervalConfig({
+      workMs: 45_000,
+      restMs: 15_000,
+    });
+  };
+
+  const handleRequestStop = () => {
+    if (!timer.isPaused && timer.isRunning) {
+      timer.pause();
+      setPausedForConfirm(true);
+    } else {
+      setPausedForConfirm(false);
+    }
+    setShowStopConfirm(true);
   };
 
   const handleClaimRewards = () => {
@@ -95,11 +151,55 @@ export default function TimerScreen() {
     setPhase("idle");
   };
 
+  const handleStopCancel = () => {
+    setShowStopConfirm(false);
+    if (pausedForConfirm) {
+      timer.resume();
+    }
+    setPausedForConfirm(false);
+  };
+
+  const handleStopConfirm = () => {
+    const finalElapsed = timer.stop();
+    const summaryData = buildSummary(mode, finalElapsed, {
+      laps,
+      intervalConfig: activeIntervalConfig,
+    });
+    setSummary(summaryData);
+    setPhase("summary");
+    setShowStopConfirm(false);
+    setPausedForConfirm(false);
+  };
+
+  const handleToggleIntervalConfigurator = () => {
+    setShowIntervalConfigurator((prev) => !prev);
+  };
+
+  const handleCloseIntervalConfigurator = () => {
+    setShowIntervalConfigurator(false);
+  };
+
+  useEffect(() => {
+    if (mode !== "interval") {
+      setShowIntervalConfigurator(false);
+    }
+  }, [mode]);
+
   return (
     <SafeAreaView style={styles.container}>
       <HomeButton />
       {phase === "idle" && (
-        <TimerLanding mode={mode} onModeChange={setMode} onStart={handleStart} />
+        <TimerLanding
+          mode={mode}
+          onModeChange={setMode}
+          onStart={handleStart}
+          intervalConfig={intervalConfig}
+          onAdjustInterval={handleAdjustInterval}
+          showConfigurator={showIntervalConfigurator}
+          onToggleConfigurator={handleToggleIntervalConfigurator}
+          onCloseConfigurator={handleCloseIntervalConfigurator}
+          onResetConfigurator={handleResetIntervalConfig}
+        />
       )}
 
       {phase === "running" && (
@@ -108,8 +208,9 @@ export default function TimerScreen() {
           elapsedMs={timer.elapsedMs}
           isPaused={timer.isPaused}
           laps={laps}
+          intervalConfig={activeIntervalConfig}
           onPauseToggle={handlePauseToggle}
-          onStop={handleStop}
+          onRequestStop={handleRequestStop}
           onAddLap={handleAddLap}
         />
       )}
@@ -122,6 +223,12 @@ export default function TimerScreen() {
           onReturn={handleReturnToLanding}
         />
       )}
+
+      <StopConfirmModal
+        visible={showStopConfirm}
+        onConfirm={handleStopConfirm}
+        onCancel={handleStopCancel}
+      />
     </SafeAreaView>
   );
 }
@@ -130,11 +237,25 @@ function TimerLanding({
   mode,
   onModeChange,
   onStart,
+  intervalConfig,
+  onAdjustInterval,
+  showConfigurator,
+  onToggleConfigurator,
+  onCloseConfigurator,
+  onResetConfigurator,
 }: {
   mode: Mode;
   onModeChange: (next: Mode) => void;
   onStart: () => void;
+  intervalConfig: IntervalConfig;
+  onAdjustInterval: (key: keyof IntervalConfig, deltaMs: number) => void;
+  showConfigurator: boolean;
+  onToggleConfigurator: () => void;
+  onCloseConfigurator: () => void;
+  onResetConfigurator: () => void;
 }) {
+  const isInterval = mode === "interval";
+
   return (
     <View style={styles.landingContainer}>
       <Image
@@ -151,7 +272,7 @@ function TimerLanding({
           onPress={() => onModeChange("aerobic")}
         />
         <ModeToggle
-          isActive={mode === "interval"}
+          isActive={isInterval}
           label="인터벌"
           onPress={() => onModeChange("interval")}
         />
@@ -165,7 +286,156 @@ function TimerLanding({
         <Ionicons name="play" size={24} color="#fff" />
         <Text style={styles.startWorkoutLabel}>운동 시작</Text>
       </TouchableOpacity>
+
+      {isInterval && (
+        <View style={styles.intervalToggleSection}>
+          <TouchableOpacity
+            style={styles.intervalToggleButton}
+            onPress={onToggleConfigurator}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="settings-outline" size={18} color="#4a6cf4" />
+            <Text style={styles.intervalToggleLabel}>인터벌 설정</Text>
+            <Ionicons
+              name={showConfigurator ? "chevron-up" : "chevron-down"}
+              size={18}
+              color="#4a6cf4"
+            />
+          </TouchableOpacity>
+
+          {showConfigurator && (
+            <IntervalConfigurator
+              config={intervalConfig}
+              onAdjust={onAdjustInterval}
+              onClose={onCloseConfigurator}
+              onReset={onResetConfigurator}
+            />
+          )}
+        </View>
+      )}
     </View>
+  );
+}
+
+function IntervalConfigurator({
+  config,
+  onAdjust,
+  onClose,
+  onReset,
+}: {
+  config: IntervalConfig;
+  onAdjust: (key: keyof IntervalConfig, deltaMs: number) => void;
+  onClose: () => void;
+  onReset: () => void;
+}) {
+  return (
+    <View style={styles.intervalConfigurator}>
+      <View style={styles.intervalConfiguratorHeader}>
+        <Text style={styles.intervalConfiguratorTitle}>인터벌 설정</Text>
+        <TouchableOpacity
+          onPress={onClose}
+          style={styles.intervalConfiguratorClose}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={styles.intervalConfiguratorCloseText}>닫기</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.intervalConfigRows}>
+        <IntervalConfigRow
+          label="운동 시간"
+          value={config.workMs}
+          onDecrease={() => onAdjust("workMs", -INTERVAL_STEP_MS)}
+          onIncrease={() => onAdjust("workMs", INTERVAL_STEP_MS)}
+          canDecrease={config.workMs > INTERVAL_MIN_MS}
+          canIncrease={config.workMs < INTERVAL_WORK_MAX_MS}
+        />
+        <IntervalConfigRow
+          label="휴식 시간"
+          value={config.restMs}
+          onDecrease={() => onAdjust("restMs", -INTERVAL_STEP_MS)}
+          onIncrease={() => onAdjust("restMs", INTERVAL_STEP_MS)}
+          canDecrease={config.restMs > INTERVAL_MIN_MS}
+          canIncrease={config.restMs < INTERVAL_REST_MAX_MS}
+        />
+      </View>
+
+      <View style={styles.intervalConfiguratorFooter}>
+        <TouchableOpacity
+          style={styles.intervalResetButton}
+          onPress={onReset}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="refresh" size={16} color="#4a6cf4" />
+          <Text style={styles.intervalResetLabel}>초기화</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+function IntervalConfigRow({
+  label,
+  value,
+  onDecrease,
+  onIncrease,
+  canDecrease,
+  canIncrease,
+}: {
+  label: string;
+  value: number;
+  onDecrease: () => void;
+  onIncrease: () => void;
+  canDecrease: boolean;
+  canIncrease: boolean;
+}) {
+  return (
+    <View style={styles.intervalConfigRow}>
+      <Text style={styles.intervalConfigLabel}>{label}</Text>
+      <View style={styles.intervalConfigControls}>
+        <ConfigStepButton
+          icon="remove"
+          onPress={onDecrease}
+          disabled={!canDecrease}
+        />
+        <Text style={styles.intervalConfigValue}>
+          {formatDuration(value)}
+        </Text>
+        <ConfigStepButton
+          icon="add"
+          onPress={onIncrease}
+          disabled={!canIncrease}
+        />
+      </View>
+    </View>
+  );
+}
+
+function ConfigStepButton({
+  icon,
+  onPress,
+  disabled,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      style={[
+        styles.intervalStepButton,
+        disabled ? styles.intervalStepButtonDisabled : undefined,
+      ]}
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.85}
+    >
+      <Ionicons
+        name={icon}
+        size={18}
+        color={disabled ? "#b2bec3" : "#4a6cf4"}
+      />
+    </TouchableOpacity>
   );
 }
 
@@ -174,21 +444,26 @@ function TimerRunning({
   elapsedMs,
   isPaused,
   laps,
+  intervalConfig,
   onPauseToggle,
-  onStop,
+  onRequestStop,
   onAddLap,
 }: {
   mode: Mode;
   elapsedMs: number;
   isPaused: boolean;
   laps: number[];
+  intervalConfig: IntervalConfig;
   onPauseToggle: () => void;
-  onStop: () => void;
+  onRequestStop: () => void;
   onAddLap: () => void;
 }) {
   const intervalInfo = useMemo(
-    () => (mode === "interval" ? getIntervalProgress(elapsedMs) : null),
-    [mode, elapsedMs]
+    () =>
+      mode === "interval"
+        ? getIntervalProgress(elapsedMs, intervalConfig)
+        : null,
+    [mode, elapsedMs, intervalConfig]
   );
 
   const lapEntries = useMemo(() => {
@@ -216,7 +491,7 @@ function TimerRunning({
       </View>
 
       {mode === "interval" && intervalInfo && (
-        <IntervalPanel info={intervalInfo} />
+        <IntervalPanel info={intervalInfo} config={intervalConfig} />
       )}
 
       <View style={styles.controlRow}>
@@ -228,8 +503,8 @@ function TimerRunning({
         />
         <ControlButton
           icon="stop"
-          label="정지"
-          onPress={onStop}
+          label="종료"
+          onPress={onRequestStop}
           variant="danger"
         />
       </View>
@@ -295,6 +570,14 @@ function TimerSummary({
         {data.mode === "aerobic" && (
           <SummaryRow label="구간 수" value={`${data.laps?.length ?? 0}`} />
         )}
+        {data.mode === "interval" && data.intervalConfig && (
+          <SummaryRow
+            label="운동/휴식 시간"
+            value={`${formatDuration(data.intervalConfig.workMs)} / ${formatDuration(
+              data.intervalConfig.restMs
+            )}`}
+          />
+        )}
         {data.mode === "interval" && data.intervalInfo && (
           <SummaryRow
             label="완료 세트"
@@ -332,33 +615,47 @@ function TimerSummary({
   );
 }
 
-function getIntervalProgress(elapsedMs: number) {
-  const { totalRounds, workMs, restMs } = INTERVAL_PRESET;
-  const cycleDuration = workMs + restMs;
+function getIntervalProgress(elapsedMs: number, config: IntervalConfig) {
+  const cycleDuration = config.workMs + config.restMs;
+
+  if (cycleDuration <= 0) {
+    return {
+      currentRound: 1,
+      totalRounds: INTERVAL_TOTAL_ROUNDS,
+      phase: "운동",
+      remainingMs: 0,
+      nextPhaseLabel: "휴식",
+      nextPhaseDuration: config.restMs,
+      completedRounds: 0,
+    };
+  }
 
   const completedRounds = Math.min(
-    totalRounds,
+    INTERVAL_TOTAL_ROUNDS,
     Math.floor(elapsedMs / cycleDuration)
   );
 
-  const currentRound = Math.min(totalRounds, completedRounds + 1);
+  const currentRound = Math.min(
+    INTERVAL_TOTAL_ROUNDS,
+    completedRounds + 1
+  );
 
   const positionInCycle = elapsedMs % cycleDuration;
-  const isWorkPhase = positionInCycle < workMs;
+  const isWorkPhase = positionInCycle < config.workMs;
 
   const phaseElapsed = isWorkPhase
     ? positionInCycle
-    : positionInCycle - workMs;
+    : positionInCycle - config.workMs;
 
-  const phaseDuration = isWorkPhase ? workMs : restMs;
+  const phaseDuration = isWorkPhase ? config.workMs : config.restMs;
   const remainingMs = Math.max(phaseDuration - phaseElapsed, 0);
 
   const nextPhaseLabel = isWorkPhase ? "휴식" : "운동";
-  const nextPhaseDuration = isWorkPhase ? restMs : workMs;
+  const nextPhaseDuration = isWorkPhase ? config.restMs : config.workMs;
 
   return {
     currentRound,
-    totalRounds,
+    totalRounds: INTERVAL_TOTAL_ROUNDS,
     phase: isWorkPhase ? "운동" : "휴식",
     remainingMs,
     nextPhaseLabel,
@@ -435,8 +732,10 @@ function ControlButton({
 
 function IntervalPanel({
   info,
+  config,
 }: {
   info: ReturnType<typeof getIntervalProgress>;
+  config: IntervalConfig;
 }) {
   return (
     <View style={styles.intervalPanel}>
@@ -446,6 +745,10 @@ function IntervalPanel({
       <Text style={styles.intervalTimer}>{formatDuration(info.remainingMs)}</Text>
       <Text style={styles.intervalRounds}>
         현재 세트 수 : {info.currentRound}회
+      </Text>
+      <Text style={styles.intervalConfigSummary}>
+        운동 {formatDuration(config.workMs)} · 휴식{" "}
+        {formatDuration(config.restMs)}
       </Text>
       <View style={styles.intervalNextPhase}>
         <Text style={styles.intervalNextPhaseLabel}>다음:</Text>
@@ -508,6 +811,42 @@ function SummaryButton({
         {label}
       </Text>
     </TouchableOpacity>
+  );
+}
+
+function StopConfirmModal({
+  visible,
+  onConfirm,
+  onCancel,
+}: {
+  visible: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <Modal transparent visible={visible} animationType="fade">
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>운동이 끝나셨습니까?</Text>
+          <View style={styles.modalButtons}>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalCancelButton]}
+              onPress={onCancel}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.modalButtonText, styles.modalCancelText]}>아니오</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalConfirmButton]}
+              onPress={onConfirm}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.modalButtonText, styles.modalConfirmText]}>예</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -620,6 +959,7 @@ function buildSummary(
   elapsedMs: number,
   options?: {
     laps?: number[];
+    intervalConfig?: IntervalConfig;
   }
 ): SummaryData {
   const minutes = elapsedMs / 60_000;
@@ -639,11 +979,15 @@ function buildSummary(
         ];
 
   if (mode === "interval") {
-    const cycleDuration = INTERVAL_PRESET.workMs + INTERVAL_PRESET.restMs;
-    const completedRounds = Math.min(
-      INTERVAL_PRESET.totalRounds,
-      Math.floor(elapsedMs / cycleDuration)
-    );
+    const intervalConfig = options?.intervalConfig ?? DEFAULT_INTERVAL_CONFIG;
+    const cycleDuration = intervalConfig.workMs + intervalConfig.restMs;
+    const completedRounds =
+      cycleDuration > 0
+        ? Math.min(
+            INTERVAL_TOTAL_ROUNDS,
+            Math.floor(elapsedMs / cycleDuration)
+          )
+        : 0;
     return {
       mode,
       elapsedMs,
@@ -651,8 +995,9 @@ function buildSummary(
       stats,
       intervalInfo: {
         completedRounds,
-        totalRounds: INTERVAL_PRESET.totalRounds,
+        totalRounds: INTERVAL_TOTAL_ROUNDS,
       },
+      intervalConfig,
     };
   }
 
@@ -688,6 +1033,125 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 40,
+  },
+  intervalToggleSection: {
+    width: "100%",
+    gap: 16,
+    alignItems: "stretch",
+  },
+  intervalToggleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#eef3ff",
+    borderRadius: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "#dfe4f5",
+  },
+  intervalToggleLabel: {
+    flex: 1,
+    marginHorizontal: 12,
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#4a6cf4",
+  },
+  intervalConfigurator: {
+    width: "100%",
+    alignSelf: "stretch",
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#dfe4f5",
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    gap: 16,
+  },
+  intervalConfiguratorHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  intervalConfiguratorTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#2d3436",
+  },
+  intervalConfiguratorClose: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  intervalConfiguratorCloseText: {
+    fontSize: 13,
+    color: "#95a5a6",
+  },
+  intervalConfigRows: {
+    gap: 12,
+  },
+  intervalConfigRow: {
+    gap: 10,
+  },
+  intervalConfigLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#4a6cf4",
+  },
+  intervalConfigControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#e2e9ff",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  intervalStepButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#4a6cf4",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f0f4ff",
+  },
+  intervalStepButtonDisabled: {
+    borderColor: "#dfe6e9",
+    backgroundColor: "#f5f5f5",
+  },
+  intervalConfigValue: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#2d3436",
+  },
+  intervalConfiguratorFooter: {
+    gap: 10,
+  },
+  intervalResetButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    gap: 6,
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#4a6cf4",
+    backgroundColor: "#f0f4ff",
+  },
+  intervalResetLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#4a6cf4",
+  },
+  intervalConfiguratorHint: {
+    fontSize: 12,
+    color: "#95a5a6",
   },
   clockImage: {
     width: 240,
@@ -881,6 +1345,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#636e72",
   },
+  intervalConfigSummary: {
+    fontSize: 13,
+    color: "#4a6cf4",
+    fontWeight: "600",
+  },
   intervalNextPhase: {
     flexDirection: "row",
     alignItems: "center",
@@ -974,5 +1443,58 @@ const styles = StyleSheet.create({
     height: 20,
     resizeMode: "contain",
     tintColor: "#2d3436",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalContent: {
+    width: "80%",
+    maxWidth: 320,
+    backgroundColor: "#ffffff",
+    borderRadius: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    alignItems: "center",
+    gap: 24,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#2d3436",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    minWidth: 120,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  modalCancelButton: {
+    backgroundColor: "#ffffff",
+    borderColor: "#dfe6e9",
+  },
+  modalConfirmButton: {
+    backgroundColor: "#ff8a3d",
+    borderColor: "#ff8a3d",
+  },
+  modalButtonText: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  modalCancelText: {
+    color: "#2d3436",
+  },
+  modalConfirmText: {
+    color: "#ffffff",
   },
 });
