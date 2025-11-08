@@ -1,3 +1,15 @@
+-- mysql 계정생성
+CREATE USER 'pets'@'localhost' IDENTIFIED BY 'lhj4369';
+CREATE DATABASE pets;
+GRANT ALL PRIVILEGES ON pets.* TO 'pets'@'localhost';
+FLUSH PRIVILEGES;
+
+-- mysql 접속(터미널에 입력)
+```bash
+mysql -u pets -p
+lhj4369
+```
+
 -- 계정 정보 테이블
 CREATE TABLE IF NOT EXISTS accounts (
   id INT AUTO_INCREMENT PRIMARY KEY,
