@@ -11,8 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import Header from "../../components/Header";
-import Navigator from "../../components/Navigator";
+import HomeButton from "../../components/HomeButton";
 
 interface Message {
   id: string;
@@ -99,8 +98,7 @@ export default function ChattingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-       <Header showBackButton={true} showMenuButton={true} menuType="chatting" />
-       <Navigator />
+       <HomeButton />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}

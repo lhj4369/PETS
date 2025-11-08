@@ -1,4 +1,4 @@
-//기록 화면
+//운동 기록 화면
 import { useState, useEffect } from "react";
 import {
   View,
@@ -13,8 +13,7 @@ import {
   TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import Header from "../../components/Header";
-import Navigator from "../../components/Navigator";
+import HomeButton from "../../components/HomeButton";
 
 interface WorkoutRecord {
   id: string;
@@ -147,8 +146,7 @@ export default function RecordsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header showBackButton={true} showMenuButton={true} menuType="records" />
-      <Navigator />
+      <HomeButton />
       <ScrollView style={styles.scrollView}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigateMonth('prev')}>

@@ -1,4 +1,5 @@
 //커스터마이징 화면
+
 import {
   View,
   Text,
@@ -17,6 +18,11 @@ import capibara from "../../assets/images/animals/capibara.png";
 import fox from "../../assets/images/animals/fox.png";
 import ginipig from "../../assets/images/animals/ginipig.png";
 import red_panda from "../../assets/images/animals/red_panda.png";
+
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView, Image } from "react-native";
+import { useState } from "react";
+import HomeButton from "../../components/HomeButton";
+
 
 type AnimalOption = {
   name: string;
@@ -109,12 +115,12 @@ export default function CustomizeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header showBackButton={true} showMenuButton={true} menuType="customize" />      
-      <Navigator />
+      <HomeButton />
       {/* 미리보기 영역 - 홈화면과 유사하지만 스탯 없이 */}
       <View style={styles.previewContainer}>
         <View style={styles.previewPetContainer}>
           <View style={styles.previewPetImage}>
+
             {selectedAnimal ? (
               <Image
                 source={selectedAnimal.src}
@@ -126,6 +132,12 @@ export default function CustomizeScreen() {
             )}
           </View>
           <View style={styles.previewPetLabelContainer}>
+
+            <Image 
+              source={require('../../assets/images/dog_character.png')} 
+              style={styles.previewPetIcon} 
+            />
+
             <Text style={styles.previewPetLabel}>동물 이미지</Text>
           </View>
         </View>
@@ -209,6 +221,12 @@ const styles = StyleSheet.create({
   previewPetLabelContainer: {
     marginTop: 12,
     alignItems: 'center',
+  },
+  previewPetIcon: {
+    width: 120,
+    height: 120,
+    resizeMode: 'contain',
+    marginBottom: 5,
   },
   previewPetLabel: {
     fontSize: 14,
