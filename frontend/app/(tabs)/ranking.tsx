@@ -1,8 +1,7 @@
 //랭킹 화면
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, SafeAreaView } from "react-native";
 import { useState } from "react";
-import Header from "../../components/Header";
-import Navigator from "../../components/Navigator";
+import HomeButton from "../../components/HomeButton";
 
 export default function RankingScreen() {
   const [selectedAnimal, setSelectedAnimal] = useState<any>(null);
@@ -88,8 +87,7 @@ export default function RankingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header showBackButton={true} showMenuButton={true} menuType="ranking" />
-      <Navigator />
+      <HomeButton />
       <ScrollView style={styles.scrollContainer}>
         <Text style={styles.title}>전체 랭킹</Text>
         
