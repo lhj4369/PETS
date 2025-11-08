@@ -1,23 +1,43 @@
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, ActivityIndicator } from "react-native";
 import { useState } from "react";
 import { router } from "expo-router";
 import AuthManager from "../../utils/AuthManager";
 import Navigator from "../../components/Navigator";
+import API_BASE_URL from "../../config/api";
 
 export default function LoginScreen() {
-  const [userId, setUserId] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleLogin = async () => {
-    // TODO: 실제 로그인 API 호출
-    console.log("로그인 시도:", { userId, password });
-    if (!userId.trim() || !password.trim()) {
-      alert("아이디와 비밀번호를 입력해주세요.");
+    if (!email.trim() || !password.trim()) {
+      alert("이메일과 비밀번호를 입력해주세요.");
       return;
     }
-    // 실제 로그인 성공 후
-    await AuthManager.login();
-    router.replace("/(tabs)/home" as any);
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data?.error ?? "로그인에 실패했습니다.");
+        return;
+      }
+
+      await AuthManager.login(data.token, data.account);
+      router.replace("/(tabs)/home" as any);
+    } catch (error) {
+      console.error("로그인 요청 실패:", error);
+      alert("로그인 중 문제가 발생했습니다. 네트워크 상태를 확인해주세요.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleKakaoLogin = async () => {
@@ -28,7 +48,11 @@ export default function LoginScreen() {
 
   const handleDevLogin = async () => {
     // 개발자 모드: 로그인 처리 후 홈으로 이동
-    await AuthManager.login();
+    await AuthManager.login("dev-token", {
+      id: "dev",
+      name: "개발자",
+      email: "dev@example.com",
+    });
     router.replace("/(tabs)/home" as any);
   };
 
@@ -43,8 +67,7 @@ export default function LoginScreen() {
   };
 
   const handleSignUp = () => {
-    // TODO: 회원가입 화면으로 이동
-    alert("회원가입 기능은 준비 중입니다.");
+    router.push("/(auth)/register" as any);
   };
 
   return (
@@ -54,14 +77,15 @@ export default function LoginScreen() {
         <Text style={styles.title}>PETS</Text>
         <Text style={styles.subtitle}>당신의 운동 파트너</Text>
 
-        {/* 아이디 입력 */}
+        {/* 이메일 입력 */}
         <TextInput
           style={styles.input}
-          placeholder="아이디"
-          value={userId}
-          onChangeText={setUserId}
+          placeholder="이메일"
+          value={email}
+          onChangeText={setEmail}
           placeholderTextColor="#999"
           autoCapitalize="none"
+          keyboardType="email-address"
         />
 
         {/* 비밀번호 입력 */}
@@ -75,8 +99,16 @@ export default function LoginScreen() {
         />
 
         {/* 로그인 버튼 */}
-        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-          <Text style={styles.loginButtonText}>로그인</Text>
+        <TouchableOpacity
+          style={[styles.loginButton, isSubmitting && styles.loginButtonDisabled]}
+          onPress={handleLogin}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.loginButtonText}>로그인</Text>
+          )}
         </TouchableOpacity>
 
         {/* 카카오 로그인 버튼 */}
@@ -151,6 +183,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 8,
     marginBottom: 12,
+  },
+  loginButtonDisabled: {
+    opacity: 0.6,
   },
   loginButtonText: {
     color: "#ffffff",

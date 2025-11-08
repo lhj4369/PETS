@@ -1,18 +1,44 @@
+import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Alert, SafeAreaView, ActivityIndicator, ScrollView } from "react-native";
+import { useState, useEffect, useMemo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Alert, SafeAreaView, useWindowDimensions, Image, ImageBackground } from "react-native";
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Header from "../../components/Header";
+import Navigator from "../../components/Navigator";
+import AuthManager from "../../utils/AuthManager";
+import API_BASE_URL from "../../config/api";
 import ChatBubbleButton from "../../components/ChatBubbleButton";
 import SettingsButton from "../../components/SettingsButton";
 import RankingButton from "../../components/RankingButton";
 
 export default function HomeScreen() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [showUserInfoModal, setShowUserInfoModal] = useState(false);
+  const [showAnimalModal, setShowAnimalModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [nickname, setNickname] = useState("");
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
+  const [selectedAnimal, setSelectedAnimal] = useState<string | null>(null);
+  const [pendingAnimal, setPendingAnimal] = useState<string | null>(null);
+  const [showAnimalConfirm, setShowAnimalConfirm] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [accountName, setAccountName] = useState<string>("");
+
+  const animalOptions = useMemo(
+    () => [
+      { id: "capybara", label: "카피바라", emoji: "🦫" },
+      { id: "fox", label: "여우", emoji: "🦊" },
+      { id: "red_panda", label: "레서판다", emoji: "🦝" },
+      { id: "guinea_pig", label: "기니피그", emoji: "🐹" },
+    ],
+    []
+  );
+
+  const currentAnimal = useMemo(
+    () => animalOptions.find((animal) => animal.id === selectedAnimal),
+    [animalOptions, selectedAnimal]
+  );
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
@@ -30,7 +56,64 @@ export default function HomeScreen() {
   const clockIconSize = Math.max(60, Math.min(100, screenWidth * 0.25)); // 시계 아이콘 크기 반응형
 
   useEffect(() => {
-    setShowUserInfoModal(true);
+    const fetchProfile = async () => {
+      try {
+        const headers = await AuthManager.getAuthHeader();
+        if (!headers.Authorization) {
+          router.replace("/(auth)/login" as any);
+          return;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          headers,
+        });
+
+        if (response.status === 401) {
+          await AuthManager.logout();
+          router.replace("/(auth)/login" as any);
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error("사용자 정보를 불러오지 못했습니다.");
+        }
+
+        const data = await response.json();
+
+        setAccountName(data?.account?.name ?? "");
+
+        if (data?.profile) {
+          setNickname(data.profile.nickname ?? "");
+          setHeight(
+            data.profile.height !== null && data.profile.height !== undefined
+              ? String(data.profile.height)
+              : ""
+          );
+          setWeight(
+            data.profile.weight !== null && data.profile.weight !== undefined
+              ? String(data.profile.weight)
+              : ""
+          );
+          setSelectedAnimal(data.profile.animalType ?? null);
+          setShowAnimalModal(false);
+          setShowProfileModal(false);
+        } else {
+          setSelectedAnimal(null);
+          setNickname("");
+          setHeight("");
+          setWeight("");
+          setShowAnimalModal(true);
+          setShowProfileModal(false);
+        }
+      } catch (error) {
+        console.error("프로필 불러오기 실패:", error);
+        Alert.alert("오류", "사용자 정보를 불러오지 못했습니다.");
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    fetchProfile();
   }, []);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
@@ -47,11 +130,107 @@ export default function HomeScreen() {
   const navigateToCustomize = () => router.push("/(tabs)/customize" as any);
   const navigateToAchievement = () => router.push("/(tabs)/achievement" as any);
 
-  const handleSaveUserInfo = () => {
+  const handleSaveUserInfo = async () => {
+    if (!selectedAnimal) {
+      Alert.alert("알림", "함께할 동물을 선택해주세요.");
+      return;
+    }
+
     if (!nickname.trim() || !height.trim() || !weight.trim()) {
       Alert.alert("알림", "모든 정보를 입력해주세요.");
       return;
     }
+
+    const headers = await AuthManager.getAuthHeader();
+    if (!headers.Authorization) {
+      router.replace("/(auth)/login" as any);
+      return;
+    }
+
+    const payload = {
+      animalType: selectedAnimal,
+      nickname,
+      height: height ? Number(height) : null,
+      weight: weight ? Number(weight) : null,
+    };
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        Alert.alert("오류", data?.error ?? "프로필 저장에 실패했습니다.");
+        return;
+      }
+
+      Alert.alert("완료", "프로필이 저장되었습니다.");
+      setShowProfileModal(false);
+    } catch (error) {
+      console.error("프로필 저장 실패:", error);
+      Alert.alert("오류", "프로필 저장 중 문제가 발생했습니다.");
+    }
+  };
+
+  const handleEditProfile = () => {
+    setShowProfileModal(true);
+  };
+
+  const handleSelectAnimal = (animalId: string) => {
+    setPendingAnimal(animalId);
+    setShowAnimalConfirm(true);
+  };
+
+  const confirmAnimalSelection = () => {
+    if (!pendingAnimal) {
+      return;
+    }
+    setSelectedAnimal(pendingAnimal);
+    setPendingAnimal(null);
+    setShowAnimalConfirm(false);
+    setShowAnimalModal(false);
+    setShowProfileModal(true);
+  };
+
+  const cancelAnimalSelection = () => {
+    setPendingAnimal(null);
+    setShowAnimalConfirm(false);
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {isLoadingProfile && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#007AFF" />
+        </View>
+      )}
+      {/* 우측 상단 메뉴 버튼 */}
+      <Header showBackButton={false} showMenuButton={true} menuType="home" />
+      <Navigator />
+      {/* 메인 컨텐츠 */}
+      <View style={styles.mainContent}>
+        {/* 동물 이미지 영역 */}
+        <View style={styles.petContainer}>
+          {/* 상태창 - 동물 이미지 바로 위에 직사각형 */}
+          <View style={styles.statusBar}>
+            <Text style={styles.petName}>
+              {nickname || accountName || "PETS"}
+            </Text>
+            <Text style={styles.statusText}>레벨 5 | 경험치 120/200</Text>
+            <TouchableOpacity
+              style={styles.editProfileButton}
+              onPress={handleEditProfile}
+            >
+              <Text style={styles.editProfileText}>프로필 수정</Text>
+            </TouchableOpacity>
+            
+            {/* 스탯들 */}
     console.log("사용자 정보 저장:", { nickname, height, weight });
     setShowUserInfoModal(false);
   };
@@ -91,6 +270,15 @@ export default function HomeScreen() {
                 <Text style={styles.statValue}>72</Text>
               </View>
             </View>
+          </View>
+          
+          <TouchableOpacity style={styles.petImage} onPress={navigateToChatting}>
+            <Text style={styles.petImageText}>
+              {currentAnimal?.emoji ?? "🐾"}
+            </Text>
+            <Text style={styles.petImageLabel}>
+              {currentAnimal?.label ?? "동물 선택 필요"}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -178,58 +366,149 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* 개인정보 입력 모달 */}
+      {/* 동물 선택 모달 */}
       <Modal
+        visible={showAnimalModal}
+        transparent={true}
         visible={showUserInfoModal}
         transparent
         animationType="fade"
         onRequestClose={() => {}}
       >
         <View style={styles.modalOverlayUserInfo}>
-          <View style={styles.userInfoModal}>
-            <Text style={styles.userInfoTitle}>개인정보 입력</Text>
-            <Text style={styles.userInfoSubtitle}>
-              서비스를 이용하기 위해 정보를 입력해주세요
+          <View style={styles.animalModal}>
+            <Text style={styles.animalModalTitle}>함께할 동물을 골라주세요</Text>
+            <Text style={styles.animalModalSubtitle}>
+              선택한 동물은 특정 도전 과제를 완료하기 전까지 변경할 수 없어요.
             </Text>
 
-            <TextInput
-              style={styles.input}
-              placeholder="닉네임을 입력하세요"
-              value={nickname}
-              onChangeText={setNickname}
-              placeholderTextColor="#999"
-            />
+            <View style={styles.animalOptions}>
+              {animalOptions.map((animal) => {
+                const isSelected =
+                  pendingAnimal === animal.id || selectedAnimal === animal.id;
+                return (
+                  <TouchableOpacity
+                    key={animal.id}
+                    style={[
+                      styles.animalOption,
+                      isSelected && styles.animalOptionSelected,
+                    ]}
+                    onPress={() => handleSelectAnimal(animal.id)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.animalEmoji}>{animal.emoji}</Text>
+                    <Text style={styles.animalLabel}>{animal.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="키(cm)를 입력하세요"
-              value={height}
-              onChangeText={setHeight}
-              keyboardType="numeric"
-              placeholderTextColor="#999"
-            />
-
-            <TextInput
-              style={styles.input}
-              placeholder="몸무게(kg)를 입력하세요"
-              value={weight}
-              onChangeText={setWeight}
-              keyboardType="numeric"
-              placeholderTextColor="#999"
-            />
-
-            <TouchableOpacity style={styles.saveButton} onPress={handleSaveUserInfo}>
-              <Text style={styles.saveButtonText}>저장하기</Text>
-            </TouchableOpacity>
+            {showAnimalConfirm && pendingAnimal && (
+              <View style={styles.animalConfirmBox}>
+                <Text style={styles.animalConfirmTitle}>이 동물과 함께할까요?</Text>
+                <Text style={styles.animalConfirmSubtitle}>
+                  특정 도전 과제를 완료하기 전까지 변경할 수 없어요.
+                </Text>
+                <View style={styles.animalConfirmButtons}>
+                  <TouchableOpacity
+                    style={[styles.animalConfirmButton, styles.animalConfirmCancel]}
+                    onPress={cancelAnimalSelection}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.animalConfirmCancelText}>취소</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.animalConfirmButton, styles.animalConfirmOk]}
+                    onPress={confirmAnimalSelection}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.animalConfirmOkText}>확인</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
+
+      {/* 프로필 정보 입력 모달 */}
+      <Modal
+        visible={showProfileModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={styles.modalOverlayUserInfo}>
+          <ScrollView contentContainerStyle={styles.userInfoScroll}>
+            <View style={styles.userInfoModal}>
+              <Text style={styles.userInfoTitle}>기본 정보 입력</Text>
+              <Text style={styles.userInfoSubtitle}>
+                선택한 동물과 함께할 준비가 되었어요. 정보를 입력해주세요.
+              </Text>
+
+              {currentAnimal && (
+                <View style={styles.selectedAnimalSummary}>
+                  <Text style={styles.selectedAnimalEmoji}>
+                    {currentAnimal.emoji}
+                  </Text>
+                  <Text style={styles.selectedAnimalLabel}>
+                    {currentAnimal.label}
+                  </Text>
+                </View>
+              )}
+
+              <TextInput
+                style={styles.input}
+                placeholder="닉네임을 입력하세요"
+                value={nickname}
+                onChangeText={setNickname}
+                placeholderTextColor="#999"
+              />
+
+              <TextInput
+                style={styles.input}
+                placeholder="키(cm)를 입력하세요"
+                value={height}
+                onChangeText={setHeight}
+                keyboardType="numeric"
+                placeholderTextColor="#999"
+              />
+
+              <TextInput
+                style={styles.input}
+                placeholder="몸무게(kg)를 입력하세요"
+                value={weight}
+                onChangeText={setWeight}
+                keyboardType="numeric"
+                placeholderTextColor="#999"
+              />
+
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleSaveUserInfo}
+              >
+                <Text style={styles.saveButtonText}>저장하기</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+  </SafeAreaView>  
+
       </SafeAreaView>
     </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 20,
+  },
+  container: {
   backgroundImage: {
     flex: 1,
     width: '100%',
@@ -438,6 +717,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20
   },
+  userInfoScroll: {
+    flexGrow: 1,
+    justifyContent: "center",
+    width: "100%",
+  },
 
   userInfoModal: {
     backgroundColor: "#fff",
@@ -450,6 +734,109 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 5
+  },
+  animalOptions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginBottom: 20,
+    gap: 12,
+  },
+  animalModal: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 24,
+    width: "100%",
+    maxWidth: 400,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  animalModalTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  animalModalSubtitle: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  animalOption: {
+    flexBasis: "48%",
+    backgroundColor: "#f5f5f5",
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  animalOptionSelected: {
+    borderColor: "#007AFF",
+    backgroundColor: "#E6F0FF",
+  },
+  animalEmoji: {
+    fontSize: 36,
+    marginBottom: 8,
+  },
+  animalLabel: {
+    fontSize: 14,
+    color: "#333",
+    fontWeight: "600",
+  },
+  animalConfirmBox: {
+    marginTop: 16,
+    backgroundColor: "#F8F9FF",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#CCD6FF",
+  },
+  animalConfirmTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1F3B73",
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  animalConfirmSubtitle: {
+    fontSize: 13,
+    color: "#4A5A88",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  animalConfirmButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  animalConfirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  animalConfirmCancel: {
+    backgroundColor: "#E8ECF8",
+  },
+  animalConfirmOk: {
+    backgroundColor: "#007AFF",
+  },
+  animalConfirmCancelText: {
+    color: "#4A5A88",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  animalConfirmOkText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
   },
 
   userInfoTitle: {
@@ -480,6 +867,50 @@ const styles = StyleSheet.create({
     borderColor: "#e0e0e0",
     includeFontPadding: false
   },
+  saveButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  editProfileButton: {
+    alignSelf: "center",
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: "#F0F4FF",
+  },
+  editProfileText: {
+    color: "#007AFF",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  selectedAnimalSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 20,
+    backgroundColor: "#F0F4FF",
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  selectedAnimalEmoji: {
+    fontSize: 32,
+  },
+  selectedAnimalLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+  },
+});
 
   saveButton: { backgroundColor: "#007AFF", borderRadius: 12, paddingVertical: 16, alignItems: "center", marginTop: 8 },
 
