@@ -1,36 +1,64 @@
 //커스터마이징 화면
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  SafeAreaView,
+  Image,
+  ImageSourcePropType,
+} from "react-native";
 import { useState } from "react";
 import Header from "../../components/Header";
 import Navigator from "../../components/Navigator";
+import dog from "../../assets/images/animals/dog.png";
+import capibara from "../../assets/images/animals/capibara.png";
+import fox from "../../assets/images/animals/fox.png";
+import ginipig from "../../assets/images/animals/ginipig.png";
+import red_panda from "../../assets/images/animals/red_panda.png";
+
+type AnimalOption = {
+  name: string;
+  src: ImageSourcePropType;
+};
+
+const animals: AnimalOption[] = [
+  { name: '강아지', src: dog },
+  { name: '카피바라', src: capibara },
+  { name: '사막여우', src: fox },
+  { name: '기니피그', src: ginipig },
+  { name: '레서판다', src: red_panda },
+];
+
+const backgrounds = ['기본', '숲', '바다', '도시', '우주'];
+const clocks = ['기본', '클래식', '모던', '미니멀'];
+const menuItems = ['동물', '배경', '시계'] as const;
+
+type MenuItem = (typeof menuItems)[number];
 
 export default function CustomizeScreen() {
-  const [selectedMenu, setSelectedMenu] = useState('동물');
-  const [selectedAnimal, setSelectedAnimal] = useState('🐕');
-  const [selectedBackground, setSelectedBackground] = useState('기본');
-  const [selectedClock, setSelectedClock] = useState('기본');
-
-  const menuItems = ['동물', '배경', '시계'];
-
-  const animals = ['🐕', '🐱', '🐰', '🐻', '🐼', '🦊'];
-  const backgrounds = ['기본', '숲', '바다', '도시', '우주'];
-  const clocks = ['기본', '클래식', '모던', '미니멀'];
+  const [selectedMenu, setSelectedMenu] = useState<MenuItem>('동물');
+  const [selectedAnimal, setSelectedAnimal] = useState<AnimalOption>(animals[0]);
+  const [selectedBackground, setSelectedBackground] = useState<string>(backgrounds[0]);
+  const [selectedClock, setSelectedClock] = useState<string>(clocks[0]);
 
   const renderContent = () => {
     switch (selectedMenu) {
       case '동물':
         return (
           <View style={styles.contentGrid}>
-            {animals.map((animal, index) => (
+            {animals.map((animal) => (
               <TouchableOpacity
-                key={index}
+                key={animal.name}
                 style={[
                   styles.optionItem,
-                  selectedAnimal === animal && styles.selectedOption
+                  selectedAnimal.name === animal.name && styles.selectedOption,
                 ]}
                 onPress={() => setSelectedAnimal(animal)}
               >
-                <Text style={styles.optionText}>{animal}</Text>
+                <Image source={animal.src} style={styles.optionImage} resizeMode="contain" />
+                <Text style={styles.optionText}>{animal.name}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -76,7 +104,7 @@ export default function CustomizeScreen() {
 
   const handleSave = () => {
     // 저장 로직 구현
-    console.log('저장됨:', { selectedAnimal, selectedBackground, selectedClock });
+    console.log('저장됨:', { selectedAnimal: selectedAnimal.name, selectedBackground, selectedClock });
   };
 
   return (
@@ -87,7 +115,17 @@ export default function CustomizeScreen() {
       <View style={styles.previewContainer}>
         <View style={styles.previewPetContainer}>
           <View style={styles.previewPetImage}>
-            <Text style={styles.previewPetText}>{selectedAnimal}</Text>
+            {selectedAnimal ? (
+              <Image
+                source={selectedAnimal.src}
+                style={styles.previewAnimalImage}
+                resizeMode="contain"
+              />
+            ) : (
+              <Text style={styles.previewPetLabel}>동물 이미지</Text>
+            )}
+          </View>
+          <View style={styles.previewPetLabelContainer}>
             <Text style={styles.previewPetLabel}>동물 이미지</Text>
           </View>
         </View>
@@ -150,10 +188,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   previewPetImage: {
-    width: 150,
-    height: 150,
+    width: 180,
+    height: 160,
     backgroundColor: '#fff',
-    borderRadius: 75,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
@@ -164,14 +202,19 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  previewPetText: {
-    fontSize: 60,
-    marginBottom: 5,
+  previewAnimalImage: {
+    width: '90%',
+    height: '90%',
+  },
+  previewPetLabelContainer: {
+    marginTop: 12,
+    alignItems: 'center',
   },
   previewPetLabel: {
     fontSize: 14,
     color: '#666',
     fontWeight: '500',
+    textAlign: 'center',
   },
   previewTimerButtons: {
     flexDirection: 'row',
@@ -252,6 +295,10 @@ const styles = StyleSheet.create({
   selectedOption: {
     borderColor: '#4CAF50',
     backgroundColor: '#f0f8f0',
+  },
+  optionImage: {
+    width: 60,
+    height: 60,
   },
   optionText: {
     fontSize: 16,
