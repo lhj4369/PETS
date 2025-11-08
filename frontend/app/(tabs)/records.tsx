@@ -15,6 +15,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import Header from "../../components/Header";
 import Navigator from "../../components/Navigator";
+import HealthService from "../../services/HealthService";
 
 interface WorkoutRecord {
   id: string;
@@ -91,7 +92,7 @@ export default function RecordsScreen() {
     }
   };
 
-  const addWorkoutRecord = (record: Omit<WorkoutRecord, 'id'>) => {
+  const addWorkoutRecord = async (record: Omit<WorkoutRecord, 'id'>) => {
     const newRecord: WorkoutRecord = {
       ...record,
       id: Date.now().toString(),
@@ -100,6 +101,33 @@ export default function RecordsScreen() {
 
     if (selectedDate && record.date === selectedDate) {
       setSelectedDayRecords([...selectedDayRecords, newRecord]);
+    }
+
+    // 헬스 API에 운동 데이터 저장
+    if (HealthService.isAvailable()) {
+      try {
+        const recordDate = new Date(record.date);
+        const startDate = new Date(recordDate);
+        startDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(recordDate);
+        endDate.setHours(23, 59, 59, 999);
+
+        // 운동 타입에 따른 칼로리 계산 (간단한 추정)
+        const estimatedCalories = Math.round(record.duration * 5); // 분당 5칼로리 가정
+        
+        await HealthService.saveWorkout(
+          record.type,
+          record.duration,
+          estimatedCalories,
+          undefined, // distance는 추후 계산
+          startDate,
+          endDate
+        );
+        console.log('헬스 API에 운동 데이터 저장 완료');
+      } catch (error) {
+        console.error('헬스 API 저장 실패:', error);
+        // 실패해도 기록은 저장됨
+      }
     }
 
     setShowAddModal(false);

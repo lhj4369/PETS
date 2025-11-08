@@ -1,8 +1,9 @@
-import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Alert, SafeAreaView } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, Alert, SafeAreaView, ScrollView, ActivityIndicator } from "react-native";
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import Header from "../../components/Header";
 import Navigator from "../../components/Navigator";
+import HealthService, { HealthData } from "../../services/HealthService";
 
 export default function HomeScreen() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -10,11 +11,60 @@ export default function HomeScreen() {
   const [nickname, setNickname] = useState("");
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
+  const [healthData, setHealthData] = useState<HealthData | null>(null);
+  const [isLoadingHealth, setIsLoadingHealth] = useState(false);
+  const [healthPermissionGranted, setHealthPermissionGranted] = useState(false);
 
   // 홈 화면 진입 시 개인정보 입력 모달 표시
   useEffect(() => {
     setShowUserInfoModal(true);
   }, []);
+
+  // 헬스 데이터 로드
+  useEffect(() => {
+    loadHealthData();
+    // 1분마다 헬스 데이터 갱신
+    const interval = setInterval(() => {
+      loadHealthData();
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadHealthData = async () => {
+    if (!HealthService.isAvailable()) {
+      console.log('헬스 API는 모바일 기기에서만 사용할 수 있습니다.');
+      return;
+    }
+
+    setIsLoadingHealth(true);
+    try {
+      // 헬스 권한 확인 및 요청
+      const hasPermission = await HealthService.checkPermission();
+      if (!hasPermission) {
+        const granted = await HealthService.requestPermission();
+        setHealthPermissionGranted(granted);
+        if (!granted) {
+          Alert.alert(
+            '헬스 데이터 권한',
+            '헬스 데이터를 사용하려면 권한이 필요합니다. 설정에서 권한을 허용해주세요.'
+          );
+          setIsLoadingHealth(false);
+          return;
+        }
+      } else {
+        setHealthPermissionGranted(true);
+      }
+
+      // 헬스 데이터 조회
+      const data = await HealthService.getTodayHealthData();
+      setHealthData(data);
+    } catch (error) {
+      console.error('헬스 데이터 로드 실패:', error);
+    } finally {
+      setIsLoadingHealth(false);
+    }
+  };
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -53,12 +103,12 @@ export default function HomeScreen() {
       <Header showBackButton={false} showMenuButton={true} menuType="home" />
       <Navigator />
       {/* 메인 컨텐츠 */}
-      <View style={styles.mainContent}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* 동물 이미지 영역 */}
         <View style={styles.petContainer}>
           {/* 상태창 - 동물 이미지 바로 위에 직사각형 */}
           <View style={styles.statusBar}>
-            <Text style={styles.petName}>{nickname}</Text>
+            <Text style={styles.petName}>{nickname || "펫 이름"}</Text>
             <Text style={styles.statusText}>레벨 5 | 경험치 120/200</Text>
             
             {/* 스탯들 */}
@@ -80,6 +130,63 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* 헬스 데이터 카드 */}
+        {HealthService.isAvailable() && (
+          <View style={styles.healthCard}>
+            <View style={styles.healthCardHeader}>
+              <Text style={styles.healthCardTitle}>오늘의 활동</Text>
+              <TouchableOpacity onPress={loadHealthData} disabled={isLoadingHealth}>
+                {isLoadingHealth ? (
+                  <ActivityIndicator size="small" color="#007AFF" />
+                ) : (
+                  <Text style={styles.refreshButton}>🔄</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+            
+            {!healthPermissionGranted ? (
+              <View style={styles.healthPermissionPrompt}>
+                <Text style={styles.healthPermissionText}>
+                  헬스 데이터를 사용하려면 권한이 필요합니다.
+                </Text>
+                <TouchableOpacity
+                  style={styles.permissionButton}
+                  onPress={loadHealthData}
+                >
+                  <Text style={styles.permissionButtonText}>권한 허용</Text>
+                </TouchableOpacity>
+              </View>
+            ) : healthData ? (
+              <View style={styles.healthStats}>
+                <View style={styles.healthStatItem}>
+                  <Text style={styles.healthStatLabel}>걸음 수</Text>
+                  <Text style={styles.healthStatValue}>{healthData.steps.toLocaleString()}</Text>
+                  <Text style={styles.healthStatUnit}>걸음</Text>
+                </View>
+                <View style={styles.healthStatDivider} />
+                <View style={styles.healthStatItem}>
+                  <Text style={styles.healthStatLabel}>거리</Text>
+                  <Text style={styles.healthStatValue}>
+                    {(healthData.distance / 1000).toFixed(2)}
+                  </Text>
+                  <Text style={styles.healthStatUnit}>km</Text>
+                </View>
+                <View style={styles.healthStatDivider} />
+                <View style={styles.healthStatItem}>
+                  <Text style={styles.healthStatLabel}>칼로리</Text>
+                  <Text style={styles.healthStatValue}>{healthData.calories}</Text>
+                  <Text style={styles.healthStatUnit}>kcal</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.healthLoading}>
+                <ActivityIndicator size="small" color="#007AFF" />
+                <Text style={styles.healthLoadingText}>데이터를 불러오는 중...</Text>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* 타이머 버튼들 */}
         <View style={styles.timerButtons}>
           <TouchableOpacity style={styles.timerButton} onPress={navigateToTimer}>
@@ -87,7 +194,7 @@ export default function HomeScreen() {
           </TouchableOpacity>          
         </View>
 
-      </View>      
+      </ScrollView>      
        
 
       {/* 개인정보 입력 모달 */}
@@ -145,6 +252,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 20,
   },
   header: {
     position: 'absolute',
@@ -369,6 +482,94 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  healthCard: {
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 20,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  healthCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  healthCardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  refreshButton: {
+    fontSize: 20,
+  },
+  healthStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  healthStatItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  healthStatLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 5,
+  },
+  healthStatValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#007AFF',
+  },
+  healthStatUnit: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
+  healthStatDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#e0e0e0',
+    marginHorizontal: 10,
+  },
+  healthPermissionPrompt: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  healthPermissionText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  permissionButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  permissionButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  healthLoading: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  healthLoadingText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 10,
   },
 });
 
