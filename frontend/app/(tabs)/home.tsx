@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -73,6 +73,58 @@ const HomeScreen = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
+        // 개발자 모드: 로컬 목 데이터 우선 사용
+        if (await AuthManager.isDevMode()) {
+          const devData = (await AuthManager.getDevProfile()) ?? (await AuthManager.getUser());
+
+          if (devData && typeof devData === "object") {
+            const devAccount = devData as {
+              name?: string;
+              profile?: {
+                animalType?: AnimalId | null;
+                nickname?: string | null;
+                height?: number | null;
+                weight?: number | null;
+              } | null;
+            };
+
+            const devProfile = devAccount.profile ?? null;
+            const animalType = (devProfile?.animalType as AnimalId | null) ?? null;
+            const nicknameValue = devProfile?.nickname ?? "";
+            const heightValue = devProfile?.height ?? null;
+            const weightValue = devProfile?.weight ?? null;
+
+            const hasAnimal = !!animalType;
+            const hasNickname = !!nicknameValue;
+
+            setAccountName(devAccount.name ?? "");
+            setSelectedAnimal(animalType);
+            setNickname(nicknameValue ?? "");
+            setHeight(
+              heightValue !== null && heightValue !== undefined
+                ? String(heightValue)
+                : ""
+            );
+            setWeight(
+              weightValue !== null && weightValue !== undefined
+                ? String(weightValue)
+                : ""
+            );
+            setShowAnimalModal(!hasAnimal);
+            setShowProfileModal(hasAnimal && !hasNickname);
+          } else {
+            setAccountName("");
+            setSelectedAnimal(null);
+            setNickname("");
+            setHeight("");
+            setWeight("");
+            setShowAnimalModal(true);
+            setShowProfileModal(false);
+          }
+
+          return;
+        }
+
         const headers = await AuthManager.getAuthHeader();
         if (!headers.Authorization) {
           router.replace("/(auth)/login" as any);
@@ -116,6 +168,7 @@ const HomeScreen = () => {
           setHeight("");
           setWeight("");
           setShowAnimalModal(true);
+          setShowProfileModal(true);
         }
       } catch (error) {
         console.error("프로필 불러오기 실패:", error);
@@ -145,6 +198,32 @@ const HomeScreen = () => {
       return;
     }
 
+    // 개발자 모드: 로컬 목 데이터 저장
+    if (await AuthManager.isDevMode()) {
+      const nameForDev = accountName || nickname || "개발자";
+      const devProfileData = {
+        id: "dev",
+        name: nameForDev,
+        email: "dev@example.com",
+        profile: {
+          animalType: selectedAnimal,
+          nickname,
+          height: height ? Number(height) : null,
+          weight: weight ? Number(weight) : null,
+        },
+      };
+
+      await AuthManager.setDevProfile(devProfileData); // 개발자 모드
+      await AuthManager.login("dev-token", devProfileData); // 개발자 모드
+      await AuthManager.setDevMode(true); // 개발자 모드
+
+      setAccountName(nameForDev);
+      setShowAnimalModal(false);
+      setShowProfileModal(false);
+      Alert.alert("완료", "프로필이 저장되었습니다.");
+      return;
+    }
+
     const headers = await AuthManager.getAuthHeader();
     if (!headers.Authorization) {
       router.replace("/(auth)/login" as any);
@@ -154,8 +233,8 @@ const HomeScreen = () => {
     const payload = {
       animalType: selectedAnimal,
       nickname,
-      height: Number(height) || null,
-      weight: Number(weight) || null,
+      height: height ? Number(height) : null,
+      weight: weight ? Number(weight) : null,
     };
 
     try {
