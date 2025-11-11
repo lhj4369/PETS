@@ -21,6 +21,7 @@ import API_BASE_URL from "../../config/api";
 import ChatBubbleButton from "../../components/ChatBubbleButton";
 import SettingsButton from "../../components/SettingsButton";
 import RankingButton from "../../components/RankingButton";
+import { useCustomization, DEFAULT_ANIMAL_IMAGE, DEFAULT_BACKGROUND_IMAGE } from "../../context/CustomizationContext";
 
 const BASE_WIDTH = 390;
 const BASE_HEIGHT = 844;
@@ -59,11 +60,12 @@ const HomeScreen = () => {
   const [pendingAnimal, setPendingAnimal] = useState<AnimalId | null>(null);
   const [showAnimalConfirm, setShowAnimalConfirm] = useState(false);
 
-  const [selectedAnimal, setSelectedAnimal] = useState<AnimalId | null>(null);
+  const [selectedAnimalId, setSelectedAnimalId] = useState<AnimalId | null>(null);
   const [nickname, setNickname] = useState("");
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
   const [accountName, setAccountName] = useState("");
+  const { selectedAnimal, selectedBackground } = useCustomization();
 
   const petSize = Math.min(240, screenWidth * 0.5);
   const buttonSize = Math.max(96, Math.min(144, screenWidth * 0.3));
@@ -98,7 +100,7 @@ const HomeScreen = () => {
             const hasNickname = !!nicknameValue;
 
             setAccountName(devAccount.name ?? "");
-            setSelectedAnimal(animalType);
+            setSelectedAnimalId(animalType);
             setNickname(nicknameValue ?? "");
             setHeight(
               heightValue !== null && heightValue !== undefined
@@ -114,7 +116,7 @@ const HomeScreen = () => {
             setShowProfileModal(hasAnimal && !hasNickname);
           } else {
             setAccountName("");
-            setSelectedAnimal(null);
+            setSelectedAnimalId(null);
             setNickname("");
             setHeight("");
             setWeight("");
@@ -148,7 +150,7 @@ const HomeScreen = () => {
         setAccountName(data.account?.name ?? "");
 
         if (data.profile) {
-          setSelectedAnimal(data.profile.animalType ?? null);
+          setSelectedAnimalId(data.profile.animalType ?? null);
           setNickname(data.profile.nickname ?? "");
           setHeight(
             data.profile.height !== null && data.profile.height !== undefined
@@ -163,7 +165,7 @@ const HomeScreen = () => {
           setShowAnimalModal(false);
           setShowProfileModal(false);
         } else {
-          setSelectedAnimal(null);
+          setSelectedAnimalId(null);
           setNickname("");
           setHeight("");
           setWeight("");
@@ -184,11 +186,11 @@ const HomeScreen = () => {
   const navigateToTimer = () => router.push("/(tabs)/timer" as any);
   const navigateToRecords = () => router.push("/(tabs)/records" as any);
   const navigateToRanking = () => router.push("/(tabs)/ranking" as any);
-  const navigateToCustomize = () => router.push("/(tabs)/customize" as any);
   const navigateToAchievement = () => router.push("/(tabs)/achievement" as any);
+  const navigateToCustomize = () => router.push("/(tabs)/customize" as any);
 
   const handleSaveProfile = async () => {
-    if (!selectedAnimal) {
+    if (!selectedAnimalId) {
       Alert.alert("알림", "함께할 동물을 먼저 선택해주세요.");
       return;
     }
@@ -206,7 +208,7 @@ const HomeScreen = () => {
         name: nameForDev,
         email: "dev@example.com",
         profile: {
-          animalType: selectedAnimal,
+          animalType: selectedAnimalId,
           nickname,
           height: height ? Number(height) : null,
           weight: weight ? Number(weight) : null,
@@ -231,7 +233,7 @@ const HomeScreen = () => {
     }
 
     const payload = {
-      animalType: selectedAnimal,
+      animalType: selectedAnimalId,
       nickname,
       height: height ? Number(height) : null,
       weight: weight ? Number(weight) : null,
@@ -272,7 +274,7 @@ const HomeScreen = () => {
 
   const confirmAnimalSelection = () => {
     if (!pendingAnimal) return;
-    setSelectedAnimal(pendingAnimal);
+    setSelectedAnimalId(pendingAnimal);
     setPendingAnimal(null);
     setShowAnimalConfirm(false);
     setShowAnimalModal(false);
@@ -286,7 +288,7 @@ const HomeScreen = () => {
 
   return (
     <ImageBackground
-      source={require("../../assets/images/background_test.png")}
+      source={selectedBackground ?? DEFAULT_BACKGROUND_IMAGE}
       style={styles.background}
       resizeMode="contain"
     >
@@ -338,7 +340,7 @@ const HomeScreen = () => {
             onPress={navigateToCustomize}
           >
             <Image
-              source={require("../../assets/images/dog_character.png")}
+              source={selectedAnimal ?? DEFAULT_ANIMAL_IMAGE}
               style={[styles.petPortraitImage, { width: petSize * 0.8, height: petSize * 0.8 }]}
             />
           </TouchableOpacity>
@@ -409,7 +411,7 @@ const HomeScreen = () => {
               <View style={styles.animalOptions}>
                 {ANIMAL_OPTIONS.map((animal) => {
                   const isSelected =
-                    animal.id === pendingAnimal || animal.id === selectedAnimal;
+                    animal.id === pendingAnimal || animal.id === selectedAnimalId;
                   return (
                     <TouchableOpacity
                       key={animal.id}
@@ -461,13 +463,13 @@ const HomeScreen = () => {
                   선택한 동물과 함께할 준비가 되었어요. 정보를 입력해주세요.
                 </Text>
 
-                {selectedAnimal && (
+                {selectedAnimalId && (
                   <View style={styles.selectedAnimalSummary}>
                     <Text style={styles.selectedAnimalEmoji}>
-                      {ANIMAL_OPTIONS.find((animal) => animal.id === selectedAnimal)?.emoji ?? ""}
+                      {ANIMAL_OPTIONS.find((animal) => animal.id === selectedAnimalId)?.emoji ?? ""}
                     </Text>
                     <Text style={styles.selectedAnimalLabel}>
-                      {ANIMAL_OPTIONS.find((animal) => animal.id === selectedAnimal)?.label ?? ""}
+                      {ANIMAL_OPTIONS.find((animal) => animal.id === selectedAnimalId)?.label ?? ""}
                     </Text>
                   </View>
                 )}
