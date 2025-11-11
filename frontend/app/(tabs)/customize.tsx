@@ -1,6 +1,7 @@
 //커스터마이징 화면
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView, Image } from "react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { router } from "expo-router";
 import HomeButton from "../../components/HomeButton";
 import dog from "../../assets/images/animals/dog.png";
 import capibara from "../../assets/images/animals/capibara.png";
@@ -13,33 +14,61 @@ import fall from "../../assets/images/background/fall.png";
 import winter from "../../assets/images/background/winter.png";
 import city from "../../assets/images/background/city.png";
 import home from "../../assets/images/background/home.png";
+import { useCustomization } from "../../context/CustomizationContext";
 
+const menuItems = ['동물', '배경', '시계'];
+
+const animals = [
+  { name: '강아지', src: dog },
+  { name: '카피바라', src: capibara },
+  { name: '사막여우', src: fox },
+  { name: '기니피그', src: ginipig },
+  { name: '레서판다', src: red_panda },
+];
+
+const backgrounds = [
+  { name: '기본', src: home },
+  { name: '봄', src: spring },
+  { name: '여름', src: summer },
+  { name: '도시', src: city },
+  { name: '가을', src: fall },
+  { name: '겨울', src: winter },
+];
+
+const clocks = ['기본', '클래식', '모던', '미니멀'];
 
 export default function CustomizeScreen() {
+  const { setCustomization, selectedAnimal, selectedBackground, selectedClock } = useCustomization();
   const [selectedMenu, setSelectedMenu] = useState('동물');
-  const [selectedAnimal, setSelectedAnimal] = useState('🐕');
-  const [selectedBackground, setSelectedBackground] = useState('기본');
-  const [selectedClock, setSelectedClock] = useState('기본');
+  const [activeAnimal, setActiveAnimal] = useState(() => {
+    const match = animals.find(a => a.src === selectedAnimal);
+    return match?.name ?? '강아지';
+  });
+  const [activeBackground, setActiveBackground] = useState(() => {
+    const match = backgrounds.find(bg => bg.src === selectedBackground);
+    return match?.name ?? '기본';
+  });
+  const [activeClock, setActiveClock] = useState(selectedClock ?? '기본');
 
-  const menuItems = ['동물', '배경', '시계'];
+  useEffect(() => {
+    const match = animals.find(a => a.src === selectedAnimal);
+    if (match) {
+      setActiveAnimal(match.name);
+    }
+  }, [selectedAnimal]);
 
-  const animals = [
-    { name: '강아지', src: dog },
-    { name: '카피바라', src: capibara },
-    { name: '사막여우', src: fox },
-    { name: '기니피그', src: ginipig },
-    { name: '레서판다', src: red_panda },
-  ];
-  const backgrounds = [
-    { name: '기본', src: home },
-    { name: '봄', src: spring },
-    { name: '여름', src: summer },
-    { name: '도시', src: city },
-    { name: '가을', src: fall },  
-    { name: '겨울', src: winter },
-  ];
-  
-  const clocks = ['기본', '클래식', '모던', '미니멀'];
+  useEffect(() => {
+    const match = backgrounds.find(bg => bg.src === selectedBackground);
+    if (match) {
+      setActiveBackground(match.name);
+    }
+  }, [selectedBackground]);
+
+  useEffect(() => {
+    if (selectedClock) {
+      setActiveClock(selectedClock);
+    }
+  }, [selectedClock]);
 
   const renderContent = () => {
     switch (selectedMenu) {
@@ -51,9 +80,9 @@ export default function CustomizeScreen() {
                 key={a.name}
                 style={[
                   styles.optionItem,
-                  selectedAnimal === a.name && styles.selectedOption
+                  activeAnimal === a.name && styles.selectedOption
                 ]}
-                onPress={() => setSelectedAnimal(a.name)}
+                onPress={() => setActiveAnimal(a.name)}
               >
                 <Image
                   source={a.src}
@@ -72,9 +101,9 @@ export default function CustomizeScreen() {
                   key={bg.name}
                   style={[
                     styles.optionItem,
-                    selectedBackground === bg.name && styles.selectedOption
+                    activeBackground === bg.name && styles.selectedOption
                   ]}
-                  onPress={() => setSelectedBackground(bg.name)}
+                  onPress={() => setActiveBackground(bg.name)}
                 >
                   <Image
                     source={bg.src}
@@ -94,9 +123,9 @@ export default function CustomizeScreen() {
                 key={index}
                 style={[
                   styles.optionItem,
-                  selectedClock === clock && styles.selectedOption
+                  activeClock === clock && styles.selectedOption
                 ]}
-                onPress={() => setSelectedClock(clock)}
+                onPress={() => setActiveClock(clock)}
               >
                 <Text style={styles.optionText}>{clock}</Text>
               </TouchableOpacity>
@@ -109,9 +138,19 @@ export default function CustomizeScreen() {
   };
 
   const handleSave = () => {
-    // 저장 로직 구현
-    console.log('저장됨:', { selectedAnimal, selectedBackground, selectedClock });
+    const selectedAnimalData = animals.find(a => a.name === activeAnimal);
+    const selectedBgData = backgrounds.find(bg => bg.name === activeBackground);
+    const selectedClockData = clocks.find(c => c === activeClock);
+
+    setCustomization(
+      selectedAnimalData?.src || null,
+      selectedBgData?.src || null,
+      selectedClockData || null
+    );
+
+    router.back();
   };
+  
 
   return (
     <SafeAreaView style={styles.container}>
@@ -120,8 +159,8 @@ export default function CustomizeScreen() {
       <View style={styles.previewContainer}>
         <View style={styles.previewPetContainer}>
           {(() => {
-            const selectedAnimalData = animals.find(a => a.name === selectedAnimal);
-            const selectedBgData = backgrounds.find(bg => bg.name === selectedBackground);
+            const selectedAnimalData = animals.find(a => a.name === activeAnimal);
+            const selectedBgData = backgrounds.find(bg => bg.name === activeBackground);
             const isBackgroundMode = selectedMenu === '배경';
 
             return (
