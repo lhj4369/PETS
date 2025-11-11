@@ -1,4 +1,4 @@
-import { TouchableOpacity, StyleSheet, Text } from "react-native";
+import { TouchableOpacity, StyleSheet, Image } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -13,12 +13,15 @@ export default function SettingsButton() {
     <TouchableOpacity
       style={[
         styles.settingsButton,
-        { top: insets.top + 110, right: 20 }
+        { top: insets.top + 95, right: 20 }
       ]}
       onPress={navigateToSettings}
       activeOpacity={0.7}
     >
-      <Text style={styles.settingsIcon}>⚙️</Text>
+      <Image 
+        source={require('../assets/images/setting_icon.png')} 
+        style={styles.settingsIcon} 
+      />
     </TouchableOpacity>
   );
 }
@@ -43,8 +46,9 @@ const styles = StyleSheet.create({
     // elevation: 3,
   },
   settingsIcon: {
-    fontSize: 24,
-    includeFontPadding: false
+    width: 24,
+    height: 24,
+    resizeMode: 'contain'
   }
 });
 

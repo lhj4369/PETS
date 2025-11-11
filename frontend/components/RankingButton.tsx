@@ -1,4 +1,4 @@
-import { TouchableOpacity, StyleSheet, Text } from "react-native";
+import { TouchableOpacity, StyleSheet, Image } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -13,12 +13,15 @@ export default function RankingButton() {
     <TouchableOpacity
       style={[
         styles.rankingButton,
-        { top: insets.top + 60, right: 20 }
+        { top: insets.top + 52, right: 20 }
       ]}
       onPress={navigateToRanking}
       activeOpacity={0.7}
     >
-      <Text style={styles.rankingIcon}>📊</Text>
+      <Image 
+        source={require('../assets/images/ranking_icon.png')} 
+        style={styles.rankingIcon} 
+      />
     </TouchableOpacity>
   );
 }
@@ -43,8 +46,9 @@ const styles = StyleSheet.create({
     // elevation: 3,
   },
   rankingIcon: {
-    fontSize: 24,
-    includeFontPadding: false
+    width: 24,
+    height: 24,
+    resizeMode: 'contain'
   }
 });
 

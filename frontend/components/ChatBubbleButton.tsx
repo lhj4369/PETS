@@ -1,4 +1,4 @@
-import { TouchableOpacity, StyleSheet, Text } from "react-native";
+import { TouchableOpacity, StyleSheet, Image } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -18,7 +18,10 @@ export default function ChatBubbleButton() {
       onPress={navigateToChatting}
       activeOpacity={0.7}
     >
-      <Text style={styles.chatBubbleIcon}>💬</Text>
+      <Image 
+        source={require('../assets/images/chat_icon.png')} 
+        style={styles.chatBubbleIcon} 
+      />
     </TouchableOpacity>
   );
 }
@@ -42,9 +45,10 @@ const styles = StyleSheet.create({
     // shadowRadius: 4,
     // elevation: 3,
   },
-  chatBubbleIcon: {
-    fontSize: 24,
-    includeFontPadding: false
+  chatBubbleIcon: { //말풍선 아이콘 크기조정
+    width: 24,
+    height: 24,
+    resizeMode: 'contain'
   }
 });
 
