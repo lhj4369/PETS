@@ -48,11 +48,16 @@ export default function LoginScreen() {
 
   const handleDevLogin = async () => {
     // 개발자 모드: 로그인 처리 후 홈으로 이동
-    await AuthManager.login("dev-token", {
+    const devProfile = {
       id: "dev",
       name: "개발자",
       email: "dev@example.com",
-    });
+      profile: null, // 개발자 모드: 최초에는 동물/프로필 미설정
+    };
+
+    await AuthManager.login("dev-token", devProfile);
+    await AuthManager.setDevMode(true); // 개발자 모드
+    await AuthManager.setDevProfile(devProfile); // 개발자 모드
     router.replace("/(tabs)/home" as any);
   };
 
