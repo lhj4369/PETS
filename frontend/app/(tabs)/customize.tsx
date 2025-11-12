@@ -14,6 +14,10 @@ import fall from "../../assets/images/background/fall.png";
 import winter from "../../assets/images/background/winter.png";
 import city from "../../assets/images/background/city.png";
 import home from "../../assets/images/background/home.png";
+import cute from "../../assets/images/clocks/cute.png";
+import alarm from "../../assets/images/clocks/alarm.png";
+import sand from "../../assets/images/clocks/sand.png";
+import mini from "../../assets/images/clocks/mini.png";
 import { useCustomization } from "../../context/CustomizationContext";
 
 const menuItems = ['동물', '배경', '시계'];
@@ -35,7 +39,15 @@ const backgrounds = [
   { name: '겨울', src: winter },
 ];
 
-const clocks = ['기본', '클래식', '모던', '미니멀'];
+const clocks = [
+  { name: "귀여운 시계", src: cute },
+  { name: "알람 시계", src: alarm },
+  { name: "모래 시계", src: sand },
+  { name: "미니멀 시계", src: mini },
+];
+
+const DEFAULT_CLOCK_NAME = clocks[0].name;
+
 
 export default function CustomizeScreen() {
   const { setCustomization, selectedAnimal, selectedBackground, selectedClock } = useCustomization();
@@ -48,7 +60,13 @@ export default function CustomizeScreen() {
     const match = backgrounds.find(bg => bg.src === selectedBackground);
     return match?.name ?? '기본';
   });
-  const [activeClock, setActiveClock] = useState(selectedClock ?? '기본');
+  const [activeClock, setActiveClock] = useState(() => {
+    if (!selectedClock) {
+      return DEFAULT_CLOCK_NAME;
+    }
+    const match = clocks.find(clock => clock.src === selectedClock);
+    return match?.name ?? DEFAULT_CLOCK_NAME;
+  });
 
   useEffect(() => {
     const match = animals.find(a => a.src === selectedAnimal);
@@ -65,8 +83,13 @@ export default function CustomizeScreen() {
   }, [selectedBackground]);
 
   useEffect(() => {
-    if (selectedClock) {
-      setActiveClock(selectedClock);
+    if (!selectedClock) {
+      setActiveClock(DEFAULT_CLOCK_NAME);
+      return;
+    }
+    const match = clocks.find(clock => clock.src === selectedClock);
+    if (match) {
+      setActiveClock(match.name);
     }
   }, [selectedClock]);
 
@@ -115,23 +138,28 @@ export default function CustomizeScreen() {
             </View>
           );
         
-      case '시계':
-        return (
-          <View style={styles.contentGrid}>
-            {clocks.map((clock, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.optionItem,
-                  activeClock === clock && styles.selectedOption
-                ]}
-                onPress={() => setActiveClock(clock)}
-              >
-                <Text style={styles.optionText}>{clock}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        );
+          case '시계':
+            return (
+              <View style={styles.contentGrid}>
+                {clocks.map((clock) => (
+                  <TouchableOpacity
+                    key={clock.name}
+                    style={[
+                      styles.optionItem,
+                      activeClock === clock.name && styles.selectedOption,
+                    ]}
+                    onPress={() => setActiveClock(clock.name)}
+                  >
+                    <Image
+                      source={clock.src}
+                      style={{ width: 70, height: 70, resizeMode: 'contain' }}
+                    />
+                    <Text style={styles.optionText}>{clock.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            );
+          
       default:
         return null;
     }
@@ -140,12 +168,12 @@ export default function CustomizeScreen() {
   const handleSave = () => {
     const selectedAnimalData = animals.find(a => a.name === activeAnimal);
     const selectedBgData = backgrounds.find(bg => bg.name === activeBackground);
-    const selectedClockData = clocks.find(c => c === activeClock);
+    const selectedClockData = clocks.find(c => c.name === activeClock);
 
     setCustomization(
       selectedAnimalData?.src || null,
       selectedBgData?.src || null,
-      selectedClockData || null
+      selectedClockData?.src || null
     );
 
     router.back();
@@ -161,34 +189,41 @@ export default function CustomizeScreen() {
           {(() => {
             const selectedAnimalData = animals.find(a => a.name === activeAnimal);
             const selectedBgData = backgrounds.find(bg => bg.name === activeBackground);
+            const selectedClockData = clocks.find(clock => clock.name === activeClock);
             const isBackgroundMode = selectedMenu === '배경';
+            const isClockMode = selectedMenu === '시계';
+            const previewLabel = isBackgroundMode ? '배경 이미지' : isClockMode ? '시계 이미지' : '동물 이미지';
+
+            const renderPreviewImage = () => {
+              if (isBackgroundMode) {
+                return selectedBgData ? (
+                  <Image source={selectedBgData.src} style={styles.previewBackgroundImage} />
+                ) : (
+                  <Text style={styles.previewPetPlaceholder}>{previewLabel}</Text>
+                );
+              }
+
+              if (isClockMode) {
+                return selectedClockData ? (
+                  <Image source={selectedClockData.src} style={styles.previewClockImage} />
+                ) : (
+                  <Text style={styles.previewPetPlaceholder}>{previewLabel}</Text>
+                );
+              }
+
+              return selectedAnimalData ? (
+                <Image source={selectedAnimalData.src} style={styles.previewAnimalImage} />
+              ) : (
+                <Text style={styles.previewPetPlaceholder}>{previewLabel}</Text>
+              );
+            };
 
             return (
               <>
                 <View style={isBackgroundMode ? styles.previewBackgroundContainer : styles.previewPetImage}>
-                  {isBackgroundMode ? (
-                    selectedBgData ? (
-                      <Image
-                        source={selectedBgData.src}
-                        style={styles.previewBackgroundImage}
-                      />
-                    ) : (
-                      <Text style={styles.previewPetPlaceholder}>배경 이미지</Text>
-                    )
-                  ) : (
-                    selectedAnimalData ? (
-                      <Image
-                        source={selectedAnimalData.src}
-                        style={styles.previewAnimalImage}
-                      />
-                    ) : (
-                      <Text style={styles.previewPetPlaceholder}>동물 이미지</Text>
-                    )
-                  )}
+                  {renderPreviewImage()}
                 </View>
-                <Text style={styles.previewPetLabel}>
-                  {isBackgroundMode ? '배경 이미지' : '동물 이미지'}
-                </Text>
+                <Text style={styles.previewPetLabel}>{previewLabel}</Text>
               </>
             );
           })()}
@@ -421,4 +456,9 @@ const styles = StyleSheet.create({
     height: 120,
     resizeMode: 'contain',
   },  
+  previewClockImage: {
+    width: 120,
+    height: 120,
+    resizeMode: 'contain',
+  },
 });
