@@ -47,18 +47,17 @@ export default function LoginScreen() {
   };
 
   const handleDevLogin = async () => {
-    // 개발자 모드: 로그인 처리 후 홈으로 이동
-    const devProfile = {
-      id: "dev",
-      name: "개발자",
-      email: "dev@example.com",
-      profile: null, // 개발자 모드: 최초에는 동물/프로필 미설정
-    };
-
-    await AuthManager.login("dev-token", devProfile);
-    await AuthManager.setDevMode(true); // 개발자 모드
-    await AuthManager.setDevProfile(devProfile); // 개발자 모드
-    router.replace("/(tabs)/home" as any);
+    // 개발자 모드: JSON 파일에서 기본값 로드
+    const devProfile = await AuthManager.getDevProfile();
+    
+    if (devProfile) {
+      await AuthManager.login("dev-token", devProfile);
+      await AuthManager.setDevMode(true); // 개발자 모드
+      await AuthManager.setDevProfile(devProfile); // 개발자 모드
+      router.replace("/(tabs)/home" as any);
+    } else {
+      alert("개발자 모드 프로필을 불러올 수 없습니다.");
+    }
   };
 
   const handleFindPassword = () => {
