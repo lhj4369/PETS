@@ -1,0 +1,16 @@
+{
+  "id": "dev",
+  "name": "개발자",
+  "email": "dev@example.com",
+  "profile": {
+    "animalType": null,
+    "nickname": null,
+    "height": null,
+    "weight": null,
+    "level": 1,
+    "experience": 0,
+    "strength": 0,
+    "agility": 0
+  }
+}
+
