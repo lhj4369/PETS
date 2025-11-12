@@ -179,7 +179,7 @@ const HomeScreen = () => {
           const hasAnimal = !!animalType;
           const hasNickname = !!nicknameValue;
 
-          setSelectedAnimal(animalType);
+          setSelectedAnimalId(animalType);
           setNickname(nicknameValue);
           setHeight(
             data.profile.height !== null && data.profile.height !== undefined
@@ -201,7 +201,7 @@ const HomeScreen = () => {
           setShowProfileModal(hasAnimal && !hasNickname);
         } else {
           // 프로필이 없으면 동물 선택 모달만 표시 (프로필 입력 모달은 동물 선택 후 표시)
-          setSelectedAnimal(null);
+          setSelectedAnimalId(null);
           setNickname("");
           setHeight("");
           setWeight("");
