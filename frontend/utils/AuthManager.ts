@@ -5,6 +5,7 @@ export type StoredUser = Record<string, unknown> | null;
 
 const DEV_MODE_FLAG_KEY = 'pets_dev_mode';
 const DEV_PROFILE_KEY = 'pets_dev_profile';
+const DEV_WORKOUT_RECORDS_KEY = 'pets_dev_workout_records';
 
 class AuthManager {
   private readonly tokenKey = 'pets_token';
@@ -31,6 +32,7 @@ class AuthManager {
       this.userKey,
       DEV_MODE_FLAG_KEY,
       DEV_PROFILE_KEY,
+      DEV_WORKOUT_RECORDS_KEY,
     ]);
   }
 
@@ -87,6 +89,24 @@ class AuthManager {
     
     // AsyncStorage에 없으면 JSON 파일의 기본값 반환
     return devProfileData as Record<string, unknown>;
+  }
+
+  // 개발자 모드: 운동 기록 저장
+  async setDevWorkoutRecords(records: any[]): Promise<void> {
+    await AsyncStorage.setItem(DEV_WORKOUT_RECORDS_KEY, JSON.stringify(records));
+  }
+
+  // 개발자 모드: 운동 기록 조회
+  async getDevWorkoutRecords(): Promise<any[]> {
+    const raw = await AsyncStorage.getItem(DEV_WORKOUT_RECORDS_KEY);
+    if (raw) {
+      try {
+        return JSON.parse(raw) as any[];
+      } catch {
+        return [];
+      }
+    }
+    return [];
   }
 }
 

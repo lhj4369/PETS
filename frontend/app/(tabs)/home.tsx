@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Image,
   ImageBackground,
+  ImageSourcePropType,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -27,10 +28,10 @@ const BASE_WIDTH = 390;
 const BASE_HEIGHT = 844;
 
 const ANIMAL_OPTIONS = [
-  { id: "capybara", label: "카피바라", emoji: "🦫" },
-  { id: "fox", label: "여우", emoji: "🦊" },
-  { id: "red_panda", label: "레서판다", emoji: "🦝" },
-  { id: "guinea_pig", label: "기니피그", emoji: "🐹" },
+  { id: "capybara", label: "카피바라", emoji: "🦫", image: require("../../assets/images/animals/capibara.png") },
+  { id: "fox", label: "여우", emoji: "🦊", image: require("../../assets/images/animals/fox.png") },
+  { id: "red_panda", label: "레서판다", emoji: "🦝", image: require("../../assets/images/animals/red_panda.png") },
+  { id: "guinea_pig", label: "기니피그", emoji: "🐹", image: require("../../assets/images/animals/ginipig.png") },
 ] as const;
 
 type AnimalId = (typeof ANIMAL_OPTIONS)[number]["id"];
@@ -132,6 +133,13 @@ const HomeScreen = () => {
             setExperience(experienceValue);
             setStrength(strengthValue);
             setAgility(agilityValue);
+            
+            // 동물이 있으면 CustomizationContext 업데이트
+            if (hasAnimal) {
+              const animalImage = getAnimalImage(animalType);
+              setCustomization(animalImage, selectedBackground, null);
+            }
+            
             setShowAnimalModal(!hasAnimal);
             setShowProfileModal(hasAnimal && !hasNickname);
           } else {
@@ -195,6 +203,12 @@ const HomeScreen = () => {
           setExperience(data.profile.experience ?? 0);
           setStrength(data.profile.strength ?? 0);
           setAgility(data.profile.agility ?? 0);
+          
+          // 동물이 있으면 CustomizationContext 업데이트
+          if (hasAnimal) {
+            const animalImage = getAnimalImage(animalType);
+            setCustomization(animalImage, selectedBackground, null);
+          }
           
           // 동물이 없으면 동물 선택 모달, 동물은 있지만 닉네임이 없으면 프로필 입력 모달
           setShowAnimalModal(!hasAnimal);
@@ -263,6 +277,10 @@ const HomeScreen = () => {
       await AuthManager.login("dev-token", devProfileData); // 개발자 모드
       await AuthManager.setDevMode(true); // 개발자 모드
 
+      // CustomizationContext 업데이트
+      const animalImage = getAnimalImage(selectedAnimalId);
+      setCustomization(animalImage, selectedBackground, null);
+
       setAccountName(nameForDev);
       setShowAnimalModal(false);
       setShowProfileModal(false);
@@ -299,6 +317,10 @@ const HomeScreen = () => {
         return;
       }
 
+      // CustomizationContext 업데이트
+      const animalImage = getAnimalImage(selectedAnimalId);
+      setCustomization(animalImage, selectedBackground, null);
+
       Alert.alert("완료", "프로필이 저장되었습니다.");
       setShowProfileModal(false);
     } catch (error) {
@@ -319,6 +341,9 @@ const HomeScreen = () => {
   const confirmAnimalSelection = () => {
     if (!pendingAnimal) return;
     setSelectedAnimalId(pendingAnimal);
+    // CustomizationContext 업데이트
+    const animalImage = getAnimalImage(pendingAnimal);
+    setCustomization(animalImage, selectedBackground, null);
     setPendingAnimal(null);
     setShowAnimalConfirm(false);
     setShowAnimalModal(false);
@@ -463,7 +488,11 @@ const HomeScreen = () => {
                       onPress={() => handleSelectAnimal(animal.id)}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.animalEmoji}>{animal.emoji}</Text>
+                      <Image
+                        source={animal.image}
+                        style={styles.animalImage}
+                        resizeMode="contain"
+                      />
                       <Text style={styles.animalLabel}>{animal.label}</Text>
                     </TouchableOpacity>
                   );
@@ -509,9 +538,11 @@ const HomeScreen = () => {
 
                 {selectedAnimalId && (
                   <View style={styles.selectedAnimalSummary}>
-                    <Text style={styles.selectedAnimalEmoji}>
-                      {ANIMAL_OPTIONS.find((animal) => animal.id === selectedAnimalId)?.emoji ?? ""}
-                    </Text>
+                    <Image
+                      source={ANIMAL_OPTIONS.find((animal) => animal.id === selectedAnimalId)?.image ?? require("../../assets/images/animals/capibara.png")}
+                      style={styles.selectedAnimalImage}
+                      resizeMode="contain"
+                    />
                     <Text style={styles.selectedAnimalLabel}>
                       {ANIMAL_OPTIONS.find((animal) => animal.id === selectedAnimalId)?.label ?? ""}
                     </Text>
@@ -744,8 +775,9 @@ const styles = StyleSheet.create({
     borderColor: "#007AFF",
     backgroundColor: "#E6F0FF",
   },
-  animalEmoji: {
-    fontSize: 36,
+  animalImage: {
+    width: 80,
+    height: 80,
   },
   animalLabel: {
     fontSize: 14,
@@ -839,8 +871,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 12,
   },
-  selectedAnimalEmoji: {
-    fontSize: 32,
+  selectedAnimalImage: {
+    width: 60,
+    height: 60,
   },
   selectedAnimalLabel: {
     fontSize: 16,
