@@ -153,7 +153,31 @@ app.json에 이미 설정되어 있지만, 필요시 수정 가능:
 ### 4.3 Google Services 설정
 
 1. `android/app/google-services.json` 파일 추가
-2. Google Fit API 키를 react-native-health에 설정
+2. Google Fit API 키를 `react-native-health`에서 사용할 수 있도록 설정
+   - `.env` 또는 Expo 환경변수에 `EXPO_PUBLIC_GOOGLE_FIT_API_KEY=<복사한_API_키>` 추가 (예: `frontend/.env`)
+   - `app.json`을 `app.config.ts`로 전환하거나 이미 사용 중인 구성 파일에서 `extra.googleFitApiKey`로 노출
+     ```ts
+     // frontend/app.config.ts
+     import 'dotenv/config';
+
+     export default ({ config }) => ({
+       ...config,
+       extra: {
+         ...config.extra,
+         googleFitApiKey: process.env.EXPO_PUBLIC_GOOGLE_FIT_API_KEY,
+       },
+     });
+     ```
+   - 서비스 코드에서 `expo-constants`를 통해 키를 읽어 초기화 로직에 전달
+     ```ts
+     import Constants from 'expo-constants';
+
+     const GOOGLE_FIT_API_KEY =
+       Constants.expoConfig?.extra?.googleFitApiKey ??
+       Constants.manifest?.extra?.googleFitApiKey;
+     ```
+   - 키를 요구하는 Google Fit 초기화 함수(예: OAuth 설정, REST 클라이언트 구성)에 `GOOGLE_FIT_API_KEY` 전달
+   - 변경 사항을 반영하려면 `npm run build:android` 또는 `npx expo prebuild --platform android` 실행 후 개발 빌드 재설치
 
 ## 5. 테스트
 
