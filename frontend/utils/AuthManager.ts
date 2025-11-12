@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import devProfileData from '../data/devProfile.json';
 
 export type StoredUser = Record<string, unknown> | null;
 
@@ -15,6 +16,9 @@ class AuthManager {
   }
 
   async login(token: string, user: StoredUser): Promise<void> {
+    // 실제 로그인 시 개발자 모드 플래그 초기화
+    await AsyncStorage.multiRemove([DEV_MODE_FLAG_KEY, DEV_PROFILE_KEY]);
+    
     await AsyncStorage.multiSet([
       [this.tokenKey, token],
       [this.userKey, JSON.stringify(user ?? {})],
@@ -65,21 +69,24 @@ class AuthManager {
 
   // 개발자 모드: 프로필 저장
   async setDevProfile(profile: Record<string, unknown>): Promise<void> {
+    // AsyncStorage에 저장 (세션 동안 유지)
     await AsyncStorage.setItem(DEV_PROFILE_KEY, JSON.stringify(profile));
   }
 
   // 개발자 모드: 프로필 조회
   async getDevProfile(): Promise<Record<string, unknown> | null> {
+    // 먼저 AsyncStorage에서 확인 (수정된 데이터가 있으면 우선 사용)
     const raw = await AsyncStorage.getItem(DEV_PROFILE_KEY);
-    if (!raw) {
-      return null;
+    if (raw) {
+      try {
+        return JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        // 파싱 실패 시 기본값 사용
+      }
     }
-
-    try {
-      return JSON.parse(raw) as Record<string, unknown>;
-    } catch {
-      return null;
-    }
+    
+    // AsyncStorage에 없으면 JSON 파일의 기본값 반환
+    return devProfileData as Record<string, unknown>;
   }
 }
 
