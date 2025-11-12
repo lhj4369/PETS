@@ -22,6 +22,8 @@ import {
 } from "../../features/timer/constants";
 import { formatDuration } from "../../features/timer/utils/formatDuration";
 import { useWorkoutTimer } from "../../features/timer/hooks/useWorkoutTimer";
+import AuthManager from "../../utils/AuthManager";
+import API_BASE_URL from "../../config/api";
 
 type Mode = "aerobic" | "interval";
 type Phase = "idle" | "running" | "summary";
@@ -61,6 +63,8 @@ export default function TimerScreen() {
   const wasRunningBeforeRestRef = useRef(false);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [pausedForConfirm, setPausedForConfirm] = useState(false);
+  const [hasClaimedReward, setHasClaimedReward] = useState(false);
+  const [hasSavedRecord, setHasSavedRecord] = useState(false);
   const timer = useWorkoutTimer();
 
   const handleStart = () => {
@@ -70,6 +74,8 @@ export default function TimerScreen() {
     setSummary(null);
     setLaps([]);
     setCompletedSets(0);
+    setHasClaimedReward(false);
+    setHasSavedRecord(false);
     const initialRest =
       mode === "interval" ? restDurationMs : DEFAULT_REST_DURATION_MS;
     setActiveRestDurationMs(initialRest);
@@ -189,12 +195,122 @@ export default function TimerScreen() {
     setShowStopConfirm(true);
   };
 
-  const handleClaimRewards = () => {
-    Alert.alert("보상 수령", "보상이 지급되었다고 가정하고 UI만 구성해두었습니다.");
+  const handleClaimRewards = async () => {
+    if (!summary) return;
+    
+    // 이미 보상을 수령했는지 확인
+    if (hasClaimedReward) {
+      Alert.alert("알림", "이미 보상을 수령하셨습니다.");
+      return;
+    }
+    
+    try {
+      await saveWorkoutRecord(summary, true);
+      setHasClaimedReward(true);
+      setHasSavedRecord(true);
+      Alert.alert("완료", "보상이 지급되었고 운동 기록이 저장되었습니다.");
+    } catch (error: any) {
+      Alert.alert("오류", error?.message ?? "운동 기록 저장 중 문제가 발생했습니다.");
+    }
   };
 
-  const handleConfirmSummary = () => {
-    setSummary((prev) => prev);
+  const handleConfirmSummary = async () => {
+    if (!summary) return;
+    
+    // 이미 저장했으면 다시 저장하지 않음
+    if (hasSavedRecord) {
+      return;
+    }
+    
+    try {
+      await saveWorkoutRecord(summary, false);
+      setHasSavedRecord(true);
+      Alert.alert("완료", "운동 기록이 저장되었습니다.");
+    } catch (error: any) {
+      Alert.alert("오류", error?.message ?? "운동 기록 저장 중 문제가 발생했습니다.");
+    }
+  };
+
+  const saveWorkoutRecord = async (summaryData: SummaryData, hasReward: boolean) => {
+    // 로컬 시간대 기준으로 오늘 날짜 계산 (YYYY-MM-DD)
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`;
+    
+    // 개발자 모드: 로컬 저장
+    if (await AuthManager.isDevMode()) {
+      const durationMinutes = Math.floor(summaryData.elapsedMs / 1000 / 60);
+      const workoutType = summaryData.mode === "aerobic" ? "유산소" : "인터벌";
+      
+      const record = {
+        id: Date.now().toString(),
+        date: today,
+        duration: durationMinutes,
+        type: workoutType,
+        heartRate: summaryData.heartRate,
+        hasReward,
+        notes: null,
+      };
+      
+      // 개발자 모드에서는 AsyncStorage에 저장
+      const existingRecords = await AuthManager.getDevWorkoutRecords();
+      const updatedRecords = [...existingRecords, record];
+      await AuthManager.setDevWorkoutRecords(updatedRecords);
+      return;
+    }
+
+    const headers = await AuthManager.getAuthHeader();
+    
+    if (!headers.Authorization) {
+      throw new Error("인증이 필요합니다. 다시 로그인해주세요.");
+    }
+
+    const durationMinutes = Math.max(1, Math.floor(summaryData.elapsedMs / 1000 / 60)); // 최소 1분
+    const workoutType = summaryData.mode === "aerobic" ? "유산소" : "인터벌";
+
+    const payload = {
+      workoutDate: today,
+      workoutType,
+      durationMinutes,
+      heartRate: summaryData.heartRate,
+      hasReward,
+      notes: null,
+    };
+    
+    // 유효성 검사
+    if (!payload.workoutDate || !payload.workoutType || !payload.durationMinutes) {
+      throw new Error("운동 기록 데이터가 유효하지 않습니다.");
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/workout`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        let errorMessage = "운동 기록 저장에 실패했습니다.";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData?.error ?? errorMessage;
+        } catch (e) {
+          // 응답 파싱 실패 시 기본 메시지 사용
+        }
+        throw new Error(errorMessage);
+      }
+    } catch (error: any) {
+      // 네트워크 에러 등
+      if (error.message && !error.message.includes("운동 기록 저장에 실패")) {
+        throw new Error(`네트워크 오류: ${error.message}`);
+      }
+      throw error;
+    }
   };
 
   const handleReturnToLanding = () => {
@@ -203,6 +319,8 @@ export default function TimerScreen() {
     setSummary(null);
     setLaps([]);
     setCompletedSets(0);
+    setHasClaimedReward(false);
+    setHasSavedRecord(false);
     setShowIntervalConfigurator(false);
     setPhase("idle");
   };
@@ -291,6 +409,7 @@ export default function TimerScreen() {
           onClaim={handleClaimRewards}
           onConfirm={handleConfirmSummary}
           onReturn={handleReturnToLanding}
+          hasClaimedReward={hasClaimedReward}
         />
       )}
 
@@ -658,11 +777,13 @@ function TimerSummary({
   onClaim,
   onConfirm,
   onReturn,
+  hasClaimedReward,
 }: {
   data: SummaryData;
   onClaim: () => void;
   onConfirm: () => void;
   onReturn: () => void;
+  hasClaimedReward: boolean;
 }) {
   return (
     <View style={styles.summaryContainer}>
@@ -698,7 +819,12 @@ function TimerSummary({
       </View>
 
       <View style={styles.summaryActions}>
-        <SummaryButton label="보상 받기" variant="primary" onPress={onClaim} />
+        <SummaryButton 
+          label={hasClaimedReward ? "보상 수령 완료" : "보상 받기"} 
+          variant={hasClaimedReward ? "secondary" : "primary"} 
+          onPress={onClaim}
+          disabled={hasClaimedReward}
+        />
         <SummaryButton label="확인" variant="secondary" onPress={onConfirm} />
         <SummaryButton
           label="기본 화면으로"
@@ -840,11 +966,13 @@ function SummaryButton({
   variant,
   onPress,
   icon,
+  disabled = false,
 }: {
   label: string;
   variant: "primary" | "secondary" | "ghost";
   onPress: () => void;
   icon?: React.ReactNode;
+  disabled?: boolean;
 }) {
   const { backgroundColor, textColor, borderColor } = useMemo(() => {
     switch (variant) {
@@ -874,15 +1002,17 @@ function SummaryButton({
       style={[
         styles.summaryButton,
         {
-          backgroundColor,
+          backgroundColor: disabled ? "#e0e0e0" : backgroundColor,
           borderColor,
+          opacity: disabled ? 0.6 : 1,
         },
       ]}
-      onPress={onPress}
-      activeOpacity={0.85}
+      onPress={disabled ? undefined : onPress}
+      activeOpacity={disabled ? 1 : 0.85}
+      disabled={disabled}
     >
       {icon}
-      <Text style={[styles.summaryButtonLabel, { color: textColor }]}>
+      <Text style={[styles.summaryButtonLabel, { color: disabled ? "#999" : textColor }]}>
         {label}
       </Text>
     </TouchableOpacity>

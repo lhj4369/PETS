@@ -10,7 +10,8 @@ mysql -u pets -p
 lhj4369
 ```
 
--- 기존 테이블 삭제 (외래키 제약 때문에 user_profiles를 먼저 삭제)
+-- 기존 테이블 삭제 (외래키 제약 때문에 workout_records, user_profiles를 먼저 삭제)
+DROP TABLE IF EXISTS workout_records;
 DROP TABLE IF EXISTS user_profiles;
 DROP TABLE IF EXISTS accounts;
 
@@ -37,5 +38,21 @@ CREATE TABLE user_profiles (
   agility INT NOT NULL DEFAULT 0,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES accounts(id) ON DELETE CASCADE
+);
+
+-- 운동 기록 테이블
+CREATE TABLE workout_records (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  workout_date DATE NOT NULL,
+  workout_type VARCHAR(50) NOT NULL,
+  duration_minutes INT NOT NULL,
+  heart_rate INT NULL,
+  has_reward BOOLEAN NOT NULL DEFAULT FALSE,
+  notes TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES accounts(id) ON DELETE CASCADE,
+  INDEX idx_user_date (user_id, workout_date)
 );
 
