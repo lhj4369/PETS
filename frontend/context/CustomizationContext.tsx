@@ -7,11 +7,11 @@ export const DEFAULT_BACKGROUND_IMAGE = require("../assets/images/background_tes
 type CustomizationContextValue = {
   selectedAnimal: ImageSourcePropType | null;
   selectedBackground: ImageSourcePropType | null;
-  selectedClock: string | null;
+  selectedClock: ImageSourcePropType | null;
   setCustomization: (
     animal: ImageSourcePropType | null,
     background: ImageSourcePropType | null,
-    clock: string | null
+    clock: ImageSourcePropType | null
   ) => void;
 };
 
@@ -28,12 +28,12 @@ export const CustomizationProvider = ({ children }: CustomizationProviderProps) 
   const [selectedBackground, setSelectedBackground] = useState<ImageSourcePropType | null>(
     DEFAULT_BACKGROUND_IMAGE
   );
-  const [selectedClock, setSelectedClock] = useState<string | null>(null);
+  const [selectedClock, setSelectedClock] = useState<ImageSourcePropType | null>(null);
 
   const setCustomization = (
     animal: ImageSourcePropType | null,
     background: ImageSourcePropType | null,
-    clock: string | null
+    clock: ImageSourcePropType | null
   ) => {
     setSelectedAnimal(animal ?? DEFAULT_ANIMAL_IMAGE);
     setSelectedBackground(background ?? DEFAULT_BACKGROUND_IMAGE);
