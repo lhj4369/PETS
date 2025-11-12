@@ -13,7 +13,11 @@ import {
   TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback } from "react";
 import HomeButton from "../../components/HomeButton";
+import AuthManager from "../../utils/AuthManager";
+import API_BASE_URL from "../../config/api";
 
 interface WorkoutRecord {
   id: string;
@@ -31,16 +35,100 @@ export default function RecordsScreen() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showMonthYearModal, setShowMonthYearModal] = useState(false);
   const [selectedDayRecords, setSelectedDayRecords] = useState<WorkoutRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // 샘플 데이터
+  const fetchWorkoutRecords = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // 개발자 모드: 로컬 데이터 사용
+      if (await AuthManager.isDevMode()) {
+        const devRecords = await AuthManager.getDevWorkoutRecords();
+        
+        // 현재 월의 기록만 필터링
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+        
+        const filteredRecords = devRecords.filter((r: any) => {
+          return r.date >= startDate && r.date <= endDate;
+        });
+        
+        const records: WorkoutRecord[] = filteredRecords.map((r: any) => ({
+          id: r.id.toString(),
+          date: r.date,
+          duration: r.duration,
+          type: r.type,
+          notes: r.notes || undefined,
+        }));
+        
+        setWorkoutRecords(records);
+        setIsLoading(false);
+        return;
+      }
+
+      const headers = await AuthManager.getAuthHeader();
+      if (!headers.Authorization) {
+        Alert.alert("오류", "인증이 필요합니다. 다시 로그인해주세요.");
+        setIsLoading(false);
+        return;
+      }
+
+      // 현재 월의 시작일과 종료일 계산
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/workout?startDate=${startDate}&endDate=${endDate}`,
+        { headers }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        // 백엔드에서 이미 YYYY-MM-DD 형식으로 반환
+        const records: WorkoutRecord[] = (data.records || []).map((r: any) => ({
+          id: r.id.toString(),
+          date: r.workoutDate,
+          duration: r.durationMinutes,
+          type: r.workoutType,
+          notes: r.notes || undefined,
+        }));
+        
+        setWorkoutRecords(records);
+      } else {
+        let errorMessage = `운동 기록을 불러올 수 없습니다. (${response.status})`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData?.error ?? errorMessage;
+        } catch (e) {
+          // JSON 파싱 실패 시 기본 메시지 사용
+        }
+        Alert.alert("오류", errorMessage);
+        setWorkoutRecords([]);
+      }
+    } catch (error: any) {
+      Alert.alert("오류", `운동 기록을 불러오는 중 문제가 발생했습니다: ${error?.message ?? '알 수 없는 오류'}`);
+      setWorkoutRecords([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentDate]);
+
+  // 운동 기록 불러오기
   useEffect(() => {
-    const sample: WorkoutRecord[] = [
-      { id: "1", date: "2024-12-15", duration: 30, type: "러닝", notes: "공원에서 조깅" },
-      { id: "2", date: "2024-12-14", duration: 45, type: "헬스", notes: "상체 운동" },
-      { id: "3", date: "2024-12-13", duration: 20, type: "요가" },
-    ];
-    setWorkoutRecords(sample);
-  }, []);
+    fetchWorkoutRecords();
+  }, [fetchWorkoutRecords]);
+
+  // 화면 포커스 시 데이터 새로고침
+  useFocusEffect(
+    useCallback(() => {
+      fetchWorkoutRecords();
+    }, [fetchWorkoutRecords])
+  );
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -78,6 +166,8 @@ export default function RecordsScreen() {
     if (!day) return;
 
     const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    
+    // 이미 불러온 workoutRecords에서 해당 날짜의 기록 찾기
     const dayRecords = workoutRecords.filter((r) => r.date === dateStr);
 
     setSelectedDate(dateStr);
@@ -90,44 +180,140 @@ export default function RecordsScreen() {
     }
   };
 
-  const addWorkoutRecord = (record: Omit<WorkoutRecord, 'id'>) => {
-    const newRecord: WorkoutRecord = {
-      ...record,
-      id: Date.now().toString(),
-    };
-    setWorkoutRecords([...workoutRecords, newRecord]);
+  const addWorkoutRecord = async (record: Omit<WorkoutRecord, 'id'>) => {
+    try {
+      // 개발자 모드: 로컬 저장
+      if (await AuthManager.isDevMode()) {
+        const newRecord: WorkoutRecord = {
+          ...record,
+          id: Date.now().toString(),
+        };
+        
+        // AsyncStorage에 저장
+        const existingRecords = await AuthManager.getDevWorkoutRecords();
+        const updatedRecords = [...existingRecords, {
+          id: newRecord.id,
+          date: newRecord.date,
+          duration: newRecord.duration,
+          type: newRecord.type,
+          notes: newRecord.notes || null,
+          heartRate: null,
+          hasReward: false,
+        }];
+        await AuthManager.setDevWorkoutRecords(updatedRecords);
+        
+        // 로컬 상태 업데이트
+        setWorkoutRecords([...workoutRecords, newRecord]);
+        if (selectedDate && record.date === selectedDate) {
+          setSelectedDayRecords([...selectedDayRecords, newRecord]);
+        }
+        setShowAddModal(false);
+        return;
+      }
 
-    if (selectedDate && record.date === selectedDate) {
-      setSelectedDayRecords([...selectedDayRecords, newRecord]);
+      const headers = await AuthManager.getAuthHeader();
+      if (!headers.Authorization) {
+        Alert.alert("오류", "인증이 필요합니다.");
+        return;
+      }
+
+      const payload = {
+        workoutDate: record.date,
+        workoutType: record.type,
+        durationMinutes: record.duration,
+        heartRate: null,
+        hasReward: false, // 수동 입력은 보상 없음
+        notes: record.notes || null,
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/workout`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        Alert.alert("오류", data?.error ?? "운동 기록 저장에 실패했습니다.");
+        return;
+      }
+
+      // 저장 후 다시 불러오기
+      await fetchWorkoutRecords();
+      setShowAddModal(false);
+    } catch (error) {
+      Alert.alert("오류", "운동 기록 저장 중 문제가 발생했습니다.");
     }
-
-    setShowAddModal(false);
   };
 
-  const deleteWorkoutRecord = (id: string) => {
-    if (Platform.OS === 'web') {
-      if (window.confirm("이 운동 기록을 삭제하시겠습니까?")) {
+  const deleteWorkoutRecord = async (id: string) => {
+    const confirmDelete = () => {
+      if (Platform.OS === 'web') {
+        return window.confirm("이 운동 기록을 삭제하시겠습니까?");
+      }
+      return new Promise<boolean>((resolve) => {
+        Alert.alert("기록 삭제", "이 운동 기록을 삭제하시겠습니까?", [
+          { text: "취소", style: "cancel", onPress: () => resolve(false) },
+          {
+            text: "삭제",
+            style: "destructive",
+            onPress: () => resolve(true),
+          },
+        ]);
+      });
+    };
+
+    const shouldDelete = Platform.OS === 'web' 
+      ? confirmDelete() 
+      : await confirmDelete();
+
+    if (!shouldDelete) return;
+
+    try {
+      // 개발자 모드: 로컬 삭제
+      if (await AuthManager.isDevMode()) {
+        // AsyncStorage에서 삭제
+        const existingRecords = await AuthManager.getDevWorkoutRecords();
+        const updatedRecords = existingRecords.filter((r: any) => r.id.toString() !== id);
+        await AuthManager.setDevWorkoutRecords(updatedRecords);
+        
+        // 로컬 상태 업데이트
         setWorkoutRecords(workoutRecords.filter((r) => r.id !== id));
         setSelectedDayRecords(selectedDayRecords.filter((r) => r.id !== id));
         if (selectedDayRecords.length === 1) {
           setShowDetailModal(false);
         }
+        return;
       }
-    } else {
-      Alert.alert("기록 삭제", "이 운동 기록을 삭제하시겠습니까?", [
-        { text: "취소", style: "cancel" },
-        {
-          text: "삭제",
-          style: "destructive",
-          onPress: () => {
-            setWorkoutRecords(workoutRecords.filter((r) => r.id !== id));
-            setSelectedDayRecords(selectedDayRecords.filter((r) => r.id !== id));
-            if (selectedDayRecords.length === 1) {
-              setShowDetailModal(false);
-            }
-          },
-        },
-      ]);
+
+      const headers = await AuthManager.getAuthHeader();
+      if (!headers.Authorization) {
+        Alert.alert("오류", "인증이 필요합니다.");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/workout/${id}`, {
+        method: "DELETE",
+        headers,
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        Alert.alert("오류", data?.error ?? "운동 기록 삭제에 실패했습니다.");
+        return;
+      }
+
+      // 삭제 후 다시 불러오기
+      await fetchWorkoutRecords();
+      setSelectedDayRecords(selectedDayRecords.filter((r) => r.id !== id));
+      if (selectedDayRecords.length === 1) {
+        setShowDetailModal(false);
+      }
+    } catch (error) {
+      Alert.alert("오류", "운동 기록 삭제 중 문제가 발생했습니다.");
     }
   };
 
