@@ -73,7 +73,7 @@ const HomeScreen = () => {
   const [experience, setExperience] = useState(0);
   const [strength, setStrength] = useState(0);
   const [agility, setAgility] = useState(0);
-  const { selectedAnimal, selectedBackground } = useCustomization();
+  const { selectedAnimal, selectedBackground, selectedClock } = useCustomization();
 
   const petSize = Math.min(240, screenWidth * 0.5);
   const buttonSize = Math.max(96, Math.min(144, screenWidth * 0.3));
@@ -401,7 +401,7 @@ const HomeScreen = () => {
               activeOpacity={0.8}
             >
               <Image
-                source={require("../../assets/images/clock_icon.png")}
+                source={selectedClock ?? require("../../assets/images/clock_icon.png")}
                 style={[styles.clockButtonIcon, { width: clockIconSize, height: clockIconSize }]}
               />
             </TouchableOpacity>
