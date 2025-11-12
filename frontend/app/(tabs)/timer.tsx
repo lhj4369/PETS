@@ -1,287 +1,975 @@
 //타이머 화면
-import { View, Text, TouchableOpacity, StyleSheet, Animated, SafeAreaView } from "react-native";
-import { useState, useEffect, useRef } from "react";
-import { router } from "expo-router";
+import React from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Alert,
+  Image,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import HomeButton from "../../components/HomeButton";
+import styles from "../../features/timer/styles";
+import {
+  DEFAULT_REST_DURATION_MS,
+  REST_MAX_MS,
+  REST_MIN_MS,
+  REST_STEP_MS,
+} from "../../features/timer/constants";
+import { formatDuration } from "../../features/timer/utils/formatDuration";
+import { useWorkoutTimer } from "../../features/timer/hooks/useWorkoutTimer";
+
+type Mode = "aerobic" | "interval";
+type Phase = "idle" | "running" | "summary";
+
+type SummaryStat = {
+  label: string;
+  value: number;
+};
+
+type SummaryData = {
+  mode: Mode;
+  elapsedMs: number;
+  heartRate: number;
+  stats: SummaryStat[];
+  restDurationMs?: number;
+  laps?: number[];
+  intervalInfo?: {
+    completedRounds: number;
+  };
+};
 
 export default function TimerScreen() {
-  const [isRunning, setIsRunning] = useState(false);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [displayTime, setDisplayTime] = useState(0); 
+  const [mode, setMode] = useState<Mode>("aerobic");
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [summary, setSummary] = useState<SummaryData | null>(null);
+  const [laps, setLaps] = useState<number[]>([]);
+  const [restDurationMs, setRestDurationMs] = useState(DEFAULT_REST_DURATION_MS);
+  const [activeRestDurationMs, setActiveRestDurationMs] =
+    useState(DEFAULT_REST_DURATION_MS);
+  const [showIntervalConfigurator, setShowIntervalConfigurator] =
+    useState(false);
+  const [completedSets, setCompletedSets] = useState(0);
+  const [isResting, setIsResting] = useState(false);
+  const [restRemainingMs, setRestRemainingMs] = useState(0);
+  const restEndTimeRef = useRef<number | null>(null);
+  const restFrameRef = useRef<number | null>(null);
+  const wasRunningBeforeRestRef = useRef(false);
+  const [showStopConfirm, setShowStopConfirm] = useState(false);
+  const [pausedForConfirm, setPausedForConfirm] = useState(false);
+  const timer = useWorkoutTimer();
 
-  
-  const secondRotation = useRef(new Animated.Value(0)).current;
-  const minuteRotation = useRef(new Animated.Value(0)).current;
-  const startTimeRef = useRef<number | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
+  const handleStart = () => {
+    finishRest(false);
+    timer.reset();
+    timer.start();
+    setSummary(null);
+    setLaps([]);
+    setCompletedSets(0);
+    const initialRest =
+      mode === "interval" ? restDurationMs : DEFAULT_REST_DURATION_MS;
+    setActiveRestDurationMs(initialRest);
+    setShowIntervalConfigurator(false);
+    setPhase("running");
+  };
 
-  // 연속적인 애니메이션
-  const animate = () => {
-    if (startTimeRef.current !== null) {
-      const now = Date.now();
-      const elapsed = elapsedTime + (now - startTimeRef.current);
-      
-      // 밀리초 단위로 각도 계산
-      const secondAngle = (elapsed / 1000) * 6; // 1초에 6도
-      const minuteAngle = (elapsed / 60000) * 6; // 1분에 6도
-      
-      secondRotation.setValue(secondAngle % 360);
-      minuteRotation.setValue(minuteAngle % 360);
-      
-      // 디스플레이 시간도 업데이트
-      setDisplayTime(elapsed);
-      
-      animationFrameRef.current = requestAnimationFrame(animate);
+  const handlePauseToggle = () => {
+    if (!timer.isRunning) {
+      return;
     }
+    if (timer.isPaused) {
+      timer.resume();
+    } else {
+      timer.pause();
+    }
+  };
+
+  const handleAddLap = () => {
+    if (!timer.isRunning || timer.isPaused) {
+      return;
+    }
+    setLaps((prev) => [...prev, timer.elapsedMs]);
+  };
+
+  const handleAdjustRestDuration = (deltaMs: number) => {
+    setRestDurationMs((prev) => {
+      const nextValue = Math.min(
+        REST_MAX_MS,
+        Math.max(REST_MIN_MS, prev + deltaMs)
+      );
+      const snapped =
+        Math.round(nextValue / REST_STEP_MS) * REST_STEP_MS;
+      return snapped;
+    });
+  };
+
+  const handleResetRestDuration = () => {
+    setRestDurationMs(DEFAULT_REST_DURATION_MS);
+  };
+
+  const stopRestTimer = useCallback(() => {
+    if (restFrameRef.current !== null) {
+      cancelAnimationFrame(restFrameRef.current);
+      restFrameRef.current = null;
+    }
+    restEndTimeRef.current = null;
+  }, []);
+
+  const finishRest = useCallback(
+    (shouldResume: boolean) => {
+      stopRestTimer();
+      setIsResting(false);
+      setRestRemainingMs(0);
+      if (shouldResume && wasRunningBeforeRestRef.current) {
+        timer.resume();
+      }
+      wasRunningBeforeRestRef.current = false;
+    },
+    [stopRestTimer, timer]
+  );
+
+  const tickRest = useCallback(() => {
+    if (restEndTimeRef.current === null) {
+      return;
+    }
+    const remaining = Math.max(restEndTimeRef.current - Date.now(), 0);
+    setRestRemainingMs(remaining);
+    if (remaining <= 0) {
+      finishRest(true);
+    } else {
+      restFrameRef.current = requestAnimationFrame(() => tickRest());
+    }
+  }, [finishRest]);
+
+  const handleStartRest = () => {
+    if (isResting) {
+      return;
+    }
+    const restDuration = activeRestDurationMs;
+    if (restDuration <= 0) {
+      return;
+    }
+    stopRestTimer();
+    setCompletedSets((prev) => prev + 1);
+    const wasRunning = timer.isRunning && !timer.isPaused;
+    wasRunningBeforeRestRef.current = wasRunning;
+    if (wasRunning) {
+      timer.pause();
+    }
+    setIsResting(true);
+    setRestRemainingMs(restDuration);
+    restEndTimeRef.current = Date.now() + restDuration;
+    restFrameRef.current = requestAnimationFrame(() => tickRest());
+  };
+
+  const handleSkipRest = useCallback(() => {
+    if (!isResting) {
+      return;
+    }
+    finishRest(true);
+  }, [finishRest, isResting]);
+
+  useEffect(() => {
+    return () => {
+      stopRestTimer();
+    };
+  }, [stopRestTimer]);
+
+  const handleRequestStop = () => {
+    if (!timer.isPaused && timer.isRunning) {
+      timer.pause();
+      setPausedForConfirm(true);
+    } else {
+      setPausedForConfirm(false);
+    }
+    setShowStopConfirm(true);
+  };
+
+  const handleClaimRewards = () => {
+    Alert.alert("보상 수령", "보상이 지급되었다고 가정하고 UI만 구성해두었습니다.");
+  };
+
+  const handleConfirmSummary = () => {
+    setSummary((prev) => prev);
+  };
+
+  const handleReturnToLanding = () => {
+    finishRest(false);
+    timer.reset();
+    setSummary(null);
+    setLaps([]);
+    setCompletedSets(0);
+    setShowIntervalConfigurator(false);
+    setPhase("idle");
+  };
+
+  const handleStopCancel = () => {
+    setShowStopConfirm(false);
+    if (pausedForConfirm) {
+      timer.resume();
+    }
+    setPausedForConfirm(false);
+  };
+
+  const handleStopConfirm = () => {
+    finishRest(false);
+    const finalElapsed = timer.stop();
+    const summaryData = buildSummary(mode, finalElapsed, {
+      laps,
+      restDurationMs: activeRestDurationMs,
+      completedSets,
+    });
+    setSummary(summaryData);
+    setPhase("summary");
+    setShowStopConfirm(false);
+    setPausedForConfirm(false);
+    setCompletedSets(0);
+  };
+
+  const handleToggleIntervalConfigurator = () => {
+    setShowIntervalConfigurator((prev) => !prev);
+  };
+
+  const handleCloseIntervalConfigurator = () => {
+    setShowIntervalConfigurator(false);
   };
 
   useEffect(() => {
-    if (isRunning) {
-      startTimeRef.current = Date.now();
-      animationFrameRef.current = requestAnimationFrame(animate);      
-    } else {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      if (startTimeRef.current !== null) {
-        const newElapsed = elapsedTime + (Date.now() - startTimeRef.current);
-        setElapsedTime(newElapsed);
-        setDisplayTime(newElapsed);
-        startTimeRef.current = null;
-      }     
+    if (mode !== "interval") {
+      setShowIntervalConfigurator(false);
     }
-    
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [isRunning, elapsedTime]);
+  }, [mode]);
 
-  const formatTime = (milliseconds: number) => {
-    const totalSeconds = Math.floor(milliseconds / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const secs = totalSeconds % 60;
-    
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  };
-
-  const handleStartStop = () => {
-    setIsRunning(!isRunning);
-  };
-
-  const handleReset = () => {
-    setIsRunning(false);
-    setElapsedTime(0);
-    setDisplayTime(0);
-    startTimeRef.current = null;
-    secondRotation.setValue(0);
-    minuteRotation.setValue(0);
-  };
-
-  const navigateToChallenges = () => {
-    router.push("/(tabs)/challenges" as any);
-  };
+  useEffect(() => {
+    if (phase !== "running") {
+      setActiveRestDurationMs(restDurationMs);
+    }
+  }, [restDurationMs, phase]);
 
   return (
     <SafeAreaView style={styles.container}>
-       <HomeButton />
-      {/* 아날로그 시계 */}
-      <View style={styles.clockContainer}>
-        <View style={styles.clockFace}>
-          {/* 시간 마커 (12, 3, 6, 9) */}
-          <View style={[styles.marker, { top: 10, left: '50%', marginLeft: -1 }]} />
-          <View style={[styles.marker, { top: '50%', right: 10, marginTop: -1, width: 20, height: 2 }]} />
-          <View style={[styles.marker, { bottom: 10, left: '50%', marginLeft: -1 }]} />
-          <View style={[styles.marker, { top: '50%', left: 10, marginTop: -1, width: 20, height: 2 }]} />
-          
-          {/* 중앙 점 */}
-          <View style={styles.centerDot} />
-          
-          {/* 분침 */}
-          <Animated.View 
-            style={[
-              styles.minuteHand, 
-              { 
-                transform: [
-                  { rotate: minuteRotation.interpolate({
-                    inputRange: [0, 360],
-                    outputRange: ['0deg', '360deg']
-                  })}
-                ] 
-              }
-            ]} 
-          />
-          
-          {/* 초침 */}
-          <Animated.View 
-            style={[
-              styles.secondHand, 
-              { 
-                transform: [
-                  { rotate: secondRotation.interpolate({
-                    inputRange: [0, 360],
-                    outputRange: ['0deg', '360deg']
-                  })}
-                ] 
-              }
-            ]} 
-          />
-        </View>
-      </View>
+      <HomeButton />
+      {phase === "idle" && (
+        <TimerLanding
+          mode={mode}
+          onModeChange={setMode}
+          onStart={handleStart}
+          restDurationMs={restDurationMs}
+          onAdjustRestDuration={handleAdjustRestDuration}
+          showConfigurator={showIntervalConfigurator}
+          onToggleConfigurator={handleToggleIntervalConfigurator}
+          onCloseConfigurator={handleCloseIntervalConfigurator}
+          onResetRestDuration={handleResetRestDuration}
+        />
+      )}
 
-      {/* 디지털 시간 표시 */}
-      <Text style={styles.digitalTime}>{formatTime(displayTime)}</Text>
-      
-      {/* 컨트롤 버튼 */}
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={[styles.button, isRunning ? styles.stopButton : styles.startButton]}
-          onPress={handleStartStop}
-        >
-          <Text style={styles.buttonText}>
-            {isRunning ? "■" : "▶"}
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.button, styles.resetButton]}
-          onPress={handleReset}
-        >
-          <Text style={styles.buttonText}>↻</Text>
-        </TouchableOpacity>
-      </View>
+      {phase === "running" && (
+        <TimerRunning
+          mode={mode}
+          elapsedMs={timer.elapsedMs}
+          isPaused={timer.isPaused}
+          laps={laps}
+          restDurationMs={activeRestDurationMs}
+          isResting={isResting}
+          restRemainingMs={restRemainingMs}
+          completedSets={completedSets}
+          onPauseToggle={handlePauseToggle}
+          onRequestStop={handleRequestStop}
+          onAddLap={handleAddLap}
+          onStartRest={handleStartRest}
+          onSkipRest={handleSkipRest}
+        />
+      )}
 
-      {/* 기록 도전 버튼 */}
-      <TouchableOpacity 
-        style={styles.challengeButton}
-        onPress={navigateToChallenges}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.challengeButtonText}>기록 도전</Text>
-      </TouchableOpacity>
+      {phase === "summary" && summary && (
+        <TimerSummary
+          data={summary}
+          onClaim={handleClaimRewards}
+          onConfirm={handleConfirmSummary}
+          onReturn={handleReturnToLanding}
+        />
+      )}
+
+      <StopConfirmModal
+        visible={showStopConfirm}
+        onConfirm={handleStopConfirm}
+        onCancel={handleStopCancel}
+      />
     </SafeAreaView>
   );
 }
 
-const CLOCK_SIZE = 280;
+function TimerLanding({
+  mode,
+  onModeChange,
+  onStart,
+  restDurationMs,
+  onAdjustRestDuration,
+  showConfigurator,
+  onToggleConfigurator,
+  onCloseConfigurator,
+  onResetRestDuration,
+}: {
+  mode: Mode;
+  onModeChange: (next: Mode) => void;
+  onStart: () => void;
+  restDurationMs: number;
+  onAdjustRestDuration: (deltaMs: number) => void;
+  showConfigurator: boolean;
+  onToggleConfigurator: () => void;
+  onCloseConfigurator: () => void;
+  onResetRestDuration: () => void;
+}) {
+  const isInterval = mode === "interval";
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f5f5f5",
-  },
-  clockContainer: {
-    marginBottom: 40,
-  },
-  clockFace: {
-    width: CLOCK_SIZE,
-    height: CLOCK_SIZE,
-    borderRadius: CLOCK_SIZE / 2,
-    backgroundColor: "#fff",
-    borderWidth: 8,
-    borderColor: "#2c3e50",
-    position: "relative",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  marker: {
-    position: "absolute",
-    width: 2,
-    height: 20,
-    backgroundColor: "#2c3e50",
-  },
-  centerDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#e74c3c",
-    position: "absolute",
-    zIndex: 10,
-  },
-  minuteHand: {
-    position: "absolute",
-    width: 5,
-    height: 95,
-    backgroundColor: "#34495e",
-    borderRadius: 2.5,
-    bottom: "50%",
-    transformOrigin: "bottom",
-  },
-  secondHand: {
-    position: "absolute",
-    width: 2,
-    height: 110,
-    backgroundColor: "#e74c3c",
-    borderRadius: 1,
-    bottom: "50%",
-    transformOrigin: "bottom",
-  },
-  digitalTime: {
-    fontSize: 36,
-    fontWeight: "600",
-    color: "#2c3e50",
-    marginBottom: 30,
-    fontVariant: ["tabular-nums"],
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    gap: 20,
-  },
-  button: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  startButton: {
-    backgroundColor: "#27ae60",
-  },
-  stopButton: {
-    backgroundColor: "#e74c3c",
-  },
-  resetButton: {
-    backgroundColor: "#3498db",
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 28,
-    fontWeight: "bold",
-  },
-  challengeButton: {
-    position: "absolute",
-    bottom: 40,
-    left: 20,
-    right: 20,
-    backgroundColor: "#9b59b6",
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  challengeButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-});
+  return (
+    <View style={styles.landingContainer}>
+      <Image
+        source={require("../../assets/images/clock_icon.png")}
+        style={styles.clockImage}
+        accessibilityRole="image"
+        accessibilityLabel="운동 타이머 시계"
+      />
+
+      <View style={styles.modeSwitcher}>
+        <ModeToggle
+          isActive={mode === "aerobic"}
+          label="유산소"
+          onPress={() => onModeChange("aerobic")}
+        />
+        <ModeToggle
+          isActive={isInterval}
+          label="인터벌"
+          onPress={() => onModeChange("interval")}
+        />
+      </View>
+
+      <TouchableOpacity
+        style={styles.startWorkoutButton}
+        onPress={onStart}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="play" size={24} color="#fff" />
+        <Text style={styles.startWorkoutLabel}>운동 시작</Text>
+      </TouchableOpacity>
+
+      {isInterval && (
+        <View style={styles.intervalToggleSection}>
+          <TouchableOpacity
+            style={styles.intervalToggleButton}
+            onPress={onToggleConfigurator}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="settings-outline" size={18} color="#4a6cf4" />
+            <Text style={styles.intervalToggleLabel}>인터벌 설정</Text>
+            <Ionicons
+              name={showConfigurator ? "chevron-up" : "chevron-down"}
+              size={18}
+              color="#4a6cf4"
+            />
+          </TouchableOpacity>
+
+          {showConfigurator && (
+            <IntervalConfigurator
+              restDurationMs={restDurationMs}
+              onAdjust={onAdjustRestDuration}
+              onClose={onCloseConfigurator}
+              onReset={onResetRestDuration}
+            />
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function IntervalConfigurator({
+  restDurationMs,
+  onAdjust,
+  onClose,
+  onReset,
+}: {
+  restDurationMs: number;
+  onAdjust: (deltaMs: number) => void;
+  onClose: () => void;
+  onReset: () => void;
+}) {
+  return (
+    <View style={styles.intervalConfigurator}>
+      <View style={styles.intervalConfiguratorHeader}>
+        <Text style={styles.intervalConfiguratorTitle}>인터벌 설정</Text>
+        <TouchableOpacity
+          onPress={onClose}
+          style={styles.intervalConfiguratorClose}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={styles.intervalConfiguratorCloseText}>닫기</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.intervalConfigRows}>
+        <IntervalConfigRow
+          label="세트 간 휴식 시간"
+          value={restDurationMs}
+          onDecrease={() => onAdjust(-REST_STEP_MS)}
+          onIncrease={() => onAdjust(REST_STEP_MS)}
+          canDecrease={restDurationMs > REST_MIN_MS}
+          canIncrease={restDurationMs < REST_MAX_MS}
+        />
+      </View>
+
+      <View style={styles.intervalConfiguratorFooter}>
+        <TouchableOpacity
+          style={styles.intervalResetButton}
+          onPress={onReset}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="refresh" size={16} color="#4a6cf4" />
+          <Text style={styles.intervalResetLabel}>초기화</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+function IntervalConfigRow({
+  label,
+  value,
+  onDecrease,
+  onIncrease,
+  canDecrease,
+  canIncrease,
+}: {
+  label: string;
+  value: number;
+  onDecrease: () => void;
+  onIncrease: () => void;
+  canDecrease: boolean;
+  canIncrease: boolean;
+}) {
+  return (
+    <View style={styles.intervalConfigRow}>
+      <Text style={styles.intervalConfigLabel}>{label}</Text>
+      <View style={styles.intervalConfigControls}>
+        <ConfigStepButton
+          icon="remove"
+          onPress={onDecrease}
+          disabled={!canDecrease}
+        />
+        <Text style={styles.intervalConfigValue}>
+          {formatDuration(value)}
+        </Text>
+        <ConfigStepButton
+          icon="add"
+          onPress={onIncrease}
+          disabled={!canIncrease}
+        />
+      </View>
+    </View>
+  );
+}
+
+function ConfigStepButton({
+  icon,
+  onPress,
+  disabled,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      style={[
+        styles.intervalStepButton,
+        disabled ? styles.intervalStepButtonDisabled : undefined,
+      ]}
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.85}
+    >
+      <Ionicons
+        name={icon}
+        size={18}
+        color={disabled ? "#b2bec3" : "#4a6cf4"}
+      />
+    </TouchableOpacity>
+  );
+}
+
+function TimerRunning({
+  mode,
+  elapsedMs,
+  isPaused,
+  laps,
+  restDurationMs,
+  isResting,
+  restRemainingMs,
+  completedSets,
+  onPauseToggle,
+  onRequestStop,
+  onAddLap,
+  onStartRest,
+  onSkipRest,
+}: {
+  mode: Mode;
+  elapsedMs: number;
+  isPaused: boolean;
+  laps: number[];
+  restDurationMs: number;
+  isResting: boolean;
+  restRemainingMs: number;
+  completedSets: number;
+  onPauseToggle: () => void;
+  onRequestStop: () => void;
+  onAddLap: () => void;
+  onStartRest: () => void;
+  onSkipRest: () => void;
+}) {
+  const lapEntries = useMemo(() => {
+    if (mode !== "aerobic") {
+      return [];
+    }
+    return laps.map((lap, index) => {
+      const prev = index === 0 ? 0 : laps[index - 1];
+      const segment = lap - prev;
+      return {
+        index: index + 1,
+        total: formatDuration(lap),
+        segment: formatDuration(segment),
+      };
+    });
+  }, [laps, mode]);
+
+  const timerStateLabel = isResting
+    ? "휴식 중"
+    : isPaused
+    ? "일시정지"
+    : "진행 중";
+
+  const restButtonDisabled = !isResting && restDurationMs <= 0;
+
+  return (
+    <View style={styles.runningContainer}>
+      <View style={styles.timerDisplay}>
+        <Text style={styles.timerDigits}>{formatDuration(elapsedMs)}</Text>
+        <Text style={styles.timerStateLabel}>{timerStateLabel}</Text>
+      </View>
+
+      {mode === "interval" && (
+        <>
+          <IntervalPanel
+            isResting={isResting}
+            restRemainingMs={restRemainingMs}
+            restDurationMs={restDurationMs}
+            completedSets={completedSets}
+          />
+          <TouchableOpacity
+            style={[
+              styles.restButton,
+              isResting ? styles.restButtonActive : undefined,
+              restButtonDisabled ? styles.restButtonDisabled : undefined,
+            ]}
+            onPress={isResting ? onSkipRest : onStartRest}
+            activeOpacity={0.85}
+            disabled={restButtonDisabled}
+          >
+            <Ionicons
+            name={isResting ? "play" : "moon"}
+              size={18}
+              color={isResting ? "#ffffff" : restButtonDisabled ? "#b2bec3" : "#4a6cf4"}
+            />
+            <Text
+              style={[
+                styles.restButtonLabel,
+                isResting ? styles.restButtonLabelActive : undefined,
+                restButtonDisabled ? styles.restButtonLabelDisabled : undefined,
+              ]}
+            >
+              {isResting ? "휴식 종료" : "휴식 시작"}
+            </Text>
+          </TouchableOpacity>
+        </>
+      )}
+
+      <View style={styles.controlRow}>
+        <ControlButton
+          icon={isPaused ? "play" : "pause"}
+          label={isPaused ? "재개" : "일시정지"}
+          onPress={onPauseToggle}
+          variant="primary"
+          disabled={isResting}
+        />
+        <ControlButton
+          icon="stop"
+          label="종료"
+          onPress={onRequestStop}
+          variant="danger"
+        />
+      </View>
+
+      {mode === "aerobic" && (
+        <>
+          <TouchableOpacity
+            style={styles.lapButton}
+            onPress={onAddLap}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.lapButtonLabel}>구간 기록</Text>
+          </TouchableOpacity>
+          <View style={styles.lapListContainer}>
+            {lapEntries.length === 0 ? (
+              <Text style={styles.lapPlaceholder}>아직 기록된 구간이 없습니다.</Text>
+            ) : (
+              <ScrollView
+                style={styles.lapScroll}
+                contentContainerStyle={styles.lapScrollContent}
+              >
+                {lapEntries.map((entry) => (
+                  <View key={entry.index} style={styles.lapItem}>
+                    <View style={styles.lapIndexBadge}>
+                      <Text style={styles.lapIndexText}>{entry.index}</Text>
+                    </View>
+                    <View style={styles.lapInfo}>
+                      <Text style={styles.lapInfoLabel}>누적</Text>
+                      <Text style={styles.lapInfoValue}>{entry.total}</Text>
+                    </View>
+                    <View style={styles.lapInfo}>
+                      <Text style={styles.lapInfoLabel}>구간</Text>
+                      <Text style={styles.lapInfoValue}>{entry.segment}</Text>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </>
+      )}
+    </View>
+  );
+}
+
+function TimerSummary({
+  data,
+  onClaim,
+  onConfirm,
+  onReturn,
+}: {
+  data: SummaryData;
+  onClaim: () => void;
+  onConfirm: () => void;
+  onReturn: () => void;
+}) {
+  return (
+    <View style={styles.summaryContainer}>
+      <Text style={styles.summaryTitle}>운동 완료</Text>
+
+      <View style={styles.summaryCard}>
+        <SummaryRow label="총 운동 시간" value={formatDuration(data.elapsedMs)} />
+        {data.mode === "aerobic" && (
+          <SummaryRow label="구간 수" value={`${data.laps?.length ?? 0}`} />
+        )}
+        {data.mode === "interval" && typeof data.restDurationMs === "number" && (
+          <SummaryRow
+            label="휴식 시간(세트당)"
+            value={formatDuration(data.restDurationMs)}
+          />
+        )}
+        {data.mode === "interval" && data.intervalInfo && (
+          <SummaryRow
+            label="완료 세트"
+            value={`${data.intervalInfo.completedRounds}회`}
+          />
+        )}
+        <SummaryRow label="심박수" value={`${data.heartRate} bpm`} />
+      </View>
+
+      <View style={styles.summaryStats}>
+        {data.stats.map((stat) => (
+          <View key={stat.label} style={styles.summaryStatItem}>
+            <Text style={styles.summaryStatLabel}>{stat.label}</Text>
+            <Text style={styles.summaryStatValue}>{stat.value}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.summaryActions}>
+        <SummaryButton label="보상 받기" variant="primary" onPress={onClaim} />
+        <SummaryButton label="확인" variant="secondary" onPress={onConfirm} />
+        <SummaryButton
+          label="기본 화면으로"
+          variant="ghost"
+          onPress={onReturn}
+          icon={
+            <Image
+              source={require("../../assets/images/back_icon.png")}
+              style={styles.backIcon}
+            />
+          }
+        />
+      </View>
+    </View>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.summaryRow}>
+      <Text style={styles.summaryRowLabel}>{label}</Text>
+      <Text style={styles.summaryRowValue}>{value}</Text>
+    </View>
+  );
+}
+
+function ModeToggle({
+  label,
+  isActive,
+  onPress,
+}: {
+  label: string;
+  isActive: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.85}
+      style={[
+        styles.modeToggleButton,
+        isActive ? styles.modeToggleActive : styles.modeToggleInactive,
+      ]}
+    >
+      <Text
+        style={[
+          styles.modeToggleLabel,
+          isActive
+            ? styles.modeToggleLabelActive
+            : styles.modeToggleLabelInactive,
+        ]}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+function ControlButton({
+  icon,
+  label,
+  variant,
+  onPress,
+  disabled,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  label: string;
+  variant: "primary" | "danger";
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  const backgroundColor = variant === "primary" ? "#2d98da" : "#e94e77";
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.controlButton,
+        { backgroundColor, opacity: disabled ? 0.35 : 1 },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.85}
+      disabled={disabled}
+    >
+      <Ionicons name={icon} size={24} color="#fff" />
+      <Text style={styles.controlButtonLabel}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function IntervalPanel({
+  isResting,
+  restRemainingMs,
+  restDurationMs,
+  completedSets,
+}: {
+  isResting: boolean;
+  restRemainingMs: number;
+  restDurationMs: number;
+  completedSets: number;
+}) {
+  return (
+    <View style={styles.intervalPanel}>
+      <View
+        style={[
+          styles.intervalBadge,
+          isResting ? styles.intervalBadgeRest : styles.intervalBadgeWork,
+        ]}
+      >
+        <Text style={styles.intervalBadgeText}>
+          {isResting ? "휴식 중" : "운동 중"}
+        </Text>
+      </View>
+      {isResting ? (
+        <>
+          <Text style={styles.intervalTimer}>
+            {formatDuration(restRemainingMs)}
+          </Text>
+          <Text style={styles.intervalSubLabel}>
+            휴식이 끝나면 자동으로 운동이 재개됩니다.
+          </Text>
+        </>
+      ) : (
+        <>
+          <Text style={styles.intervalConfigSummary}>
+            휴식 {formatDuration(restDurationMs)}
+          </Text>
+          <Text style={styles.intervalSubLabel}>
+            세트 종료 후 휴식 버튼을 눌러 주세요.
+          </Text>
+        </>
+      )}
+      <Text style={styles.intervalRounds}>완료 세트 : {completedSets}회</Text>
+    </View>
+  );
+}
+
+function SummaryButton({
+  label,
+  variant,
+  onPress,
+  icon,
+}: {
+  label: string;
+  variant: "primary" | "secondary" | "ghost";
+  onPress: () => void;
+  icon?: React.ReactNode;
+}) {
+  const { backgroundColor, textColor, borderColor } = useMemo(() => {
+    switch (variant) {
+      case "primary":
+        return {
+          backgroundColor: "#ff8a3d",
+          textColor: "#fff",
+          borderColor: "transparent",
+        };
+      case "secondary":
+        return {
+          backgroundColor: "#2d3436",
+          textColor: "#fff",
+          borderColor: "transparent",
+        };
+      default:
+        return {
+          backgroundColor: "#ffffff",
+          textColor: "#2d3436",
+          borderColor: "#dfe6e9",
+        };
+    }
+  }, [variant]);
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.summaryButton,
+        {
+          backgroundColor,
+          borderColor,
+        },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      {icon}
+      <Text style={[styles.summaryButtonLabel, { color: textColor }]}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+function StopConfirmModal({
+  visible,
+  onConfirm,
+  onCancel,
+}: {
+  visible: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <Modal transparent visible={visible} animationType="fade">
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>운동이 끝나셨습니까?</Text>
+          <View style={styles.modalButtons}>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalCancelButton]}
+              onPress={onCancel}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.modalButtonText, styles.modalCancelText]}>아니오</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalConfirmButton]}
+              onPress={onConfirm}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.modalButtonText, styles.modalConfirmText]}>예</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function buildSummary(
+  mode: Mode,
+  elapsedMs: number,
+  options?: {
+    laps?: number[];
+    restDurationMs?: number;
+    completedSets?: number;
+  }
+): SummaryData {
+  const minutes = elapsedMs / 60_000;
+  const baseHeartRate = mode === "aerobic" ? 118 : 125;
+  const heartRate = Math.min(185, Math.round(baseHeartRate + minutes * 4));
+  const laps = options?.laps ?? [];
+
+  const stats: SummaryStat[] =
+    mode === "aerobic"
+      ? [
+          { label: "지구력", value: Math.max(1, Math.round(minutes / 6) + 2) },
+          { label: "민첩", value: Math.max(1, Math.round(minutes / 8) + 1) },
+        ]
+      : [
+          { label: "근력", value: Math.max(1, Math.round(minutes / 5) + 3) },
+          { label: "집중력", value: Math.max(1, Math.round(minutes / 7) + 2) },
+        ];
+
+  if (mode === "interval") {
+    const completedRounds = options?.completedSets ?? 0;
+    const restDuration = options?.restDurationMs ?? DEFAULT_REST_DURATION_MS;
+    return {
+      mode,
+      elapsedMs,
+      heartRate,
+      stats,
+      intervalInfo: {
+        completedRounds,
+      },
+      restDurationMs: restDuration,
+    };
+  }
+
+  return {
+    mode,
+    elapsedMs,
+    heartRate,
+    stats,
+    laps,
+  };
+}
