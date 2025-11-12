@@ -64,7 +64,7 @@ router.post('/login', async (req, res) => {
     );
 
     const [profileRows] = await db.query(
-      'SELECT animal_type AS animalType, nickname, height, weight FROM user_profiles WHERE user_id = ? LIMIT 1',
+      'SELECT animal_type AS animalType, nickname, height, weight, level, experience, strength, agility FROM user_profiles WHERE user_id = ? LIMIT 1',
       [account.id]
     );
 
@@ -97,7 +97,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     }
 
     const [profileRows] = await db.query(
-      'SELECT animal_type AS animalType, nickname, height, weight FROM user_profiles WHERE user_id = ? LIMIT 1',
+      'SELECT animal_type AS animalType, nickname, height, weight, level, experience, strength, agility FROM user_profiles WHERE user_id = ? LIMIT 1',
       [req.user.id]
     );
 
@@ -140,8 +140,9 @@ router.post('/profile', authMiddleware, async (req, res) => {
         [animalType, nickname, numericHeight, numericWeight, req.user.id]
       );
     } else {
+      // 프로필 생성 시 스탯 초기화: 레벨 1, 경험치 0, 힘 0, 민첩 0
       await db.query(
-        'INSERT INTO user_profiles (user_id, animal_type, nickname, height, weight) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO user_profiles (user_id, animal_type, nickname, height, weight, level, experience, strength, agility) VALUES (?, ?, ?, ?, ?, 1, 0, 0, 0)',
         [req.user.id, animalType, nickname, numericHeight, numericWeight]
       );
     }

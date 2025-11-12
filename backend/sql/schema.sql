@@ -10,8 +10,12 @@ mysql -u pets -p
 lhj4369
 ```
 
+-- 기존 테이블 삭제 (외래키 제약 때문에 user_profiles를 먼저 삭제)
+DROP TABLE IF EXISTS user_profiles;
+DROP TABLE IF EXISTS accounts;
+
 -- 계정 정보 테이블
-CREATE TABLE IF NOT EXISTS accounts (
+CREATE TABLE accounts (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(50) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
@@ -20,13 +24,17 @@ CREATE TABLE IF NOT EXISTS accounts (
 );
 
 -- 사용자 프로필 테이블
-CREATE TABLE IF NOT EXISTS user_profiles (
+CREATE TABLE user_profiles (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
   animal_type ENUM('capybara', 'fox', 'red_panda', 'guinea_pig') NOT NULL,
   nickname VARCHAR(50) NOT NULL,
   height DECIMAL(5,2) NULL,
   weight DECIMAL(5,2) NULL,
+  level INT NOT NULL DEFAULT 1,
+  experience INT NOT NULL DEFAULT 0,
+  strength INT NOT NULL DEFAULT 0,
+  agility INT NOT NULL DEFAULT 0,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES accounts(id) ON DELETE CASCADE
 );

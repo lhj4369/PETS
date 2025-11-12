@@ -45,6 +45,10 @@ type ProfileResponse = {
     nickname: string | null;
     height: number | null;
     weight: number | null;
+    level?: number | null;
+    experience?: number | null;
+    strength?: number | null;
+    agility?: number | null;
   } | null;
 };
 
@@ -64,6 +68,10 @@ const HomeScreen = () => {
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
   const [accountName, setAccountName] = useState("");
+  const [level, setLevel] = useState(1);
+  const [experience, setExperience] = useState(0);
+  const [strength, setStrength] = useState(0);
+  const [agility, setAgility] = useState(0);
 
   const petSize = Math.min(240, screenWidth * 0.5);
   const buttonSize = Math.max(96, Math.min(144, screenWidth * 0.3));
@@ -85,6 +93,10 @@ const HomeScreen = () => {
                 nickname?: string | null;
                 height?: number | null;
                 weight?: number | null;
+                level?: number | null;
+                experience?: number | null;
+                strength?: number | null;
+                agility?: number | null;
               } | null;
             };
 
@@ -93,6 +105,10 @@ const HomeScreen = () => {
             const nicknameValue = devProfile?.nickname ?? "";
             const heightValue = devProfile?.height ?? null;
             const weightValue = devProfile?.weight ?? null;
+            const levelValue = devProfile?.level ?? 1;
+            const experienceValue = devProfile?.experience ?? 0;
+            const strengthValue = devProfile?.strength ?? 0;
+            const agilityValue = devProfile?.agility ?? 0;
 
             const hasAnimal = !!animalType;
             const hasNickname = !!nicknameValue;
@@ -110,6 +126,10 @@ const HomeScreen = () => {
                 ? String(weightValue)
                 : ""
             );
+            setLevel(levelValue);
+            setExperience(experienceValue);
+            setStrength(strengthValue);
+            setAgility(agilityValue);
             setShowAnimalModal(!hasAnimal);
             setShowProfileModal(hasAnimal && !hasNickname);
           } else {
@@ -118,6 +138,10 @@ const HomeScreen = () => {
             setNickname("");
             setHeight("");
             setWeight("");
+            setLevel(1);
+            setExperience(0);
+            setStrength(0);
+            setAgility(0);
             setShowAnimalModal(true);
             setShowProfileModal(false);
           }
@@ -148,8 +172,13 @@ const HomeScreen = () => {
         setAccountName(data.account?.name ?? "");
 
         if (data.profile) {
-          setSelectedAnimal(data.profile.animalType ?? null);
-          setNickname(data.profile.nickname ?? "");
+          const animalType = data.profile.animalType ?? null;
+          const nicknameValue = data.profile.nickname ?? "";
+          const hasAnimal = !!animalType;
+          const hasNickname = !!nicknameValue;
+
+          setSelectedAnimal(animalType);
+          setNickname(nicknameValue);
           setHeight(
             data.profile.height !== null && data.profile.height !== undefined
               ? String(data.profile.height)
@@ -160,15 +189,26 @@ const HomeScreen = () => {
               ? String(data.profile.weight)
               : ""
           );
-          setShowAnimalModal(false);
-          setShowProfileModal(false);
+          setLevel(data.profile.level ?? 1);
+          setExperience(data.profile.experience ?? 0);
+          setStrength(data.profile.strength ?? 0);
+          setAgility(data.profile.agility ?? 0);
+          
+          // 동물이 없으면 동물 선택 모달, 동물은 있지만 닉네임이 없으면 프로필 입력 모달
+          setShowAnimalModal(!hasAnimal);
+          setShowProfileModal(hasAnimal && !hasNickname);
         } else {
+          // 프로필이 없으면 동물 선택 모달만 표시 (프로필 입력 모달은 동물 선택 후 표시)
           setSelectedAnimal(null);
           setNickname("");
           setHeight("");
           setWeight("");
+          setLevel(1);
+          setExperience(0);
+          setStrength(0);
+          setAgility(0);
           setShowAnimalModal(true);
-          setShowProfileModal(true);
+          setShowProfileModal(false);
         }
       } catch (error) {
         console.error("프로필 불러오기 실패:", error);
@@ -210,6 +250,10 @@ const HomeScreen = () => {
           nickname,
           height: height ? Number(height) : null,
           weight: weight ? Number(weight) : null,
+          level: 1,
+          experience: 0,
+          strength: 0,
+          agility: 0,
         },
       };
 
@@ -313,7 +357,7 @@ const HomeScreen = () => {
             onPress={navigateToRanking}
           >
             <Text style={styles.petName}>{nickname || accountName || "PETS"}</Text>
-            <Text style={styles.statusText}>레벨 5 | 경험치 120/200</Text>
+            <Text style={styles.statusText}>레벨 {level} | 경험치 {experience}</Text>
             <TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
               <Text style={styles.editProfileText}>프로필 수정</Text>
             </TouchableOpacity>
@@ -321,11 +365,11 @@ const HomeScreen = () => {
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
                 <Text style={styles.statLabel}>힘</Text>
-                <Text style={styles.statValue}>85</Text>
+                <Text style={styles.statValue}>{strength}</Text>
               </View>
               <View style={styles.statItem}>
                 <Text style={styles.statLabel}>민첩</Text>
-                <Text style={styles.statValue}>72</Text>
+                <Text style={styles.statValue}>{agility}</Text>
               </View>
             </View>
           </TouchableOpacity>
