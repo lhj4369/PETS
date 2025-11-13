@@ -111,6 +111,69 @@ router.get('/me', authMiddleware, async (req, res) => {
   }
 });
 
+// 구글 로그인 API
+router.post('/google', async (req, res) => {
+  try {
+    const { googleId, email, name, picture } = req.body;
+
+    if (!googleId || !email || !name) {
+      return res.status(400).json({ error: '구글 인증 정보가 불완전합니다.' });
+    }
+
+    // 이메일로 기존 계정 확인
+    const [existingRows] = await db.query('SELECT * FROM accounts WHERE email = ?', [email]);
+    
+    let account;
+    
+    if (existingRows.length > 0) {
+      // 기존 계정이 있으면 사용
+      account = existingRows[0];
+      
+      // 구글 ID가 없으면 업데이트 (선택사항 - 나중에 google_id 컬럼 추가 시 사용)
+      // await db.query('UPDATE accounts SET google_id = ? WHERE id = ?', [googleId, account.id]);
+    } else {
+      // 새 계정 생성 (구글 로그인 사용자는 비밀번호 없음)
+      // password 컬럼이 NOT NULL이므로 임시 해시 비밀번호 생성
+      const tempPassword = await bcrypt.hash(googleId + Date.now(), 10);
+      
+      const [result] = await db.query(
+        'INSERT INTO accounts (name, email, password) VALUES (?, ?, ?)',
+        [name, email, tempPassword]
+      );
+      
+      const [newAccountRows] = await db.query('SELECT * FROM accounts WHERE id = ?', [result.insertId]);
+      account = newAccountRows[0];
+    }
+
+    // JWT 토큰 생성
+    const token = jwt.sign(
+      { id: account.id, email: account.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    // 프로필 정보 조회
+    const [profileRows] = await db.query(
+      'SELECT animal_type AS animalType, nickname, height, weight, level, experience, strength, agility FROM user_profiles WHERE user_id = ? LIMIT 1',
+      [account.id]
+    );
+
+    res.json({
+      message: '구글 로그인 성공',
+      token,
+      account: {
+        id: account.id,
+        name: account.name,
+        email: account.email,
+      },
+      profile: profileRows.length > 0 ? profileRows[0] : null,
+    });
+  } catch (err) {
+    console.error('구글 로그인 에러:', err);
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  }
+});
+
 // 사용자 프로필 생성/업데이트
 router.post('/profile', authMiddleware, async (req, res) => {
   try {
