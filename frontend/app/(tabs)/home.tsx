@@ -439,13 +439,13 @@ const HomeScreen = () => {
             ]}
           >
             <TouchableOpacity
-              style={[styles.recordsButton, { width: buttonSize * 1.3, height: cardHeight * 1.2 }]}
+              style={[styles.recordsButton, { width: buttonSize * 1.3, height: cardHeight }]}
               onPress={navigateToRecords}
               activeOpacity={0.8}
             >
               <Image
                 source={require("../../assets/images/calendar.png")}
-                style={[styles.recordsButtonIcon, { width: buttonSize * 1.3, height: cardHeight * 1.2 }]}
+                style={[styles.recordsButtonIcon, { width: buttonSize * 1.3, height: cardHeight }]}
               />
             </TouchableOpacity>
           </View>
