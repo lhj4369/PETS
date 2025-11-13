@@ -74,7 +74,14 @@ const HomeScreen = () => {
   const [experience, setExperience] = useState(0);
   const [strength, setStrength] = useState(0);
   const [agility, setAgility] = useState(0);
-  const { selectedAnimal, selectedBackground, selectedClock } = useCustomization();
+  const { selectedAnimal, selectedBackground, setCustomization } = useCustomization();
+
+  // 동물 ID를 이미지 소스로 변환하는 함수
+  const getAnimalImage = (animalId: AnimalId | null): ImageSourcePropType => {
+    if (!animalId) return DEFAULT_ANIMAL_IMAGE;
+    const animal = ANIMAL_OPTIONS.find((a) => a.id === animalId);
+    return animal?.image ?? DEFAULT_ANIMAL_IMAGE;
+  };
 
   const petSize = Math.min(240, screenWidth * 0.5);
   const buttonSize = Math.max(96, Math.min(144, screenWidth * 0.3));
@@ -426,7 +433,7 @@ const HomeScreen = () => {
               activeOpacity={0.8}
             >
               <Image
-                source={selectedClock ?? require("../../assets/images/clock_icon.png")}
+                source={require("../../assets/images/clock_icon.png")}
                 style={[styles.clockButtonIcon, { width: clockIconSize, height: clockIconSize }]}
               />
             </TouchableOpacity>
@@ -439,13 +446,13 @@ const HomeScreen = () => {
             ]}
           >
             <TouchableOpacity
-              style={[styles.recordsButton, { width: buttonSize * 1.3, height: cardHeight }]}
+              style={[styles.recordsButton, { width: buttonSize * 1.3, height: cardHeight * 1.2 }]}
               onPress={navigateToRecords}
               activeOpacity={0.8}
             >
               <Image
                 source={require("../../assets/images/calendar.png")}
-                style={[styles.recordsButtonIcon, { width: buttonSize * 1.3, height: cardHeight }]}
+                style={[styles.recordsButtonIcon, { width: buttonSize * 1.3, height: cardHeight * 1.2 }]}
               />
             </TouchableOpacity>
           </View>
