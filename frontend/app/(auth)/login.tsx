@@ -1,14 +1,27 @@
 import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, ActivityIndicator } from "react-native";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { router } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
+import * as Google from "expo-auth-session/providers/google";
 import AuthManager from "../../utils/AuthManager";
 import Navigator from "../../components/Navigator";
 import API_BASE_URL from "../../config/api";
+
+// WebBrowser 완료 후 자동으로 닫히도록 설정
+WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  // Google 인증 요청을 위한 훅 초기화
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "",
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "",
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "",
+  });
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -40,11 +53,86 @@ export default function LoginScreen() {
     }
   };
 
-  const handleKakaoLogin = async () => {
-    // TODO: 카카오 로그인 API 호출
-    console.log("카카오 로그인 시도");
-    alert("카카오 로그인 기능은 준비 중입니다.");
+  // Google 로그인 처리하는 함수
+  const handleGoogleLogin = async () => {
+    if (!request) {
+      alert("구글 로그인을 준비하는 중입니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+
+    setIsGoogleLoading(true);
+    try {
+      await promptAsync();
+    } catch (error) {
+      console.error("구글 로그인 요청 실패:", error);
+      alert("구글 로그인 중 문제가 발생했습니다.");
+      setIsGoogleLoading(false);
+    }
   };
+
+  // Google 인증 성공 후 처리
+  const handleGoogleAuthSuccess = async (accessToken: string | undefined) => {
+    if (!accessToken) {
+      alert("구글 인증 토큰을 받을 수 없습니다.");
+      setIsGoogleLoading(false);
+      return;
+    }
+
+    try {
+      // Google API로 사용자 정보 가져오기
+      const userInfoResponse = await fetch(
+        "https://www.googleapis.com/oauth2/v3/userinfo",
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+
+      if (!userInfoResponse.ok) {
+        throw new Error("사용자 정보를 가져올 수 없습니다.");
+      }
+
+      const googleUserInfo = await userInfoResponse.json();
+
+      // 백엔드로 Google 사용자 정보 전송하여 JWT 토큰 받기
+      const backendResponse = await fetch(`${API_BASE_URL}/api/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          googleId: googleUserInfo.sub,
+          email: googleUserInfo.email,
+          name: googleUserInfo.name,
+          picture: googleUserInfo.picture,
+        }),
+      });
+
+      const data = await backendResponse.json();
+      if (!backendResponse.ok) {
+        alert(data?.error ?? "구글 로그인에 실패했습니다.");
+        setIsGoogleLoading(false);
+        return;
+      }
+
+      // 로그인 성공
+      await AuthManager.login(data.token, data.account);
+      router.replace("/(tabs)/home" as any);
+    } catch (error) {
+      console.error("구글 로그인 처리 실패:", error);
+      alert("구글 로그인 중 문제가 발생했습니다. 네트워크 상태를 확인해주세요.");
+      setIsGoogleLoading(false);
+    }
+  };
+
+  // Google 인증 응답 처리
+  useEffect(() => {
+    if (response?.type === "success") {
+      handleGoogleAuthSuccess(response.authentication?.accessToken);
+    } else if (response?.type === "error") {
+      console.error("구글 로그인 에러:", response.error);
+      alert("구글 로그인에 실패했습니다.");
+      setIsGoogleLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [response]);
 
   const handleDevLogin = async () => {
     // 개발자 모드: JSON 파일에서 기본값 로드
@@ -115,9 +203,17 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
 
-        {/* 카카오 로그인 버튼 */}
-        <TouchableOpacity style={styles.kakaoButton} onPress={handleKakaoLogin}>
-          <Text style={styles.kakaoButtonText}>카카오 로그인</Text>
+        {/* 구글 로그인 버튼 */}
+        <TouchableOpacity
+          style={[styles.googleButton, (!request || isGoogleLoading) && styles.googleButtonDisabled]}
+          onPress={handleGoogleLogin}
+          disabled={!request || isGoogleLoading}
+        >
+          {isGoogleLoading ? (
+            <ActivityIndicator color="#3c4043" />
+          ) : (
+            <Text style={styles.googleButtonText}>구글 로그인</Text>
+          )}
         </TouchableOpacity>
 
         {/* 개발자 모드 로그인 버튼 */}
@@ -196,19 +292,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  kakaoButton: {
-    backgroundColor: "#FEE500",
+  googleButton: {
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 32,
     paddingVertical: 16,
     borderRadius: 12,
     width: "100%",
     alignItems: "center",
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#dadce0",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  kakaoButtonText: {
-    color: "#000000",
+  googleButtonDisabled: {
+    opacity: 0.6,
+  },
+  googleButtonText: {
+    color: "#3c4043",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "500",
   },
   devButton: {
     backgroundColor: "#6c757d",
