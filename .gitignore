@@ -47,7 +47,16 @@ frontend/android/
 backend/node_modules/
 backend/.env
 backend/.env.local
+backend/.env.*.local
 backend/*.log
 backend/dist/
 backend/build/
+backend/.cache/
+backend/.npm/
+backend/coverage/
+backend/*.pid
+backend/*.pid.lock
+backend/*.seed
+backend/*.seed.*
+backend/.nyc_output/
 
