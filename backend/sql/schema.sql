@@ -28,7 +28,7 @@ CREATE TABLE accounts (
 CREATE TABLE user_profiles (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
-  animal_type ENUM('capybara', 'fox', 'red_panda', 'guinea_pig') NOT NULL,
+  animal_type ENUM('dog', 'capybara', 'fox', 'red_panda', 'guinea_pig') NOT NULL,
   nickname VARCHAR(50) NOT NULL,
   height DECIMAL(5,2) NULL,
   weight DECIMAL(5,2) NULL,
@@ -36,6 +36,8 @@ CREATE TABLE user_profiles (
   experience INT NOT NULL DEFAULT 0,
   strength INT NOT NULL DEFAULT 0,
   agility INT NOT NULL DEFAULT 0,
+  background_type VARCHAR(20) DEFAULT 'home',
+  clock_type VARCHAR(20) DEFAULT 'alarm',
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES accounts(id) ON DELETE CASCADE
 );
@@ -56,3 +58,20 @@ CREATE TABLE workout_records (
   INDEX idx_user_date (user_id, workout_date)
 );
 
+-- 데이터만 삭제 (테이블 구조는 유지, 외래키 제약 때문에 순서 중요)
+-- 방법 1: DELETE 사용 (외래키 제약 때문에 순서대로 삭제)
+DELETE FROM workout_records;
+DELETE FROM user_profiles;
+DELETE FROM accounts;
+
+-- 방법 2: TRUNCATE 사용 (더 빠르지만 외래키 제약 때문에 순서대로 실행)
+-- SET FOREIGN_KEY_CHECKS = 0;
+-- TRUNCATE TABLE workout_records;
+-- TRUNCATE TABLE user_profiles;
+-- TRUNCATE TABLE accounts;
+-- SET FOREIGN_KEY_CHECKS = 1;
+
+-- 데이터 확인
+SELECT * FROM workout_records;
+SELECT * FROM user_profiles;
+SELECT * FROM accounts;

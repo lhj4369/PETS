@@ -19,15 +19,19 @@ import alarm from "../../assets/images/clocks/alarm.png";
 import sand from "../../assets/images/clocks/sand.png";
 import mini from "../../assets/images/clocks/mini.png";
 import { useCustomization } from "../../context/CustomizationContext";
+import AuthManager from "../../utils/AuthManager";
+import API_BASE_URL from "../../config/api";
+import { getBackgroundTypeFromImage, getClockTypeFromImage, getClockImageFromType } from "../../utils/customizationUtils";
+import { Alert } from "react-native";
 
 const menuItems = ['동물', '배경', '시계'];
 
 const animals = [
-  { name: '강아지', src: dog },
-  { name: '카피바라', src: capibara },
-  { name: '사막여우', src: fox },
-  { name: '기니피그', src: ginipig },
-  { name: '레서판다', src: red_panda },
+  { name: '강아지', id: 'dog', src: dog }, 
+  { name: '카피바라', id: 'capybara', src: capibara },
+  { name: '사막여우', id: 'fox', src: fox },
+  { name: '기니피그', id: 'guinea_pig', src: ginipig },
+  { name: '레서판다', id: 'red_panda', src: red_panda },
 ];
 
 const backgrounds = [
@@ -46,7 +50,7 @@ const clocks = [
   { name: "미니멀 시계", src: mini },
 ];
 
-const DEFAULT_CLOCK_NAME = clocks[0].name;
+const DEFAULT_CLOCK_NAME = clocks[1].name; // 알람 시계
 
 
 export default function CustomizeScreen() {
@@ -64,7 +68,13 @@ export default function CustomizeScreen() {
     if (!selectedClock) {
       return DEFAULT_CLOCK_NAME;
     }
-    const match = clocks.find(clock => clock.src === selectedClock);
+    // 이미지 소스 직접 비교 대신 타입 기반으로 찾기
+    const clockType = getClockTypeFromImage(selectedClock);
+    const match = clocks.find(clock => {
+      const clockTypeFromSrc = getClockTypeFromImage(clock.src);
+      return clockTypeFromSrc === clockType;
+    });
+    // 매칭 실패 시 기본값(알람 시계) 반환
     return match?.name ?? DEFAULT_CLOCK_NAME;
   });
 
@@ -87,9 +97,17 @@ export default function CustomizeScreen() {
       setActiveClock(DEFAULT_CLOCK_NAME);
       return;
     }
-    const match = clocks.find(clock => clock.src === selectedClock);
+    // 이미지 소스 직접 비교 대신 타입 기반으로 찾기
+    const clockType = getClockTypeFromImage(selectedClock);
+    const match = clocks.find(clock => {
+      const clockTypeFromSrc = getClockTypeFromImage(clock.src);
+      return clockTypeFromSrc === clockType;
+    });
     if (match) {
       setActiveClock(match.name);
+    } else {
+      // 매칭 실패 시 기본값(알람 시계)으로 설정
+      setActiveClock(DEFAULT_CLOCK_NAME);
     }
   }, [selectedClock]);
 
@@ -165,18 +183,55 @@ export default function CustomizeScreen() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const selectedAnimalData = animals.find(a => a.name === activeAnimal);
     const selectedBgData = backgrounds.find(bg => bg.name === activeBackground);
     const selectedClockData = clocks.find(c => c.name === activeClock);
 
+    // 로컬 상태 업데이트
     setCustomization(
       selectedAnimalData?.src || null,
       selectedBgData?.src || null,
       selectedClockData?.src || null
     );
 
-    router.back();
+    // 서버에 저장
+    try {
+      const headers = await AuthManager.getAuthHeader();
+      if (!headers.Authorization) {
+        // 로그인하지 않은 경우 로컬만 저장
+        router.back();
+        return;
+      }
+
+      const backgroundType = getBackgroundTypeFromImage(selectedBgData?.src || null);
+      const clockType = getClockTypeFromImage(selectedClockData?.src || null);
+      const animalType = selectedAnimalData?.id || null;
+
+      const response = await fetch(`${API_BASE_URL}/api/auth/customization`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          animalType,
+          backgroundType,
+          clockType,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        Alert.alert("오류", data?.error ?? "커스터마이징 저장에 실패했습니다.");
+        return;
+      }
+
+      router.back();
+    } catch (error) {
+      console.error("커스터마이징 저장 실패:", error);
+      Alert.alert("오류", "커스터마이징 저장 중 문제가 발생했습니다.");
+    }
   };
   
 
