@@ -64,7 +64,7 @@ router.post('/login', async (req, res) => {
     );
 
     const [profileRows] = await db.query(
-      'SELECT animal_type AS animalType, nickname, height, weight, level, experience, strength, agility FROM user_profiles WHERE user_id = ? LIMIT 1',
+      'SELECT animal_type AS animalType, nickname, height, weight, level, experience, strength, agility, background_type AS backgroundType, clock_type AS clockType FROM user_profiles WHERE user_id = ? LIMIT 1',
       [account.id]
     );
 
@@ -97,7 +97,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     }
 
     const [profileRows] = await db.query(
-      'SELECT animal_type AS animalType, nickname, height, weight, level, experience, strength, agility FROM user_profiles WHERE user_id = ? LIMIT 1',
+      'SELECT animal_type AS animalType, nickname, height, weight, level, experience, strength, agility, background_type AS backgroundType, clock_type AS clockType FROM user_profiles WHERE user_id = ? LIMIT 1',
       [req.user.id]
     );
 
@@ -154,7 +154,7 @@ router.post('/google', async (req, res) => {
 
     // 프로필 정보 조회
     const [profileRows] = await db.query(
-      'SELECT animal_type AS animalType, nickname, height, weight, level, experience, strength, agility FROM user_profiles WHERE user_id = ? LIMIT 1',
+      'SELECT animal_type AS animalType, nickname, height, weight, level, experience, strength, agility, background_type AS backgroundType, clock_type AS clockType FROM user_profiles WHERE user_id = ? LIMIT 1',
       [account.id]
     );
 
@@ -177,8 +177,10 @@ router.post('/google', async (req, res) => {
 // 사용자 프로필 생성/업데이트
 router.post('/profile', authMiddleware, async (req, res) => {
   try {
-    const { animalType, nickname, height, weight } = req.body;
+    const { animalType, nickname, height, weight, backgroundType, clockType } = req.body;
     const allowedAnimals = ['capybara', 'fox', 'red_panda', 'guinea_pig'];
+    const allowedBackgrounds = ['home', 'spring', 'summer', 'fall', 'winter', 'city'];
+    const allowedClocks = ['cute', 'alarm', 'sand', 'mini'];
 
     if (!animalType || !allowedAnimals.includes(animalType)) {
       return res.status(400).json({ error: '올바른 동물을 선택해주세요.' });
@@ -195,24 +197,114 @@ router.post('/profile', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: '키와 몸무게는 숫자로 입력해주세요.' });
     }
 
+    // 배경과 시계 타입 검증 (선택사항)
+    const validBackgroundType = backgroundType && allowedBackgrounds.includes(backgroundType) ? backgroundType : 'home';
+    const validClockType = clockType && allowedClocks.includes(clockType) ? clockType : 'alarm';
+
     const [existing] = await db.query('SELECT id FROM user_profiles WHERE user_id = ?', [req.user.id]);
 
     if (existing.length > 0) {
       await db.query(
-        'UPDATE user_profiles SET animal_type = ?, nickname = ?, height = ?, weight = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
-        [animalType, nickname, numericHeight, numericWeight, req.user.id]
+        'UPDATE user_profiles SET animal_type = ?, nickname = ?, height = ?, weight = ?, background_type = ?, clock_type = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
+        [animalType, nickname, numericHeight, numericWeight, validBackgroundType, validClockType, req.user.id]
       );
     } else {
       // 프로필 생성 시 스탯 초기화: 레벨 1, 경험치 0, 힘 0, 민첩 0
       await db.query(
-        'INSERT INTO user_profiles (user_id, animal_type, nickname, height, weight, level, experience, strength, agility) VALUES (?, ?, ?, ?, ?, 1, 0, 0, 0)',
-        [req.user.id, animalType, nickname, numericHeight, numericWeight]
+        'INSERT INTO user_profiles (user_id, animal_type, nickname, height, weight, level, experience, strength, agility, background_type, clock_type) VALUES (?, ?, ?, ?, ?, 1, 0, 0, 0, ?, ?)',
+        [req.user.id, animalType, nickname, numericHeight, numericWeight, validBackgroundType, validClockType]
       );
     }
 
     res.json({ message: '프로필이 저장되었습니다.' });
   } catch (err) {
     console.error('프로필 저장 에러:', err);
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  }
+});
+
+// 커스터마이징 정보만 업데이트 (동물, 배경, 시계)
+router.post('/customization', authMiddleware, async (req, res) => {
+  try {
+    const { animalType, backgroundType, clockType } = req.body;
+    const allowedAnimals = ['capybara', 'fox', 'red_panda', 'guinea_pig'];
+    const allowedBackgrounds = ['home', 'spring', 'summer', 'fall', 'winter', 'city'];
+    const allowedClocks = ['cute', 'alarm', 'sand', 'mini'];
+
+    // 프로필이 존재하는지 확인
+    const [existing] = await db.query('SELECT id FROM user_profiles WHERE user_id = ?', [req.user.id]);
+    
+    if (existing.length === 0) {
+      return res.status(404).json({ error: '프로필을 먼저 생성해주세요.' });
+    }
+
+    // 동물, 배경, 시계 타입 검증
+    const validAnimalType = animalType && allowedAnimals.includes(animalType) ? animalType : null;
+    const validBackgroundType = backgroundType && allowedBackgrounds.includes(backgroundType) ? backgroundType : 'home';
+    const validClockType = clockType && allowedClocks.includes(clockType) ? clockType : 'alarm';
+
+    // 업데이트할 필드와 값 구성
+    const updateFields = [];
+    const updateValues = [];
+
+    if (validAnimalType) {
+      updateFields.push('animal_type = ?');
+      updateValues.push(validAnimalType);
+    }
+    if (validBackgroundType) {
+      updateFields.push('background_type = ?');
+      updateValues.push(validBackgroundType);
+    }
+    if (validClockType) {
+      updateFields.push('clock_type = ?');
+      updateValues.push(validClockType);
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({ error: '업데이트할 정보가 없습니다.' });
+    }
+
+    updateFields.push('updated_at = CURRENT_TIMESTAMP');
+    updateValues.push(req.user.id);
+
+    await db.query(
+      `UPDATE user_profiles SET ${updateFields.join(', ')} WHERE user_id = ?`,
+      updateValues
+    );
+
+    res.json({ message: '커스터마이징 정보가 저장되었습니다.' });
+  } catch (err) {
+    console.error('커스터마이징 저장 에러:', err);
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  }
+});
+
+// 랭킹 조회 (경험치 기준)
+router.get('/ranking', authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT 
+        up.user_id,
+        a.name,
+        up.animal_type AS animalType,
+        up.nickname,
+        up.experience,
+        up.level,
+        COUNT(wr.id) AS totalWorkouts,
+        COALESCE(SUM(wr.duration_minutes), 0) AS totalDurationMinutes,
+        COALESCE(AVG(wr.heart_rate), 0) AS avgHeartRate
+      FROM user_profiles up
+      INNER JOIN accounts a ON up.user_id = a.id
+      LEFT JOIN workout_records wr ON up.user_id = wr.user_id
+      GROUP BY up.user_id, a.name, up.animal_type, up.nickname, up.experience, up.level
+      ORDER BY up.experience DESC, up.level DESC
+      LIMIT 100`,
+      []
+    );
+
+    res.json({ rankings: rows });
+  } catch (err) {
+    console.error('랭킹 조회 에러:', err);
     res.status(500).json({ error: '서버 오류가 발생했습니다.' });
   }
 });

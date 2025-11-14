@@ -23,6 +23,7 @@ import ChatBubbleButton from "../../components/ChatBubbleButton";
 import SettingsButton from "../../components/SettingsButton";
 import RankingButton from "../../components/RankingButton";
 import { useCustomization, DEFAULT_ANIMAL_IMAGE, DEFAULT_BACKGROUND_IMAGE } from "../../context/CustomizationContext";
+import { getBackgroundTypeFromImage, getClockTypeFromImage, getBackgroundImageFromType, getClockImageFromType } from "../../utils/customizationUtils";
 
 const BASE_WIDTH = 390;
 const BASE_HEIGHT = 844;
@@ -51,6 +52,8 @@ type ProfileResponse = {
     experience?: number | null;
     strength?: number | null;
     agility?: number | null;
+    backgroundType?: string | null;
+    clockType?: string | null;
   } | null;
 };
 
@@ -74,7 +77,7 @@ const HomeScreen = () => {
   const [experience, setExperience] = useState(0);
   const [strength, setStrength] = useState(0);
   const [agility, setAgility] = useState(0);
-  const { selectedAnimal, selectedBackground, setCustomization } = useCustomization();
+  const { selectedAnimal, selectedBackground, selectedClock, setCustomization, loadCustomizationFromServer } = useCustomization();
 
   // 동물 ID를 이미지 소스로 변환하는 함수
   const getAnimalImage = (animalId: AnimalId | null): ImageSourcePropType => {
@@ -144,7 +147,8 @@ const HomeScreen = () => {
             // 동물이 있으면 CustomizationContext 업데이트
             if (hasAnimal) {
               const animalImage = getAnimalImage(animalType);
-              setCustomization(animalImage, selectedBackground, null);
+              // 개발자 모드에서는 기본값 사용
+              setCustomization(animalImage, selectedBackground, selectedClock);
             }
             
             setShowAnimalModal(!hasAnimal);
@@ -211,10 +215,17 @@ const HomeScreen = () => {
           setStrength(data.profile.strength ?? 0);
           setAgility(data.profile.agility ?? 0);
           
+          // 서버에서 받은 커스터마이징 정보로 이미지 가져오기
+          const serverBackground = getBackgroundImageFromType(data.profile?.backgroundType);
+          const serverClock = getClockImageFromType(data.profile?.clockType);
+          
           // 동물이 있으면 CustomizationContext 업데이트
           if (hasAnimal) {
             const animalImage = getAnimalImage(animalType);
-            setCustomization(animalImage, selectedBackground, null);
+            setCustomization(animalImage, serverBackground, serverClock);
+          } else {
+            // 동물이 없어도 커스터마이징 정보는 로드
+            loadCustomizationFromServer(data.profile?.backgroundType, data.profile?.clockType);
           }
           
           // 동물이 없으면 동물 선택 모달, 동물은 있지만 닉네임이 없으면 프로필 입력 모달
@@ -230,6 +241,8 @@ const HomeScreen = () => {
           setExperience(0);
           setStrength(0);
           setAgility(0);
+          // 프로필이 없어도 기본 커스터마이징 정보는 로드 (alarm, home)
+          loadCustomizationFromServer(null, null);
           setShowAnimalModal(true);
           setShowProfileModal(false);
         }
@@ -286,7 +299,7 @@ const HomeScreen = () => {
 
       // CustomizationContext 업데이트
       const animalImage = getAnimalImage(selectedAnimalId);
-      setCustomization(animalImage, selectedBackground, null);
+      setCustomization(animalImage, selectedBackground, selectedClock);
 
       setAccountName(nameForDev);
       setShowAnimalModal(false);
@@ -301,11 +314,16 @@ const HomeScreen = () => {
       return;
     }
 
+    const backgroundType = getBackgroundTypeFromImage(selectedBackground);
+    const clockType = getClockTypeFromImage(selectedClock);
+    
     const payload = {
       animalType: selectedAnimalId,
       nickname,
       height: height ? Number(height) : null,
       weight: weight ? Number(weight) : null,
+      backgroundType,
+      clockType,
     };
 
     try {
@@ -326,7 +344,7 @@ const HomeScreen = () => {
 
       // CustomizationContext 업데이트
       const animalImage = getAnimalImage(selectedAnimalId);
-      setCustomization(animalImage, selectedBackground, null);
+      setCustomization(animalImage, selectedBackground, selectedClock);
 
       Alert.alert("완료", "프로필이 저장되었습니다.");
       setShowProfileModal(false);
@@ -350,7 +368,7 @@ const HomeScreen = () => {
     setSelectedAnimalId(pendingAnimal);
     // CustomizationContext 업데이트
     const animalImage = getAnimalImage(pendingAnimal);
-    setCustomization(animalImage, selectedBackground, null);
+    setCustomization(animalImage, selectedBackground, selectedClock);
     setPendingAnimal(null);
     setShowAnimalConfirm(false);
     setShowAnimalModal(false);
@@ -433,7 +451,7 @@ const HomeScreen = () => {
               activeOpacity={0.8}
             >
               <Image
-                source={require("../../assets/images/clock_icon.png")}
+                source={selectedClock ?? require("../../assets/images/clocks/alarm.png")}
                 style={[styles.clockButtonIcon, { width: clockIconSize, height: clockIconSize }]}
               />
             </TouchableOpacity>

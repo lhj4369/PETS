@@ -1,8 +1,10 @@
 import { ImageSourcePropType } from "react-native";
 import { createContext, ReactNode, useContext, useMemo, useState } from "react";
+import { getBackgroundImageFromType, getClockImageFromType } from "../utils/customizationUtils";
 
 export const DEFAULT_ANIMAL_IMAGE = require("../assets/images/dog_character.png");
 export const DEFAULT_BACKGROUND_IMAGE = require("../assets/images/background_test.png");
+export const DEFAULT_CLOCK_IMAGE = require("../assets/images/clocks/alarm.png");
 
 type CustomizationContextValue = {
   selectedAnimal: ImageSourcePropType | null;
@@ -12,6 +14,10 @@ type CustomizationContextValue = {
     animal: ImageSourcePropType | null,
     background: ImageSourcePropType | null,
     clock: ImageSourcePropType | null
+  ) => void;
+  loadCustomizationFromServer: (
+    backgroundType: string | null | undefined,
+    clockType: string | null | undefined
   ) => void;
 };
 
@@ -28,7 +34,9 @@ export const CustomizationProvider = ({ children }: CustomizationProviderProps) 
   const [selectedBackground, setSelectedBackground] = useState<ImageSourcePropType | null>(
     DEFAULT_BACKGROUND_IMAGE
   );
-  const [selectedClock, setSelectedClock] = useState<ImageSourcePropType | null>(null);
+  const [selectedClock, setSelectedClock] = useState<ImageSourcePropType | null>(
+    DEFAULT_CLOCK_IMAGE
+  );
 
   const setCustomization = (
     animal: ImageSourcePropType | null,
@@ -37,7 +45,15 @@ export const CustomizationProvider = ({ children }: CustomizationProviderProps) 
   ) => {
     setSelectedAnimal(animal ?? DEFAULT_ANIMAL_IMAGE);
     setSelectedBackground(background ?? DEFAULT_BACKGROUND_IMAGE);
-    setSelectedClock(clock ?? null);
+    setSelectedClock(clock ?? DEFAULT_CLOCK_IMAGE);
+  };
+
+  const loadCustomizationFromServer = (
+    backgroundType: string | null | undefined,
+    clockType: string | null | undefined
+  ) => {
+    setSelectedBackground(getBackgroundImageFromType(backgroundType));
+    setSelectedClock(getClockImageFromType(clockType));
   };
 
   const value = useMemo(
@@ -46,6 +62,7 @@ export const CustomizationProvider = ({ children }: CustomizationProviderProps) 
       selectedBackground,
       selectedClock,
       setCustomization,
+      loadCustomizationFromServer,
     }),
     [selectedAnimal, selectedBackground, selectedClock]
   );
