@@ -1,5 +1,4 @@
-//채팅 화면
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -10,6 +9,8 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  ImageBackground,
 } from "react-native";
 import HomeButton from "../../components/HomeButton";
 
@@ -20,39 +21,46 @@ interface Message {
   timestamp: Date;
 }
 
+const DAILY_SCRIPTS = [
+  "안녕! 오늘 하루는 어땠어? 나는 네 얘기를 듣는 게 제일 좋아.",
+  "혹시 오늘 웃을 일이 있었어? 없다면 내가 재미있는 얘기를 해줄게!",
+  "밖이 추우면 따뜻한 차 마시는 건 어때? 몸도 마음도 녹을 거야.",
+  "잠깐 스트레칭해 보는 건 어때? 어깨도 펴지고 기분도 상쾌해질 거야.",
+  "오늘은 조금 여유를 가지고 스스로를 칭찬해 줘 보자!",
+];
+
+const EXERCISE_RESPONSES = [
+  "가벼운 준비 운동부터 시작해 봐요. 어깨와 허리를 살짝 돌려주는 것만으로도 큰 도움이 돼요!",
+  "오늘은 하체 날로 어떠세요? 스쿼트 15회 × 3세트 추천드릴게요.",
+  "물이 부족하면 근육이 더 쉽게 피로해져요. 지금 한 잔 마실까요?",
+  "목표를 작게 쪼개보세요. 10분 집중해서 운동하는 것부터 시작해도 충분히 멋져요!",
+  "운동 마무리엔 가벼운 스트레칭으로 근육을 풀어 주세요. 다음 날 몸이 훨씬 가볍답니다.",
+];
+
 export default function ChattingScreen() {
+  const [viewMode, setViewMode] = useState<"daily" | "exercise">("daily");
+  const [scriptIndex, setScriptIndex] = useState(-1);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      text: "안녕하세요! 저는 당신의 헬스케어 파트너입니다. 일상 대화를 나누거나 운동 조언을 받고 싶으시면 언제든 말씀해주세요!",
+      text: "헬스 메이트예요! 어떤 운동을 할지 고민되면 편하게 물어보세요 :)",
       isUser: false,
       timestamp: new Date(),
     },
   ]);
   const [inputText, setInputText] = useState("");
-  const [chatMode, setChatMode] = useState<"daily" | "exercise">("daily");
 
-  const getRandomResponse = (isExercise: boolean): string => {
-    const dailyResponses = [
-      "오늘 하루는 어떠셨나요? 운동은 잘 하셨나요?",
-      "좋은 하루 보내고 계시는군요! 건강한 생활 습관을 유지하고 있어요.",
-      "오늘도 수고하셨습니다! 내일도 화이팅이에요!",
-      "건강한 하루를 보내고 계시는 것 같아서 기뻐요!",
-      "오늘의 목표는 달성하셨나요? 작은 성취도 소중해요!",
-    ];
+  const currentScript = useMemo(
+    () => (scriptIndex >= 0 ? DAILY_SCRIPTS[scriptIndex] : ""),
+    [scriptIndex]
+  );
 
-    const exerciseResponses = [
-      "오늘은 어떤 운동을 계획하고 계신가요?",
-      "운동 전후로 충분한 스트레칭을 잊지 마세요!",
-      "물을 충분히 마시는 것도 운동만큼 중요해요.",
-      "규칙적인 운동이 건강의 기본이에요. 꾸준히 해보세요!",
-      "운동 후에는 충분한 휴식도 필요해요. 무리하지 마세요!",
-      "오늘의 운동 목표를 세워보는 것은 어떨까요?",
-    ];
-
-    const responses = isExercise ? exerciseResponses : dailyResponses;
-    return responses[Math.floor(Math.random() * responses.length)];
+  const handleAnimalPress = () => {
+    setScriptIndex((prev) => (prev + 1) % DAILY_SCRIPTS.length);
   };
+
+  const getRandomResponse = () =>
+    EXERCISE_RESPONSES[Math.floor(Math.random() * EXERCISE_RESPONSES.length)];
 
   const sendMessage = () => {
     if (inputText.trim() === "") return;
@@ -67,11 +75,10 @@ export default function ChattingScreen() {
     setMessages((prev) => [...prev, userMessage]);
     setInputText("");
 
-    // 1-2초 후 AI 응답
     setTimeout(() => {
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
-        text: getRandomResponse(chatMode === "exercise"),
+        text: getRandomResponse(),
         isUser: false,
         timestamp: new Date(),
       };
@@ -79,207 +86,336 @@ export default function ChattingScreen() {
     }, 1000 + Math.random() * 1000);
   };
 
-  const renderMessage = ({ item }: { item: Message }) => (
+  const renderExerciseMessage = ({ item }: { item: Message }) => (
     <View
       style={[
-        styles.messageContainer,
-        item.isUser ? styles.userMessage : styles.aiMessage,
+        styles.messageRow,
+        item.isUser ? styles.userRow : styles.aiRow,
       ]}
     >
-      <Text style={styles.messageText}>{item.text}</Text>
-      <Text style={styles.timestamp}>
-        {item.timestamp.toLocaleTimeString("ko-KR", {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}
-      </Text>
+      {item.isUser ? (
+        <View style={styles.profileSpacer} />
+      ) : (
+        <View style={styles.profileColumn}>
+          <View style={styles.profilePlaceholder} />
+          <Text style={styles.profileName}>헬시</Text>
+        </View>
+      )}
+      <View
+        style={[
+          styles.bubble,
+          item.isUser ? styles.userBubble : styles.aiBubble,
+        ]}
+      >
+        <Text
+          style={[
+            styles.bubbleText,
+            item.isUser && styles.userBubbleText,
+          ]}
+        >
+          {item.text}
+        </Text>
+        <Text style={styles.bubbleTimestamp}>
+          {item.timestamp.toLocaleTimeString("ko-KR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </Text>
+      </View>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-       <HomeButton />
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        {/* 채팅 모드 선택 탭 */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[
-              styles.tab,
-              chatMode === "daily" && styles.activeTab,
-            ]}
-            onPress={() => setChatMode("daily")}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                chatMode === "daily" && styles.activeTabText,
-              ]}
+    <SafeAreaView style={styles.safeArea}>
+      <HomeButton />
+      {viewMode === "daily" ? (
+        <ImageBackground
+          source={require("../../assets/images/chat_background_imsi.png")}
+          style={styles.dailyBackground}
+          imageStyle={styles.dailyBackgroundImage}
+        >
+          <View style={styles.dailyOverlay}>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={styles.animalWrapper}
+              onPress={handleAnimalPress}
             >
-              일상 대화
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.tab,
-              chatMode === "exercise" && styles.activeTab,
-            ]}
-            onPress={() => setChatMode("exercise")}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                chatMode === "exercise" && styles.activeTabText,
-              ]}
+              {currentScript !== "" && (
+                <View style={styles.speechBubble}>
+                  <Text style={styles.speechText}>{currentScript}</Text>
+                  <View style={styles.speechTail} />
+                </View>
+              )}
+              <Image
+                source={require("../../assets/images/dog_character.png")}
+                style={styles.animalImage}
+                resizeMode="contain"
+              />
+              {currentScript === "" && (
+                <Text style={styles.tapHint}>동물을 터치해 대화를 시작해보세요</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.switchButton}
+              onPress={() => setViewMode("exercise")}
             >
-              운동 조언
-            </Text>
-          </TouchableOpacity>
-        </View>
+              <Text style={styles.switchButtonText}>운동 조언 받으러 가기</Text>
+            </TouchableOpacity>
+          </View>
+        </ImageBackground>
+      ) : (
+        <KeyboardAvoidingView
+          style={styles.exerciseContainer}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <View style={styles.exerciseHeader}>
+            <Text style={styles.exerciseTitle}>운동 조언 채팅</Text>
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => setViewMode("daily")}
+            >
+              <Text style={styles.headerButtonText}>일상 대화 보기</Text>
+            </TouchableOpacity>
+          </View>
 
-        {/* 메시지 리스트 */}
-        <FlatList
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id}
-          style={styles.messagesList}
-          contentContainerStyle={styles.messagesContent}
-        />
-
-        {/* 입력창 */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.textInput}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder={
-              chatMode === "daily"
-                ? "일상 대화를 나누어보세요..."
-                : "운동에 대해 물어보세요..."
-            }
-            multiline
-            maxLength={500}
+          <FlatList
+            data={messages}
+            renderItem={renderExerciseMessage}
+            keyExtractor={(item) => item.id}
+            style={styles.chatList}
+            contentContainerStyle={styles.chatContent}
           />
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              inputText.trim() === "" && styles.sendButtonDisabled,
-            ]}
-            onPress={sendMessage}
-            disabled={inputText.trim() === ""}
-          >
-            <Text style={styles.sendButtonText}>전송</Text>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+
+          <View style={styles.inputBar}>
+            <TextInput
+              style={styles.chatInput}
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder="운동에 대해 물어보세요..."
+              placeholderTextColor="#9aa0a6"
+              multiline
+            />
+            <TouchableOpacity
+              style={[
+                styles.chatSendButton,
+                inputText.trim() === "" && styles.chatSendButtonDisabled,
+              ]}
+              disabled={inputText.trim() === ""}
+              onPress={sendMessage}
+            >
+              <Text style={styles.chatSendButtonText}>전송</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
-    paddingTop: 50,
+    backgroundColor: "#f7f7f7",
   },
-  tabContainer: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 8,
-    padding: 4,
-  },
-  tab: {
+  dailyBackground: {
     flex: 1,
-    paddingVertical: 12,
+  },
+  dailyBackgroundImage: {
+    width: "100%",
+    height: "100%",
+  },
+  dailyOverlay: {
+    flex: 1,
     alignItems: "center",
-    borderRadius: 6,
+    justifyContent: "center",
+    paddingHorizontal: 32,
   },
-  activeTab: {
-    backgroundColor: "#007AFF",
+  animalWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
   },
-  tabText: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#666",
-  },
-  activeTabText: {
-    color: "#fff",
-  },
-  messagesList: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  messagesContent: {
+  speechBubble: {
+    backgroundColor: "rgba(255,255,255,0.9)",
+    paddingHorizontal: 20,
     paddingVertical: 16,
+    borderRadius: 20,
+    marginBottom: 12,
+    maxWidth: 300,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+    position: "relative",
   },
-  messageContainer: {
-    maxWidth: "80%",
-    marginVertical: 4,
-    padding: 12,
-    borderRadius: 16,
+  speechText: {
+    fontSize: 16,
+    color: "#333",
+    lineHeight: 22,
+    textAlign: "center",
   },
-  userMessage: {
-    alignSelf: "flex-end",
-    backgroundColor: "#007AFF",
-    borderBottomRightRadius: 4,
+  speechTail: {
+    position: "absolute",
+    bottom: -12,
+    left: "50%",
+    marginLeft: -12,
+    width: 24,
+    height: 24,
+    backgroundColor: "rgba(255,255,255,0.9)",
+    transform: [{ rotate: "45deg" }],
   },
-  aiMessage: {
-    alignSelf: "flex-start",
+  animalImage: {
+    width: 220,
+    height: 220,
+  },
+  tapHint: {
+    marginTop: 16,
+    fontSize: 15,
+    color: "#fff",
+    textShadowColor: "rgba(0,0,0,0.25)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  switchButton: {
+    marginTop: 80,
+    paddingVertical: 16,
+    paddingHorizontal: 28,
+    backgroundColor: "#2b59ff",
+    borderRadius: 30,
+    shadowColor: "#2b59ff",
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
+  switchButtonText: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "bold",
+  },
+  exerciseContainer: {
+    flex: 1,
+    backgroundColor: "#e5ecf5",
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  exerciseHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  exerciseTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#0f172a",
+  },
+  headerButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 18,
+    backgroundColor: "#fff",
+  },
+  headerButtonText: {
+    color: "#0f172a",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  chatList: {
+    flex: 1,
+  },
+  chatContent: {
+    paddingBottom: 16,
+  },
+  messageRow: {
+    flexDirection: "row",
+    marginBottom: 12,
+  },
+  aiRow: {
+    alignItems: "flex-start",
+  },
+  userRow: {
+    justifyContent: "flex-end",
+  },
+  profileColumn: {
+    alignItems: "center",
+    marginRight: 8,
+  },
+  profilePlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#c8d0da",
+    marginBottom: 4,
+  },
+  profileName: {
+    fontSize: 12,
+    color: "#6b7280",
+  },
+  profileSpacer: {
+    width: 44,
+  },
+  bubble: {
+    maxWidth: "75%",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 18,
+  },
+  aiBubble: {
     backgroundColor: "#fff",
     borderBottomLeftRadius: 4,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
-  messageText: {
-    fontSize: 16,
-    lineHeight: 22,
-    color: "#333",
-  },
-  timestamp: {
-    fontSize: 12,
-    color: "#999",
-    marginTop: 4,
+  userBubble: {
+    backgroundColor: "#ffd249",
+    borderBottomRightRadius: 4,
     alignSelf: "flex-end",
   },
-  inputContainer: {
-    flexDirection: "row",
-    padding: 16,
-    backgroundColor: "#fff",
-    alignItems: "flex-end",
-  },
-  textInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginRight: 12,
-    maxHeight: 100,
+  bubbleText: {
     fontSize: 16,
+    color: "#111827",
+    lineHeight: 22,
   },
-  sendButton: {
-    backgroundColor: "#007AFF",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+  userBubbleText: {
+    color: "#4c3813",
+  },
+  bubbleTimestamp: {
+    fontSize: 11,
+    color: "#9ca3af",
+    marginTop: 6,
+    alignSelf: "flex-end",
+  },
+  inputBar: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    backgroundColor: "#fff",
+    borderRadius: 28,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  chatInput: {
+    flex: 1,
+    fontSize: 16,
+    maxHeight: 120,
+  },
+  chatSendButton: {
+    marginLeft: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 20,
+    backgroundColor: "#2b59ff",
   },
-  sendButtonDisabled: {
-    backgroundColor: "#ccc",
+  chatSendButtonDisabled: {
+    backgroundColor: "#cdd5f0",
   },
-  sendButtonText: {
+  chatSendButtonText: {
     color: "#fff",
     fontWeight: "600",
-    fontSize: 16,
   },
 });
