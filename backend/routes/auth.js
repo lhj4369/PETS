@@ -279,4 +279,34 @@ router.post('/customization', authMiddleware, async (req, res) => {
   }
 });
 
+// 랭킹 조회 (경험치 기준)
+router.get('/ranking', authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT 
+        up.user_id,
+        a.name,
+        up.animal_type AS animalType,
+        up.nickname,
+        up.experience,
+        up.level,
+        COUNT(wr.id) AS totalWorkouts,
+        COALESCE(SUM(wr.duration_minutes), 0) AS totalDurationMinutes,
+        COALESCE(AVG(wr.heart_rate), 0) AS avgHeartRate
+      FROM user_profiles up
+      INNER JOIN accounts a ON up.user_id = a.id
+      LEFT JOIN workout_records wr ON up.user_id = wr.user_id
+      GROUP BY up.user_id, a.name, up.animal_type, up.nickname, up.experience, up.level
+      ORDER BY up.experience DESC, up.level DESC
+      LIMIT 100`,
+      []
+    );
+
+    res.json({ rankings: rows });
+  } catch (err) {
+    console.error('랭킹 조회 에러:', err);
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  }
+});
+
 export default router;
