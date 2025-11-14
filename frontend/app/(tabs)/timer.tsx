@@ -252,6 +252,7 @@ export default function TimerScreen() {
         heartRate: summaryData.heartRate,
         hasReward,
         notes: null,
+        source: "auto",
       };
       
       // 개발자 모드에서는 AsyncStorage에 저장
