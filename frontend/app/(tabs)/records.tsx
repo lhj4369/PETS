@@ -1,5 +1,5 @@
 //운동 기록 화면
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   View,
    Text,
@@ -19,23 +19,94 @@ import HomeButton from "../../components/HomeButton";
 import AuthManager from "../../utils/AuthManager";
 import API_BASE_URL from "../../config/api";
 
+type WorkoutSource = "auto" | "manual";
+
+const determineRecordSource = (record: { heartRate?: number | null; hasReward?: boolean }): WorkoutSource => {
+  if (record.hasReward) {
+    return "auto";
+  }
+  if (record.heartRate !== null && record.heartRate !== undefined) {
+    return "auto";
+  }
+  return "manual";
+};
+
 interface WorkoutRecord {
   id: string;
   date: string;
   duration: number;
   type: string;
   notes?: string;
+  heartRate?: number | null;
+  hasReward?: boolean;
+  source: WorkoutSource;
+  createdAt?: string | null;
 }
+
+interface WorkoutRecordPayload {
+  date: string;
+  duration: number;
+  type: string;
+  notes?: string;
+}
+
+const getRecordTimestamp = (record: WorkoutRecord) => {
+  if (record.createdAt) {
+    const timestamp = new Date(record.createdAt).getTime();
+    if (!Number.isNaN(timestamp)) {
+      return timestamp;
+    }
+  }
+
+  const idAsNumber = Number(record.id);
+  if (!Number.isNaN(idAsNumber)) {
+    return idAsNumber;
+  }
+
+  const dateTimestamp = new Date(record.date).getTime();
+  if (!Number.isNaN(dateTimestamp)) {
+    return dateTimestamp;
+  }
+
+  return 0;
+};
+
+const sortRecordsByCreation = (records: WorkoutRecord[]) =>
+  [...records].sort((a, b) => getRecordTimestamp(a) - getRecordTimestamp(b));
 
 export default function RecordsScreen() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  // 초기 로드 시 오늘 날짜 선택
+  const getTodayDateString = () => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  };
+  const [selectedDate, setSelectedDate] = useState<string | null>(getTodayDateString());
+  
+  // 날짜가 미래인지 확인
+  const isFutureDate = (dateStr: string) => {
+    const today = getTodayDateString();
+    return dateStr > today;
+  };
+
+  // 현재 연도 기준으로 +1년까지만 이동 가능한지 확인
+  const canNavigateToMonth = (targetDate: Date) => {
+    const currentYear = new Date().getFullYear();
+    const maxYear = currentYear + 1;
+    const targetYear = targetDate.getFullYear();
+    
+    // 현재 연도 + 1년을 넘어가면 이동 불가
+    return targetYear <= maxYear;
+  };
   const [workoutRecords, setWorkoutRecords] = useState<WorkoutRecord[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showMonthYearModal, setShowMonthYearModal] = useState(false);
   const [selectedDayRecords, setSelectedDayRecords] = useState<WorkoutRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const isNavigating = useRef(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<WorkoutRecord | null>(null);
 
   const fetchWorkoutRecords = useCallback(async () => {
     setIsLoading(true);
@@ -61,6 +132,10 @@ export default function RecordsScreen() {
           duration: r.duration,
           type: r.type,
           notes: r.notes || undefined,
+          heartRate: r.heartRate ?? null,
+          hasReward: r.hasReward ?? false,
+          source: r.source ?? determineRecordSource(r),
+          createdAt: r.createdAt ?? null,
         }));
         
         setWorkoutRecords(records);
@@ -96,6 +171,10 @@ export default function RecordsScreen() {
           duration: r.durationMinutes,
           type: r.workoutType,
           notes: r.notes || undefined,
+          heartRate: r.heartRate ?? null,
+          hasReward: r.hasReward ?? false,
+          source: determineRecordSource(r),
+          createdAt: r.createdAt ?? null,
         }));
         
         setWorkoutRecords(records);
@@ -130,6 +209,16 @@ export default function RecordsScreen() {
     }, [fetchWorkoutRecords])
   );
 
+  // 선택된 날짜의 기록 업데이트
+  useEffect(() => {
+    if (selectedDate) {
+      const dayRecords = workoutRecords.filter((r) => r.date === selectedDate);
+      setSelectedDayRecords(sortRecordsByCreation(dayRecords));
+    } else {
+      setSelectedDayRecords([]);
+    }
+  }, [selectedDate, workoutRecords]);
+
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
@@ -147,11 +236,15 @@ export default function RecordsScreen() {
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const dayRecords = workoutRecords.filter((r) => r.date === dateStr);
+      const sortedByCreation = sortRecordsByCreation(dayRecords);
+      const dotTypes = sortedByCreation.slice(0, 3).map((r) => r.type);
+      
       days.push({
         date: day,
         isCurrentMonth: true,
         hasWorkout: dayRecords.length > 0,
-        workoutCount: dayRecords.length,
+        records: sortedByCreation,
+        dotTypes,
       });
     }
 
@@ -167,31 +260,35 @@ export default function RecordsScreen() {
 
     const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     
+    // 미래 날짜는 선택 불가
+    if (isFutureDate(dateStr)) {
+      Alert.alert("알림", "미래 날짜에는 운동 기록을 추가할 수 없습니다.");
+      return;
+    }
+    
     // 이미 불러온 workoutRecords에서 해당 날짜의 기록 찾기
     const dayRecords = workoutRecords.filter((r) => r.date === dateStr);
 
     setSelectedDate(dateStr);
-    setSelectedDayRecords(dayRecords);
-
-    if (dayRecords.length > 0) {
-      setShowDetailModal(true);
-    } else {
-      setShowAddModal(true);
-    }
+    setSelectedDayRecords(sortRecordsByCreation(dayRecords));
   };
 
-  const addWorkoutRecord = async (record: Omit<WorkoutRecord, 'id'>) => {
+  const addWorkoutRecord = async (record: WorkoutRecordPayload) => {
     try {
       // 개발자 모드: 로컬 저장
       if (await AuthManager.isDevMode()) {
         const newRecord: WorkoutRecord = {
           ...record,
           id: Date.now().toString(),
+          heartRate: null,
+          hasReward: false,
+          source: "manual",
+          createdAt: new Date().toISOString(),
         };
         
         // AsyncStorage에 저장
         const existingRecords = await AuthManager.getDevWorkoutRecords();
-        const updatedRecords = [...existingRecords, {
+        const updatedRecordsForStorage = [...existingRecords, {
           id: newRecord.id,
           date: newRecord.date,
           duration: newRecord.duration,
@@ -199,13 +296,16 @@ export default function RecordsScreen() {
           notes: newRecord.notes || null,
           heartRate: null,
           hasReward: false,
+          source: "manual",
+          createdAt: newRecord.createdAt,
         }];
-        await AuthManager.setDevWorkoutRecords(updatedRecords);
+        await AuthManager.setDevWorkoutRecords(updatedRecordsForStorage);
         
         // 로컬 상태 업데이트
-        setWorkoutRecords([...workoutRecords, newRecord]);
+        const updatedWorkoutRecords = sortRecordsByCreation([...workoutRecords, newRecord]);
+        setWorkoutRecords(updatedWorkoutRecords);
         if (selectedDate && record.date === selectedDate) {
-          setSelectedDayRecords([...selectedDayRecords, newRecord]);
+          setSelectedDayRecords(sortRecordsByCreation([...selectedDayRecords, newRecord]));
         }
         setShowAddModal(false);
         return;
@@ -249,7 +349,106 @@ export default function RecordsScreen() {
     }
   };
 
+  const updateWorkoutRecord = async (id: string, updates: { type: string; duration: number }) => {
+    const targetRecord = workoutRecords.find((r) => r.id === id);
+    if (!targetRecord) {
+      Alert.alert("오류", "수정할 운동 기록을 찾을 수 없습니다.");
+      return;
+    }
+
+    if (targetRecord.source === "auto") {
+      Alert.alert("알림", "자동 등록된 운동 기록은 수정할 수 없습니다.");
+      return;
+    }
+
+    try {
+      if (await AuthManager.isDevMode()) {
+        const existingRecords = await AuthManager.getDevWorkoutRecords();
+        const updatedRecords = existingRecords.map((r: any) =>
+          r.id.toString() === id
+            ? {
+                ...r,
+                duration: updates.duration,
+                type: updates.type,
+              }
+            : r
+        );
+
+        await AuthManager.setDevWorkoutRecords(updatedRecords);
+
+        const updatedWorkoutRecords = workoutRecords.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                duration: updates.duration,
+                type: updates.type,
+              }
+            : r
+        );
+        setWorkoutRecords(updatedWorkoutRecords);
+        if (selectedDate === targetRecord.date) {
+          setSelectedDayRecords((prev) =>
+            sortRecordsByCreation(
+              prev.map((r) =>
+                r.id === id
+                  ? {
+                      ...r,
+                      duration: updates.duration,
+                      type: updates.type,
+                    }
+                  : r
+              )
+            )
+          );
+        }
+      } else {
+        const headers = await AuthManager.getAuthHeader();
+        if (!headers.Authorization) {
+          Alert.alert("오류", "인증이 필요합니다.");
+          return;
+        }
+
+        const payload = {
+          workoutDate: targetRecord.date,
+          workoutType: updates.type,
+          durationMinutes: updates.duration,
+          heartRate: targetRecord.heartRate ?? null,
+          hasReward: targetRecord.hasReward ?? false,
+          notes: targetRecord.notes ?? null,
+        };
+
+        const response = await fetch(`${API_BASE_URL}/api/workout/${id}`, {
+          method: "PUT",
+          headers: {
+            ...headers,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          Alert.alert("오류", data?.error ?? "운동 기록 수정에 실패했습니다.");
+          return;
+        }
+
+        await fetchWorkoutRecords();
+      }
+
+      setShowEditModal(false);
+      setEditingRecord(null);
+    } catch (error: any) {
+      Alert.alert("오류", error?.message ?? "운동 기록 수정 중 문제가 발생했습니다.");
+    }
+  };
+
   const deleteWorkoutRecord = async (id: string) => {
+    const targetRecord = workoutRecords.find((r) => r.id === id);
+    if (targetRecord?.source === "auto") {
+      Alert.alert("알림", "자동 등록된 운동 기록은 삭제할 수 없습니다.");
+      return;
+    }
+
     const confirmDelete = () => {
       if (Platform.OS === 'web') {
         return window.confirm("이 운동 기록을 삭제하시겠습니까?");
@@ -318,91 +517,283 @@ export default function RecordsScreen() {
   };
 
   const navigateMonth = (direction: 'prev' | 'next') => {
-    const newDate = new Date(currentDate);
-    if (direction === 'prev') {
-      newDate.setMonth(newDate.getMonth() - 1);
-    } else {
-      newDate.setMonth(newDate.getMonth() + 1);
-    }
-    setCurrentDate(newDate);
+    if (isNavigating.current) return;
+    
+    isNavigating.current = true;
+    setCurrentDate((prevDate) => {
+      const newDate = new Date(prevDate);
+      if (direction === 'prev') {
+        newDate.setMonth(newDate.getMonth() - 1);
+      } else {
+        // 다음 달로 이동
+        newDate.setMonth(newDate.getMonth() + 1);
+        
+        // 현재 연도 + 1년을 넘어가면 이동 불가
+        if (!canNavigateToMonth(newDate)) {
+          isNavigating.current = false;
+          Alert.alert("알림", "현재 연도로부터 1년 뒤까지만 확인할 수 있습니다.");
+          return prevDate; // 원래 날짜 유지
+        }
+      }
+      return newDate;
+    });
+    
+    // 300ms 후에 다시 클릭 가능하도록
+    setTimeout(() => {
+      isNavigating.current = false;
+    }, 300);
   };
 
   const days = getDaysInMonth(currentDate);
   const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
 
+  const totalDuration = selectedDayRecords.reduce((sum, record) => sum + record.duration, 0);
+
+  const formatDuration = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    const parts: string[] = [];
+
+    if (hours > 0) {
+      parts.push(`${hours}시간`);
+    }
+    if (remainingMinutes > 0) {
+      parts.push(`${remainingMinutes}분`);
+    }
+
+    if (parts.length === 0) {
+      return "0분";
+    }
+
+    return parts.join(" ");
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <HomeButton />
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigateMonth('prev')}>
-            <Ionicons name="chevron-back" size={24} color="#333" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowMonthYearModal(true)}>
-            <Text style={styles.monthYear}>
-              {currentDate.getFullYear()}년 {currentDate.getMonth() + 1}월
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigateMonth('next')}>
-            <Ionicons name="chevron-forward" size={24} color="#333" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.calendar}>
-          <View style={styles.weekHeader}>
-            {weekDays.map((day, i) => (
-              <Text key={i} style={[styles.weekDay, (i === 0 || i === 6) && styles.weekend]}>
-                {day}
+      <View style={styles.mainContainer}>
+        {/* 상단: 달력 영역 */}
+        <View style={styles.calendarSection}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigateMonth('prev')}>
+              <Ionicons name="chevron-back" size={24} color="#333" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowMonthYearModal(true)}>
+              <Text style={styles.monthYear}>
+                {currentDate.getFullYear()}년 {currentDate.getMonth() + 1}월
               </Text>
-            ))}
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => navigateMonth('next')}
+              disabled={(() => {
+                const nextMonth = new Date(currentDate);
+                nextMonth.setMonth(nextMonth.getMonth() + 1);
+                return !canNavigateToMonth(nextMonth);
+              })()}
+            >
+              <Ionicons 
+                name="chevron-forward" 
+                size={24} 
+                color={(() => {
+                  const nextMonth = new Date(currentDate);
+                  nextMonth.setMonth(nextMonth.getMonth() + 1);
+                  return canNavigateToMonth(nextMonth) ? "#333" : "#ccc";
+                })()} 
+              />
+            </TouchableOpacity>
           </View>
 
-          <View style={styles.daysGrid}>
-            {days.map((day, i) => (
-              <TouchableOpacity
-                key={i}
-                style={[
-                  styles.dayCell,
-                  !day.isCurrentMonth && styles.otherMonth,
-                  day.hasWorkout && styles.workoutDay,
-                ]}
-                onPress={() => handleDatePress(day.date)}
-                disabled={!day.isCurrentMonth}
-              >
-                {day.date && (
-                  <>
-                    <Text style={styles.dayText}>{day.date}</Text>
-                    {day.hasWorkout && (
-                      <View style={styles.workoutBadge}>
-                        <Text style={styles.workoutBadgeText}>{day.workoutCount}</Text>
-                      </View>
+          <View style={styles.calendar}>
+            <View style={styles.weekHeader}>
+              {weekDays.map((day, i) => (
+                <Text
+                  key={i}
+                  style={[
+                    styles.weekDay,
+                    i === 0 && styles.sunday,
+                    i === 6 && styles.saturday,
+                  ]}
+                >
+                  {day}
+                </Text>
+              ))}
+            </View>
+
+            <View style={styles.daysGrid}>
+              {days.map((day, i) => {
+                const dateStr = day.date 
+                  ? `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day.date).padStart(2, '0')}`
+                  : null;
+                const isSelected = selectedDate === dateStr;
+                const isFuture = dateStr ? isFutureDate(dateStr) : false;
+                const isDisabled = !day.isCurrentMonth || isFuture;
+                
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    style={[
+                      styles.dayCell,
+                      !day.isCurrentMonth && styles.otherMonth,
+                      isSelected && styles.selectedDay,
+                      isFuture && styles.futureDay,
+                    ]}
+                    onPress={() => handleDatePress(day.date)}
+                    disabled={isDisabled}
+                  >
+                    {day.date && (
+                      <>
+                        <Text style={[styles.dayText, isSelected && styles.selectedDayText]}>
+                          {day.date}
+                        </Text>
+                        <View style={styles.dotsContainer}>
+                          {day.dotTypes?.map((type: string, idx: number) => (
+                            <View
+                              key={`${dateStr}-dot-${idx}`}
+                              style={[
+                                styles.dot,
+                                type === "유산소"
+                                  ? styles.aerobicDot
+                                  : type === "인터벌"
+                                  ? styles.intervalDot
+                                  : styles.otherDot,
+                              ]}
+                            />
+                          ))}
+                        </View>
+                      </>
                     )}
-                  </>
-                )}
-              </TouchableOpacity>
-            ))}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
         </View>
-      </ScrollView>
+
+        {/* 하단: 운동 기록 영역 */}
+        <View style={styles.recordsSection}>
+          <View style={styles.recordsContentWrapper}>
+            {selectedDate ? (
+              <ScrollView style={styles.recordsScrollView} contentContainerStyle={styles.recordsContent}>
+                {selectedDayRecords.length > 0 ? (
+                  <View style={styles.recordsList}>
+                    {selectedDayRecords.map((record) => {
+                      const isManual = record.source === "manual";
+                      return (
+                        <View
+                          key={record.id}
+                          style={[
+                            styles.recordItem,
+                            isManual ? styles.manualRecordItem : styles.autoRecordItem,
+                          ]}
+                        >
+                          <View style={styles.recordItemContent}>
+                            <Text
+                              style={[
+                                styles.recordItemType,
+                                isManual ? styles.manualRecordType : styles.autoRecordType,
+                              ]}
+                            >
+                              {record.type}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.recordItemDuration,
+                                isManual
+                                  ? styles.manualRecordDuration
+                                  : styles.autoRecordDuration,
+                              ]}
+                            >
+                              {formatDuration(record.duration)}
+                            </Text>
+                          </View>
+                          <View style={styles.recordActions}>
+                            {isManual ? (
+                              <>
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    setEditingRecord(record);
+                                    setShowEditModal(true);
+                                  }}
+                                  style={styles.actionButton}
+                                >
+                                  <Ionicons name="create-outline" size={20} color="#1976D2" />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  onPress={() => deleteWorkoutRecord(record.id)}
+                                  style={styles.actionButton}
+                                >
+                                  <Ionicons name="trash-outline" size={20} color="#f44336" />
+                                </TouchableOpacity>
+                              </>
+                            ) : (
+                              <Ionicons name="lock-closed-outline" size={18} color="#78909C" />
+                            )}
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <View style={styles.emptyRecords}>
+                    <Text style={styles.emptyRecordsText}>이 날짜에 운동 기록이 없습니다</Text>
+                  </View>
+                )}
+              </ScrollView>
+            ) : (
+              <View style={styles.emptyRecords}>
+                <Text style={styles.emptyRecordsText}>날짜를 선택해주세요</Text>
+              </View>
+            )}
+          </View>
+
+          <TouchableOpacity 
+            style={[
+              styles.addRecordButton,
+              selectedDate && isFutureDate(selectedDate) && styles.addRecordButtonDisabled
+            ]}
+            onPress={() => {
+              if (!selectedDate) {
+                // 날짜가 선택되지 않았으면 오늘 날짜로 설정
+                const todayStr = getTodayDateString();
+                setSelectedDate(todayStr);
+                const todayRecords = workoutRecords.filter((r) => r.date === todayStr);
+                setSelectedDayRecords(sortRecordsByCreation(todayRecords));
+                setShowAddModal(true);
+              } else if (isFutureDate(selectedDate)) {
+                Alert.alert("알림", "미래 날짜에는 운동 기록을 추가할 수 없습니다.");
+              } else {
+                setShowAddModal(true);
+              }
+            }}
+          >
+            <Text style={styles.addRecordButtonText}>운동 기록 추가하기</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {/* 운동 기록 추가 모달 */}
       <AddWorkoutModal
         visible={showAddModal}
-        selectedDate={selectedDate || ''}
-        onSave={addWorkoutRecord}
+        selectedDate={selectedDate || new Date().toISOString().split('T')[0]}
+        onSave={async (record: WorkoutRecordPayload) => {
+          await addWorkoutRecord(record);
+          // addWorkoutRecord 내부에서 fetchWorkoutRecords를 호출하므로
+          // useEffect가 자동으로 selectedDayRecords를 업데이트함
+        }}
         onClose={() => setShowAddModal(false)}
       />
 
-      {/* 운동 기록 상세 모달 */}
-      <WorkoutDetailModal
-        visible={showDetailModal}
-        date={selectedDate || ''}
-        records={selectedDayRecords}
-        onDelete={deleteWorkoutRecord}
-        onClose={() => setShowDetailModal(false)}
-        onAddNew={() => {
-          setShowDetailModal(false);
-          setShowAddModal(true);
+      <EditWorkoutModal
+        visible={showEditModal}
+        record={editingRecord}
+        onSave={(updates) => {
+          if (editingRecord) {
+            updateWorkoutRecord(editingRecord.id, updates);
+          }
+        }}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingRecord(null);
         }}
       />
 
@@ -421,12 +812,28 @@ export default function RecordsScreen() {
 }
 
 // 운동 기록 추가 모달
-function AddWorkoutModal({ visible, selectedDate, onSave, onClose }: any) {
-  const [type, setType] = useState("러닝");
+interface AddWorkoutModalProps {
+  visible: boolean;
+  selectedDate: string;
+  onSave: (record: WorkoutRecordPayload) => void | Promise<void>;
+  onClose: () => void;
+}
+
+function AddWorkoutModal({ visible, selectedDate, onSave, onClose }: AddWorkoutModalProps) {
+  const [type, setType] = useState("유산소");
   const [duration, setDuration] = useState("");
 
+  const handleDurationChange = (text: string) => {
+    // 숫자만 허용
+    const numericValue = text.replace(/[^0-9]/g, '');
+    setDuration(numericValue);
+  };
+
   const handleSave = () => {
-    if (!duration) return;
+    if (!duration || parseInt(duration) <= 0) {
+      Alert.alert("오류", "올바른 운동 시간을 입력해주세요.");
+      return;
+    }
 
     onSave({
       date: selectedDate,
@@ -435,97 +842,163 @@ function AddWorkoutModal({ visible, selectedDate, onSave, onClose }: any) {
     });
 
     setDuration("");
-    setType("러닝");
+    setType("유산소");
   };
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>운동 기록 추가</Text>
-          <TouchableOpacity onPress={onClose}>
-            <Ionicons name="close" size={24} color="#333" />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={styles.modalContent}>
-          <Text style={styles.label}>날짜</Text>
-          <Text style={styles.dateText}>{selectedDate}</Text>
-
-          <Text style={styles.label}>운동 타입</Text>
-          <View style={styles.typeContainer}>
-            {["러닝", "헬스", "요가", "사이클링"].map((t) => (
-              <TouchableOpacity
-                key={t}
-                style={[styles.typeBtn, type === t && styles.typeBtnActive]}
-                onPress={() => setType(t)}
-              >
-                <Text style={[styles.typeBtnText, type === t && styles.typeBtnTextActive]}>
-                  {t}
-                </Text>
-              </TouchableOpacity>
-            ))}
+    <Modal 
+      visible={visible} 
+      animationType="slide" 
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <TouchableOpacity 
+          activeOpacity={1}
+          onPress={(e) => e.stopPropagation()}
+          style={styles.modalBottomSheet}
+        >
+          <View style={styles.modalHandle} />
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>운동 기록 추가</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={24} color="#333" />
+            </TouchableOpacity>
           </View>
 
-          <Text style={styles.label}>운동 시간 (분)</Text>
-          <TextInput
-            style={styles.input}
-            value={duration}
-            onChangeText={setDuration}
-            keyboardType="numeric"
-            placeholder="운동 시간을 입력하세요"
-          />
-        </ScrollView>
+          <View style={styles.modalContent}>
+            <Text style={styles.label}>운동 타입</Text>
+            <View style={styles.typeContainer}>
+              {["유산소", "인터벌", "기타"].map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  style={[
+                    styles.typeBtn, 
+                    type === t && styles.typeBtnActive,
+                    t === "유산소" && type === t && styles.aerobicTypeBtnActive,
+                    t === "인터벌" && type === t && styles.intervalTypeBtnActive,
+                    t === "기타" && type === t && styles.otherTypeBtnActive,
+                  ]}
+                  onPress={() => setType(t)}
+                >
+                  <Text style={[styles.typeBtnText, type === t && styles.typeBtnTextActive]}>
+                    {t}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-          <Text style={styles.saveBtnText}>저장</Text>
+            <Text style={styles.label}>운동 시간 (분)</Text>
+            <TextInput
+              style={styles.input}
+              value={duration}
+              onChangeText={handleDurationChange}
+              keyboardType="numeric"
+              placeholder="운동 시간을 입력하세요"
+            />
+          </View>
+
+          <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+            <Text style={styles.saveBtnText}>저장</Text>
+          </TouchableOpacity>
         </TouchableOpacity>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }
 
-// 운동 기록 상세 모달
-function WorkoutDetailModal({ visible, date, records, onDelete, onClose, onAddNew }: any) {
+interface EditWorkoutModalProps {
+  visible: boolean;
+  record: WorkoutRecord | null;
+  onSave: (updates: { type: string; duration: number }) => void;
+  onClose: () => void;
+}
+
+function EditWorkoutModal({ visible, record, onSave, onClose }: EditWorkoutModalProps) {
+  const [type, setType] = useState(record?.type ?? "유산소");
+  const [duration, setDuration] = useState(record ? String(record.duration) : "");
+
+  useEffect(() => {
+    setType(record?.type ?? "유산소");
+    setDuration(record ? String(record.duration) : "");
+  }, [record]);
+
+  const handleDurationChange = (text: string) => {
+    const numericValue = text.replace(/[^0-9]/g, '');
+    setDuration(numericValue);
+  };
+
+  const handleSave = () => {
+    if (!record) return;
+
+    if (!duration || parseInt(duration) <= 0) {
+      Alert.alert("오류", "올바른 운동 시간을 입력해주세요.");
+      return;
+    }
+
+    onSave({
+      type,
+      duration: parseInt(duration, 10),
+    });
+  };
+
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>{date}</Text>
-          <TouchableOpacity onPress={onClose}>
-            <Ionicons name="close" size={24} color="#333" />
+    <Modal 
+      visible={visible} 
+      animationType="fade" 
+      transparent 
+      onRequestClose={onClose}
+    >
+      <View style={styles.editModalOverlay}>
+        <View style={styles.editModalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>운동 기록 수정</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={24} color="#333" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.modalContent}>
+            <Text style={styles.label}>운동 타입</Text>
+            <View style={styles.typeContainer}>
+              {["유산소", "인터벌", "기타"].map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  style={[
+                    styles.typeBtn, 
+                    type === t && styles.typeBtnActive,
+                    t === "유산소" && type === t && styles.aerobicTypeBtnActive,
+                    t === "인터벌" && type === t && styles.intervalTypeBtnActive,
+                    t === "기타" && type === t && styles.otherTypeBtnActive,
+                  ]}
+                  onPress={() => setType(t)}
+                >
+                  <Text style={[styles.typeBtnText, type === t && styles.typeBtnTextActive]}>
+                    {t}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.label}>운동 시간 (분)</Text>
+            <TextInput
+              style={styles.input}
+              value={duration}
+              onChangeText={handleDurationChange}
+              keyboardType="numeric"
+              placeholder="운동 시간을 입력하세요"
+            />
+          </View>
+
+          <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+            <Text style={styles.saveBtnText}>저장</Text>
           </TouchableOpacity>
         </View>
-
-        <ScrollView style={styles.modalContent}>
-          {records.length === 0 ? (
-            <Text style={styles.emptyText}>운동 기록이 없습니다</Text>
-          ) : (
-            records.map((record: WorkoutRecord) => (
-              <View key={record.id} style={styles.recordCard}>
-                <View style={styles.recordHeader}>
-                  <View>
-                    <Text style={styles.recordType}>{record.type}</Text>
-                    <Text style={styles.recordDuration}>{record.duration}분</Text>
-                  </View>
-                  <TouchableOpacity onPress={() => onDelete(record.id)}>
-                    <Ionicons name="trash" size={20} color="#f44336" />
-                  </TouchableOpacity>
-                </View>
-                {record.notes && <Text style={styles.recordNotes}>{record.notes}</Text>}
-              </View>
-            ))
-          )}
-        </ScrollView>
-
-        <TouchableOpacity style={styles.addNewBtn} onPress={onAddNew}>
-          <Ionicons name="add" size={24} color="#4CAF50" />
-          <Text style={styles.addNewText}>운동 기록 추가</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }
+
 
 // 월/연도 선택 모달
 function MonthYearModal({ visible, currentDate, onSelect, onClose }: {
@@ -544,7 +1017,7 @@ function MonthYearModal({ visible, currentDate, onSelect, onClose }: {
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.monthModalOverlay}>
         <View style={styles.monthModalContent}>
-          <Text style={styles.monthModalTitle}>월/연도 선택</Text>
+          <Text style={styles.monthModalTitle}>빠른 이동</Text>
 
           <View style={styles.monthGrid}>
             {Array.from({ length: 12 }, (_, i) => i).map((month) => (
@@ -595,14 +1068,32 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     paddingTop: 100,
   },
-  scrollView: {
+  mainContainer: {
+    flex: 1,
+    flexDirection: "column",
+  },
+  calendarSection: {
+    flex: 0.45,
+    paddingHorizontal: 10,
+    paddingTop: 5,
+  },
+  recordsSection: {
+    flex: 0.55,
+    backgroundColor: "#f5f5f5",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 15,
+    paddingBottom: 15,
+  },
+  recordsContentWrapper: {
     flex: 1,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 5,
   },
   monthYear: {
     fontSize: 18,
@@ -612,12 +1103,13 @@ const styles = StyleSheet.create({
   calendar: {
     backgroundColor: "#fff",
     borderRadius: 15,
-    padding: 15,
-    margin: 20,
+    padding: 10,
+    marginHorizontal: 10,
+    marginTop: 0,
   },
   weekHeader: {
     flexDirection: "row",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   weekDay: {
     flex: 1,
@@ -625,10 +1117,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: "#666",
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
-  weekend: {
+  sunday: {
     color: "#f44336",
+  },
+  saturday: {
+    color: "#0277BD",
   },
   daysGrid: {
     flexDirection: "row",
@@ -640,32 +1135,67 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
+    borderRadius: 8,
   },
   otherMonth: {
     opacity: 0.3,
   },
-  workoutDay: {
-    backgroundColor: "#e8f5e9",
+  futureDay: {
+    opacity: 0.4,
+  },
+  selectedDay: {
+    backgroundColor: "#E3F2FD",
   },
   dayText: {
     fontSize: 14,
     color: "#333",
+    fontWeight: "500",
   },
-  workoutBadge: {
-    position: "absolute",
-    top: 2,
-    right: 2,
-    backgroundColor: "#4CAF50",
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    alignItems: "center",
+  selectedDayText: {
+    color: "#1976D2",
+    fontWeight: "700",
+  },
+  dotsContainer: {
+    flexDirection: "row",
     justifyContent: "center",
+    alignItems: "center",
+    marginTop: 2,
+    gap: 3,
   },
-  workoutBadgeText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "bold",
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  aerobicDot: {
+    backgroundColor: "#FFD54F",
+  },
+  intervalDot: {
+    backgroundColor: "#4A90E2",
+  },
+  otherDot: {
+    backgroundColor: "#9E9E9E",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "transparent",
+    justifyContent: "flex-end",
+  },
+  modalBottomSheet: {
+    backgroundColor: "#f0f0f0",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "50%",
+    minHeight: "45%",
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#ccc",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginTop: 8,
+    marginBottom: 8,
   },
   modalContainer: {
     flex: 1,
@@ -675,7 +1205,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
@@ -685,15 +1216,30 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   modalContent: {
+    paddingHorizontal: 20,
+    paddingTop: 15,
+    paddingBottom: 10,
+    flexGrow: 1,
+  },
+  editModalOverlay: {
     flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
+  },
+  editModalContent: {
+    width: "90%",
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    overflow: "hidden",
   },
   label: {
     fontSize: 16,
     fontWeight: "600",
     color: "#333",
     marginBottom: 10,
-    marginTop: 20,
+    marginTop: 15,
   },
   dateText: {
     fontSize: 16,
@@ -715,15 +1261,27 @@ const styles = StyleSheet.create({
     borderColor: "#e0e0e0",
   },
   typeBtnActive: {
-    borderColor: "#4CAF50",
-    backgroundColor: "#e8f5e9",
+    borderColor: "#1976D2",
+    backgroundColor: "#E3F2FD",
+  },
+  aerobicTypeBtnActive: {
+    borderColor: "#4A90E2",
+    backgroundColor: "#E3F2FD",
+  },
+  intervalTypeBtnActive: {
+    borderColor: "#FF9500",
+    backgroundColor: "#FFF3E0",
+  },
+  otherTypeBtnActive: {
+    borderColor: "#9E9E9E",
+    backgroundColor: "#F0F0F0",
   },
   typeBtnText: {
     fontSize: 14,
     color: "#666",
   },
   typeBtnTextActive: {
-    color: "#4CAF50",
+    color: "#1976D2",
     fontWeight: "600",
   },
   input: {
@@ -736,7 +1294,9 @@ const styles = StyleSheet.create({
   saveBtn: {
     backgroundColor: "#4CAF50",
     padding: 15,
-    margin: 20,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    marginTop: 10,
     borderRadius: 10,
     alignItems: "center",
   },
@@ -776,22 +1336,107 @@ const styles = StyleSheet.create({
     color: "#999",
     marginTop: 8,
   },
-  addNewBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 15,
-    margin: 20,
+  addRecordButton: {
+    backgroundColor: "#E0E0E0",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     borderRadius: 10,
-    borderWidth: 2,
-    borderColor: "#4CAF50",
-    borderStyle: "dashed",
+    marginHorizontal: 20,
+    marginBottom: 15,
+    alignItems: "center",
   },
-  addNewText: {
-    color: "#4CAF50",
+  addRecordButtonDisabled: {
+    opacity: 0.5,
+  },
+  addRecordButtonText: {
+    color: "#1976D2",
     fontSize: 16,
     fontWeight: "600",
-    marginLeft: 8,
+  },
+  recordsScrollView: {
+    flex: 1,
+  },
+  recordsContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  recordSummary: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#E3F2FD",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
+  },
+  recordSummaryText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+  },
+  recordSummaryTime: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#666",
+  },
+  recordsList: {
+    gap: 10,
+  },
+  recordItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 8,
+    gap: 12,
+  },
+  autoRecordItem: {
+    backgroundColor: "#E3F2FD",
+  },
+  manualRecordItem: {
+    backgroundColor: "#ECEFF1",
+  },
+  recordItemContent: {
+    flex: 1,
+  },
+  recordItemType: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  autoRecordType: {
+    color: "#0D47A1",
+  },
+  manualRecordType: {
+    color: "#37474F",
+  },
+  recordItemDuration: {
+    fontSize: 14,
+  },
+  autoRecordDuration: {
+    color: "#1565C0",
+  },
+  manualRecordDuration: {
+    color: "#546E7A",
+  },
+  recordActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  actionButton: {
+    padding: 6,
+  },
+  emptyRecords: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  emptyRecordsText: {
+    fontSize: 16,
+    color: "#999",
   },
   monthModalOverlay: {
     flex: 1,
