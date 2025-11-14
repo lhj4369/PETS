@@ -1,70 +1,102 @@
 //랭킹 화면
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, SafeAreaView } from "react-native";
-import { useState } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, SafeAreaView, ActivityIndicator, Alert, Image, ImageSourcePropType } from "react-native";
+import { useState, useEffect } from "react";
 import HomeButton from "../../components/HomeButton";
+import AuthManager from "../../utils/AuthManager";
+import API_BASE_URL from "../../config/api";
+import dog from "../../assets/images/animals/dog.png";
+import capibara from "../../assets/images/animals/capibara.png";
+import fox from "../../assets/images/animals/fox.png";
+import ginipig from "../../assets/images/animals/ginipig.png";
+import red_panda from "../../assets/images/animals/red_panda.png";
+import { DEFAULT_ANIMAL_IMAGE } from "../../context/CustomizationContext";
+
+type RankingItem = {
+  rank: number;
+  name: string;
+  animal: ImageSourcePropType;
+  score: number;
+  nickname: string;
+  level: number;
+  totalWorkouts: number;
+  totalDurationMinutes: number;
+  avgHeartRate: number;
+};
+
+const ANIMAL_IMAGE_MAP: Record<string, ImageSourcePropType> = {
+  dog: dog,
+  capybara: capibara,
+  fox: fox,
+  red_panda: red_panda,
+  guinea_pig: ginipig,
+};
+
+const formatDuration = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours > 0) {
+    return `${hours}시간 ${mins}분`;
+  }
+  return `${mins}분`;
+};
 
 export default function RankingScreen() {
-  const [selectedAnimal, setSelectedAnimal] = useState<any>(null);
+  const [selectedAnimal, setSelectedAnimal] = useState<RankingItem | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [rankings, setRankings] = useState<RankingItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // 랭킹 데이터 (실제로는 서버에서 받아올 데이터)
-  const rankings = [
-    { 
-      rank: 1, 
-      name: "치타", 
-      animal: "🐆", 
-      score: 9850, 
-      time: "01:23:45",
-      totalTime: "@@@@",
-      weeklyWorkouts: "@@@@",
-      avgHeartRate: "@@@@",
-      weeklyRunTime: "@@@@"
-    },
-    { 
-      rank: 2, 
-      name: "독수리", 
-      animal: "🦅", 
-      score: 9200, 
-      time: "01:45:20",
-      totalTime: "05:32:15",
-      weeklyWorkouts: "5회",
-      avgHeartRate: "145 bpm",
-      weeklyRunTime: "02:30:00"
-    },
-    { 
-      rank: 3, 
-      name: "토끼", 
-      animal: "🐰", 
-      score: 8900, 
-      time: "02:10:15",
-      totalTime: "04:20:30",
-      weeklyWorkouts: "4회",
-      avgHeartRate: "138 bpm",
-      weeklyRunTime: "02:00:00"
-    },
-    { 
-      rank: 4, 
-      name: "사자", 
-      animal: "🦁", 
-      score: 8500, 
-      time: "02:30:40",
-      totalTime: "03:45:20",
-      weeklyWorkouts: "3회",
-      avgHeartRate: "142 bpm",
-      weeklyRunTime: "01:45:00"
-    },
-    { 
-      rank: 5, 
-      name: "호랑이", 
-      animal: "🐯", 
-      score: 8100, 
-      time: "02:45:30",
-      totalTime: "03:10:45",
-      weeklyWorkouts: "3회",
-      avgHeartRate: "140 bpm",
-      weeklyRunTime: "01:30:00"
-    },
-  ];
+  useEffect(() => {
+    fetchRankings();
+  }, []);
+
+  const fetchRankings = async () => {
+    setIsLoading(true);
+    try {
+      const headers = await AuthManager.getAuthHeader();
+      if (!headers.Authorization) {
+        Alert.alert("오류", "인증이 필요합니다. 다시 로그인해주세요.");
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/auth/ranking`, {
+        headers,
+      });
+
+      if (response.status === 401) {
+        await AuthManager.logout();
+        Alert.alert("오류", "인증이 만료되었습니다. 다시 로그인해주세요.");
+        setIsLoading(false);
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error("랭킹 정보를 불러오지 못했습니다.");
+      }
+
+      const data = await response.json();
+      
+      const formattedRankings: RankingItem[] = data.rankings.map((item: any, index: number) => ({
+        rank: index + 1,
+        name: item.name || "익명",
+        animal: ANIMAL_IMAGE_MAP[item.animalType] || DEFAULT_ANIMAL_IMAGE,
+        score: item.experience || 0,
+        nickname: item.nickname || item.name || "익명",
+        level: item.level || 1,
+        totalWorkouts: item.totalWorkouts || 0,
+        totalDurationMinutes: item.totalDurationMinutes || 0,
+        avgHeartRate: Math.round(item.avgHeartRate || 0),
+      }));
+
+      setRankings(formattedRankings);
+    } catch (error) {
+      console.error("랭킹 불러오기 실패:", error);
+      Alert.alert("오류", "랭킹 정보를 불러오지 못했습니다.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getPodiumHeight = (rank: number) => {
     if (rank === 1) return 180;
@@ -80,10 +112,22 @@ export default function RankingScreen() {
     return "#e0e0e0";
   };
 
-  const handleAnimalPress = (animal: any) => {
+  const handleAnimalPress = (animal: RankingItem) => {
     setSelectedAnimal(animal);
     setModalVisible(true);
   };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <HomeButton />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>랭킹을 불러오는 중...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -91,93 +135,103 @@ export default function RankingScreen() {
       <ScrollView style={styles.scrollContainer}>
         <Text style={styles.title}>전체 랭킹</Text>
         
-        {/* 시상대 */}
-        <View style={styles.podiumContainer}>
-          {/* 2등 */}
-          <TouchableOpacity 
-            style={styles.podiumItem}
-            onPress={() => handleAnimalPress(rankings[1])}
-          >
-            <View style={styles.animalContainer}>
-              <Text style={styles.animalEmoji}>{rankings[1].animal}</Text>
-              <View style={[styles.crownSmall, { backgroundColor: getPodiumColor(2) }]}>
-                <Text style={styles.crownText}>2</Text>
-              </View>
-            </View>
-            <View style={[styles.podium, { 
-              height: getPodiumHeight(2),
-              backgroundColor: getPodiumColor(2) 
-            }]}>
-              <Text style={styles.podiumRank}>2</Text>
-            </View>
-            <Text style={styles.podiumName}>{rankings[1].name}</Text>
-            <Text style={styles.podiumScore}>{rankings[1].score}점</Text>
-          </TouchableOpacity>
+        {rankings.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>랭킹 데이터가 없습니다.</Text>
+          </View>
+        ) : (
+          <>
+            {/* 시상대 */}
+            {rankings.length >= 3 && (
+              <View style={styles.podiumContainer}>
+                {/* 2등 */}
+                <TouchableOpacity 
+                  style={styles.podiumItem}
+                  onPress={() => handleAnimalPress(rankings[1])}
+                >
+                  <View style={styles.animalContainer}>
+                    <Image source={rankings[1].animal} style={styles.animalImage} resizeMode="contain" />
+                    <View style={[styles.crownSmall, { backgroundColor: getPodiumColor(2) }]}>
+                      <Text style={styles.crownText}>2</Text>
+                    </View>
+                  </View>
+                  <View style={[styles.podium, { 
+                    height: getPodiumHeight(2),
+                    backgroundColor: getPodiumColor(2) 
+                  }]}>
+                    <Text style={styles.podiumRank}>2</Text>
+                  </View>
+                  <Text style={styles.podiumName}>{rankings[1].nickname}</Text>
+                  <Text style={styles.podiumScore}>{rankings[1].score}점</Text>
+                </TouchableOpacity>
 
-          {/* 1등 */}
-          <TouchableOpacity 
-            style={styles.podiumItem}
-            onPress={() => handleAnimalPress(rankings[0])}
-          >
-            <View style={styles.animalContainer}>
-              <Text style={styles.animalEmojiLarge}>{rankings[0].animal}</Text>
-              <View style={[styles.crown, { backgroundColor: getPodiumColor(1) }]}>
-                <Text style={styles.crownTextLarge}>👑</Text>
-              </View>
-            </View>
-            <View style={[styles.podium, { 
-              height: getPodiumHeight(1),
-              backgroundColor: getPodiumColor(1) 
-            }]}>
-              <Text style={styles.podiumRank}>1</Text>
-            </View>
-            <Text style={styles.podiumNameLarge}>{rankings[0].name}</Text>
-            <Text style={styles.podiumScoreLarge}>{rankings[0].score}점</Text>
-          </TouchableOpacity>
+                {/* 1등 */}
+                <TouchableOpacity 
+                  style={styles.podiumItem}
+                  onPress={() => handleAnimalPress(rankings[0])}
+                >
+                  <View style={styles.animalContainer}>
+                    <Image source={rankings[0].animal} style={styles.animalImageLarge} resizeMode="contain" />
+                    <View style={[styles.crown, { backgroundColor: getPodiumColor(1) }]}>
+                      <Text style={styles.crownTextLarge}>👑</Text>
+                    </View>
+                  </View>
+                  <View style={[styles.podium, { 
+                    height: getPodiumHeight(1),
+                    backgroundColor: getPodiumColor(1) 
+                  }]}>
+                    <Text style={styles.podiumRank}>1</Text>
+                  </View>
+                  <Text style={styles.podiumNameLarge}>{rankings[0].nickname}</Text>
+                  <Text style={styles.podiumScoreLarge}>{rankings[0].score}점</Text>
+                </TouchableOpacity>
 
-          {/* 3등 */}
-          <TouchableOpacity 
-            style={styles.podiumItem}
-            onPress={() => handleAnimalPress(rankings[2])}
-          >
-            <View style={styles.animalContainer}>
-              <Text style={styles.animalEmoji}>{rankings[2].animal}</Text>
-              <View style={[styles.crownSmall, { backgroundColor: getPodiumColor(3) }]}>
-                <Text style={styles.crownText}>3</Text>
+                {/* 3등 */}
+                <TouchableOpacity 
+                  style={styles.podiumItem}
+                  onPress={() => handleAnimalPress(rankings[2])}
+                >
+                  <View style={styles.animalContainer}>
+                    <Image source={rankings[2].animal} style={styles.animalImage} resizeMode="contain" />
+                    <View style={[styles.crownSmall, { backgroundColor: getPodiumColor(3) }]}>
+                      <Text style={styles.crownText}>3</Text>
+                    </View>
+                  </View>
+                  <View style={[styles.podium, { 
+                    height: getPodiumHeight(3),
+                    backgroundColor: getPodiumColor(3) 
+                  }]}>
+                    <Text style={styles.podiumRank}>3</Text>
+                  </View>
+                  <Text style={styles.podiumName}>{rankings[2].nickname}</Text>
+                  <Text style={styles.podiumScore}>{rankings[2].score}점</Text>
+                </TouchableOpacity>
               </View>
-            </View>
-            <View style={[styles.podium, { 
-              height: getPodiumHeight(3),
-              backgroundColor: getPodiumColor(3) 
-            }]}>
-              <Text style={styles.podiumRank}>3</Text>
-            </View>
-            <Text style={styles.podiumName}>{rankings[2].name}</Text>
-            <Text style={styles.podiumScore}>{rankings[2].score}점</Text>
-          </TouchableOpacity>
-        </View>
+            )}
 
-        {/* 동물별 랭킹 리스트 */}
-        <View style={styles.listContainer}>
-          <Text style={styles.subtitle}>동물별 랭킹</Text>
-          {rankings.map((item, index) => (
-            <TouchableOpacity 
-              key={index} 
-              style={styles.rankItem}
-              onPress={() => handleAnimalPress(item)}
-            >
-              <View style={styles.rankLeft}>
-                <Text style={styles.rankNumber}>{item.rank}</Text>
-                <Text style={styles.rankAnimal}>{item.animal}</Text>
-                <Text style={styles.rankName}>{item.name}</Text>
-              </View>
-              <View style={styles.rankRight}>
-                <Text style={styles.rankScore}>{item.score}점</Text>
-                <Text style={styles.rankTime}>{item.time}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
+            {/* 동물별 랭킹 리스트 */}
+            <View style={styles.listContainer}>
+              <Text style={styles.subtitle}>전체 랭킹</Text>
+              {rankings.map((item, index) => (
+                <TouchableOpacity 
+                  key={index} 
+                  style={styles.rankItem}
+                  onPress={() => handleAnimalPress(item)}
+                >
+                  <View style={styles.rankLeft}>
+                    <Text style={styles.rankNumber}>{item.rank}</Text>
+                    <Image source={item.animal} style={styles.rankAnimalImage} resizeMode="contain" />
+                    <Text style={styles.rankName}>{item.nickname}</Text>
+                  </View>
+                  <View style={styles.rankRight}>
+                    <Text style={styles.rankScore}>{item.score}점</Text>
+                    <Text style={styles.rankTime}>Lv.{item.level}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {/* 상세 정보 모달 */}
@@ -196,9 +250,9 @@ export default function RankingScreen() {
             {selectedAnimal && (
               <>
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalAnimal}>{selectedAnimal.animal}</Text>
-                  <Text style={styles.modalName}>{selectedAnimal.name}</Text>
-                  <Text style={styles.modalOwner}>주인 : {selectedAnimal.totalTime}</Text>
+                  <Image source={selectedAnimal.animal} style={styles.modalAnimalImage} resizeMode="contain" />
+                  <Text style={styles.modalName}>{selectedAnimal.nickname}</Text>
+                  <Text style={styles.modalOwner}>레벨 {selectedAnimal.level} | 경험치 {selectedAnimal.score}점</Text>
                 </View>
                 
                 <View style={styles.modalDivider} />
@@ -206,22 +260,22 @@ export default function RankingScreen() {
                 <View style={styles.modalStats}>
                   <View style={styles.statRow}>
                     <Text style={styles.statLabel}>총 운동 시간</Text>
-                    <Text style={styles.statValue}>{selectedAnimal.totalTime}</Text>
+                    <Text style={styles.statValue}>{formatDuration(selectedAnimal.totalDurationMinutes)}</Text>
                   </View>
                   
                   <View style={styles.statRow}>
-                    <Text style={styles.statLabel}>주로 한 운동</Text>
-                    <Text style={styles.statValue}>{selectedAnimal.weeklyWorkouts}</Text>
+                    <Text style={styles.statLabel}>총 운동 횟수</Text>
+                    <Text style={styles.statValue}>{selectedAnimal.totalWorkouts}회</Text>
                   </View>
                   
                   <View style={styles.statRow}>
                     <Text style={styles.statLabel}>평균 심박수</Text>
-                    <Text style={styles.statValue}>{selectedAnimal.avgHeartRate}</Text>
+                    <Text style={styles.statValue}>{selectedAnimal.avgHeartRate > 0 ? `${selectedAnimal.avgHeartRate} bpm` : '데이터 없음'}</Text>
                   </View>
                   
                   <View style={styles.statRow}>
-                    <Text style={styles.statLabel}>일평균 운동 시간</Text>
-                    <Text style={styles.statValue}>{selectedAnimal.weeklyRunTime}</Text>
+                    <Text style={styles.statLabel}>랭킹</Text>
+                    <Text style={styles.statValue}>{selectedAnimal.rank}위</Text>
                   </View>
                 </View>
               </>
@@ -240,6 +294,26 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: "#7f8c8d",
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 100,
+  },
+  emptyText: {
+    fontSize: 18,
+    color: "#7f8c8d",
   },
   title: {
     fontSize: 28,
@@ -265,12 +339,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     alignItems: "center",
   },
-  animalEmoji: {
-    fontSize: 50,
+  animalImage: {
+    width: 50,
+    height: 50,
     marginBottom: 5,
   },
-  animalEmojiLarge: {
-    fontSize: 70,
+  animalImageLarge: {
+    width: 70,
+    height: 70,
     marginBottom: 5,
   },
   crown: {
@@ -377,8 +453,9 @@ const styles = StyleSheet.create({
     width: 30,
     color: "#2c3e50",
   },
-  rankAnimal: {
-    fontSize: 32,
+  rankAnimalImage: {
+    width: 32,
+    height: 32,
     marginRight: 10,
   },
   rankName: {
@@ -420,8 +497,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
-  modalAnimal: {
-    fontSize: 60,
+  modalAnimalImage: {
+    width: 80,
+    height: 80,
     marginBottom: 10,
   },
   modalName: {
