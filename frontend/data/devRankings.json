@@ -1,0 +1,91 @@
+[
+  {
+    "user_id": 1,
+    "name": "치타",
+    "animalType": "fox",
+    "nickname": "치타",
+    "experience": 9850,
+    "level": 15,
+    "totalWorkouts": 45,
+    "totalDurationMinutes": 2850,
+    "avgHeartRate": 145
+  },
+  {
+    "user_id": 2,
+    "name": "독수리",
+    "animalType": "capybara",
+    "nickname": "독수리",
+    "experience": 9200,
+    "level": 14,
+    "totalWorkouts": 38,
+    "totalDurationMinutes": 2280,
+    "avgHeartRate": 142
+  },
+  {
+    "user_id": 3,
+    "name": "토끼",
+    "animalType": "red_panda",
+    "nickname": "토끼",
+    "experience": 8900,
+    "level": 13,
+    "totalWorkouts": 35,
+    "totalDurationMinutes": 2100,
+    "avgHeartRate": 138
+  },
+  {
+    "user_id": 4,
+    "name": "사자",
+    "animalType": "guinea_pig",
+    "nickname": "사자",
+    "experience": 8500,
+    "level": 12,
+    "totalWorkouts": 32,
+    "totalDurationMinutes": 1920,
+    "avgHeartRate": 140
+  },
+  {
+    "user_id": 5,
+    "name": "호랑이",
+    "animalType": "dog",
+    "nickname": "호랑이",
+    "experience": 8100,
+    "level": 11,
+    "totalWorkouts": 28,
+    "totalDurationMinutes": 1680,
+    "avgHeartRate": 135
+  },
+  {
+    "user_id": 6,
+    "name": "곰",
+    "animalType": "fox",
+    "nickname": "곰",
+    "experience": 7500,
+    "level": 10,
+    "totalWorkouts": 25,
+    "totalDurationMinutes": 1500,
+    "avgHeartRate": 130
+  },
+  {
+    "user_id": 7,
+    "name": "늑대",
+    "animalType": "capybara",
+    "nickname": "늑대",
+    "experience": 6800,
+    "level": 9,
+    "totalWorkouts": 22,
+    "totalDurationMinutes": 1320,
+    "avgHeartRate": 128
+  },
+  {
+    "user_id": 8,
+    "name": "표범",
+    "animalType": "red_panda",
+    "nickname": "표범",
+    "experience": 6200,
+    "level": 8,
+    "totalWorkouts": 20,
+    "totalDurationMinutes": 1200,
+    "avgHeartRate": 125
+  }
+]
+
