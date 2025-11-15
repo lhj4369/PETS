@@ -6,21 +6,24 @@ export default function ChatBubbleButton() {
   const insets = useSafeAreaInsets();
 
   const navigateToChatting = () => {
-    router.push("/(tabs)/chatting" as any);
+    router.push({
+      pathname: "/(tabs)/chatting",
+      params: { mode: "daily" },
+    } as never);
   };
 
   return (
     <TouchableOpacity
       style={[
         styles.chatBubbleButton,
-        { top: insets.top + 10, right: 20 }
+        { top: insets.top + 10, right: 20 },
       ]}
       onPress={navigateToChatting}
       activeOpacity={0.7}
     >
-      <Image 
-        source={require('../assets/images/chat_icon.png')} 
-        style={styles.chatBubbleIcon} 
+      <Image
+        source={require("../assets/images/chat_icon.png")}
+        style={styles.chatBubbleIcon}
       />
     </TouchableOpacity>
   );
