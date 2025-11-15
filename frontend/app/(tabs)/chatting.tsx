@@ -1,63 +1,95 @@
-//채팅 화면
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
-  StyleSheet,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { SafeAreaView, StyleSheet } from "react-native";
+import { useLocalSearchParams } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import HomeButton from "../../components/HomeButton";
+import DailyChatView from "../../components/chatting/DailyChatView";
+import ExerciseChatView from "../../components/chatting/ExerciseChatView";
+import { ChatMessage } from "../../types/chat";
 
-interface Message {
-  id: string;
-  text: string;
-  isUser: boolean;
-  timestamp: Date;
-}
+const DAILY_SCRIPTS = [
+  "안녕! 오늘 하루는 어땠어? 나는 네 얘기를 듣는 게 제일 좋아.",
+  "혹시 오늘 웃을 일이 있었어? 없다면 내가 재미있는 얘기를 해줄게!",
+  "밖이 추우면 따뜻한 차 마시는 건 어때? 몸도 마음도 녹을 거야.",
+  "잠깐 스트레칭해 보는 건 어때? 어깨도 펴지고 기분도 상쾌해질 거야.",
+  "오늘은 조금 여유를 가지고 스스로를 칭찬해 줘 보자!",
+];
+
+const EXERCISE_RESPONSES = [
+  "가벼운 준비 운동부터 시작해 봐요. 어깨와 허리를 살짝 돌려주는 것만으로도 큰 도움이 돼요!",
+  "오늘은 하체 날로 어떠세요? 스쿼트 15회 × 3세트 추천드릴게요.",
+  "물이 부족하면 근육이 더 쉽게 피로해져요. 지금 한 잔 마실까요?",
+  "목표를 작게 쪼개보세요. 10분 집중해서 운동하는 것부터 시작해도 충분히 멋져요!",
+  "운동 마무리엔 가벼운 스트레칭으로 근육을 풀어 주세요. 다음 날 몸이 훨씬 가볍답니다.",
+];
 
 export default function ChattingScreen() {
-  const [messages, setMessages] = useState<Message[]>([
+  const { mode } = useLocalSearchParams<{ mode?: string | string[] }>();
+  const [viewMode, setViewMode] = useState<"daily" | "exercise">("daily");
+  const [scriptIndex, setScriptIndex] = useState(-1);
+  const [isScriptVisible, setIsScriptVisible] = useState(false);
+  const [hasTapped, setHasTapped] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "1",
-      text: "안녕하세요! 저는 당신의 헬스케어 파트너입니다. 일상 대화를 나누거나 운동 조언을 받고 싶으시면 언제든 말씀해주세요!",
+      text: "헬스 메이트예요! 어떤 운동을 할지 고민되면 편하게 물어보세요 :)",
       isUser: false,
       timestamp: new Date(),
     },
   ]);
   const [inputText, setInputText] = useState("");
-  const [chatMode, setChatMode] = useState<"daily" | "exercise">("daily");
 
-  const getRandomResponse = (isExercise: boolean): string => {
-    const dailyResponses = [
-      "오늘 하루는 어떠셨나요? 운동은 잘 하셨나요?",
-      "좋은 하루 보내고 계시는군요! 건강한 생활 습관을 유지하고 있어요.",
-      "오늘도 수고하셨습니다! 내일도 화이팅이에요!",
-      "건강한 하루를 보내고 계시는 것 같아서 기뻐요!",
-      "오늘의 목표는 달성하셨나요? 작은 성취도 소중해요!",
-    ];
+  const currentScript = useMemo(
+    () => (scriptIndex >= 0 ? DAILY_SCRIPTS[scriptIndex] : ""),
+    [scriptIndex]
+  );
 
-    const exerciseResponses = [
-      "오늘은 어떤 운동을 계획하고 계신가요?",
-      "운동 전후로 충분한 스트레칭을 잊지 마세요!",
-      "물을 충분히 마시는 것도 운동만큼 중요해요.",
-      "규칙적인 운동이 건강의 기본이에요. 꾸준히 해보세요!",
-      "운동 후에는 충분한 휴식도 필요해요. 무리하지 마세요!",
-      "오늘의 운동 목표를 세워보는 것은 어떨까요?",
-    ];
+  const normalizedMode = Array.isArray(mode) ? mode[0] : mode;
+  const scriptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const responses = isExercise ? exerciseResponses : dailyResponses;
-    return responses[Math.floor(Math.random() * responses.length)];
+  useEffect(() => {
+    if (normalizedMode === "daily") {
+      setViewMode("daily");
+    }
+  }, [normalizedMode]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (normalizedMode === "daily") {
+        setViewMode("daily");
+      }
+    }, [normalizedMode])
+  );
+
+  useEffect(() => {
+    return () => {
+      if (scriptTimerRef.current) {
+        clearTimeout(scriptTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleAnimalPress = () => {
+    if (!hasTapped) {
+      setHasTapped(true);
+    }
+    setScriptIndex((prev) => (prev + 1) % DAILY_SCRIPTS.length);
+    setIsScriptVisible(true);
+    if (scriptTimerRef.current) {
+      clearTimeout(scriptTimerRef.current);
+    }
+    scriptTimerRef.current = setTimeout(() => {
+      setIsScriptVisible(false);
+    }, 4000);
   };
+
+  const getRandomResponse = () =>
+    EXERCISE_RESPONSES[Math.floor(Math.random() * EXERCISE_RESPONSES.length)];
 
   const sendMessage = () => {
     if (inputText.trim() === "") return;
 
-    const userMessage: Message = {
+    const userMessage: ChatMessage = {
       id: Date.now().toString(),
       text: inputText,
       isUser: true,
@@ -67,11 +99,10 @@ export default function ChattingScreen() {
     setMessages((prev) => [...prev, userMessage]);
     setInputText("");
 
-    // 1-2초 후 AI 응답
     setTimeout(() => {
-      const aiResponse: Message = {
+      const aiResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        text: getRandomResponse(chatMode === "exercise"),
+        text: getRandomResponse(),
         isUser: false,
         timestamp: new Date(),
       };
@@ -79,207 +110,41 @@ export default function ChattingScreen() {
     }, 1000 + Math.random() * 1000);
   };
 
-  const renderMessage = ({ item }: { item: Message }) => (
-    <View
-      style={[
-        styles.messageContainer,
-        item.isUser ? styles.userMessage : styles.aiMessage,
-      ]}
-    >
-      <Text style={styles.messageText}>{item.text}</Text>
-      <Text style={styles.timestamp}>
-        {item.timestamp.toLocaleTimeString("ko-KR", {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}
-      </Text>
-    </View>
-  );
+  const handleSwitchToExercise = useCallback(() => {
+    setViewMode("exercise");
+  }, []);
+
+  const handleSwitchToDaily = useCallback(() => {
+    setViewMode("daily");
+  }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
-       <HomeButton />
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        {/* 채팅 모드 선택 탭 */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[
-              styles.tab,
-              chatMode === "daily" && styles.activeTab,
-            ]}
-            onPress={() => setChatMode("daily")}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                chatMode === "daily" && styles.activeTabText,
-              ]}
-            >
-              일상 대화
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.tab,
-              chatMode === "exercise" && styles.activeTab,
-            ]}
-            onPress={() => setChatMode("exercise")}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                chatMode === "exercise" && styles.activeTabText,
-              ]}
-            >
-              운동 조언
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* 메시지 리스트 */}
-        <FlatList
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id}
-          style={styles.messagesList}
-          contentContainerStyle={styles.messagesContent}
+    <SafeAreaView style={styles.safeArea}>
+      <HomeButton />
+      {viewMode === "daily" ? (
+        <DailyChatView
+          currentScript={currentScript}
+          isScriptVisible={isScriptVisible}
+          hasTapped={hasTapped}
+          onAnimalPress={handleAnimalPress}
+          onSwitchToExercise={handleSwitchToExercise}
         />
-
-        {/* 입력창 */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.textInput}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder={
-              chatMode === "daily"
-                ? "일상 대화를 나누어보세요..."
-                : "운동에 대해 물어보세요..."
-            }
-            multiline
-            maxLength={500}
-          />
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              inputText.trim() === "" && styles.sendButtonDisabled,
-            ]}
-            onPress={sendMessage}
-            disabled={inputText.trim() === ""}
-          >
-            <Text style={styles.sendButtonText}>전송</Text>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+      ) : (
+        <ExerciseChatView
+          messages={messages}
+          inputText={inputText}
+          onChangeInput={setInputText}
+          onSend={sendMessage}
+          onBackToDaily={handleSwitchToDaily}
+        />
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
-    paddingTop: 50,
-  },
-  tabContainer: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 8,
-    padding: 4,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: "center",
-    borderRadius: 6,
-  },
-  activeTab: {
-    backgroundColor: "#007AFF",
-  },
-  tabText: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#666",
-  },
-  activeTabText: {
-    color: "#fff",
-  },
-  messagesList: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  messagesContent: {
-    paddingVertical: 16,
-  },
-  messageContainer: {
-    maxWidth: "80%",
-    marginVertical: 4,
-    padding: 12,
-    borderRadius: 16,
-  },
-  userMessage: {
-    alignSelf: "flex-end",
-    backgroundColor: "#007AFF",
-    borderBottomRightRadius: 4,
-  },
-  aiMessage: {
-    alignSelf: "flex-start",
-    backgroundColor: "#fff",
-    borderBottomLeftRadius: 4,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  messageText: {
-    fontSize: 16,
-    lineHeight: 22,
-    color: "#333",
-  },
-  timestamp: {
-    fontSize: 12,
-    color: "#999",
-    marginTop: 4,
-    alignSelf: "flex-end",
-  },
-  inputContainer: {
-    flexDirection: "row",
-    padding: 16,
-    backgroundColor: "#fff",
-    alignItems: "flex-end",
-  },
-  textInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginRight: 12,
-    maxHeight: 100,
-    fontSize: 16,
-  },
-  sendButton: {
-    backgroundColor: "#007AFF",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 20,
-  },
-  sendButtonDisabled: {
-    backgroundColor: "#ccc",
-  },
-  sendButtonText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 16,
+    backgroundColor: "#f7f7f7",
   },
 });
