@@ -1066,19 +1066,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
-    paddingTop: 100,
+    paddingTop: 60,
   },
   mainContainer: {
     flex: 1,
     flexDirection: "column",
   },
   calendarSection: {
-    flex: 0.45,
+    flex: 0.53,
     paddingHorizontal: 10,
     paddingTop: 5,
   },
   recordsSection: {
-    flex: 0.55,
+    flex: 0.47,
     backgroundColor: "#f5f5f5",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
