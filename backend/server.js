@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { db } from './db.js';
 import authRouter from './routes/auth.js';
 import workoutRouter from './routes/workout.js';
+import achievementsRouter from './routes/achievements.js';
 
 dotenv.config();
 const app = express();
@@ -14,6 +15,7 @@ app.use(express.json());
 
 app.use('/api/auth', authRouter);
 app.use('/api/workout', workoutRouter);
+app.use('/api/achievements', achievementsRouter);
 
 app.get('/', (req, res) => {
   res.send('PETS Backend is running!');
