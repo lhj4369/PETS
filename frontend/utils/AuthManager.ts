@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import devProfileData from '../data/devProfile.json';
 import devRankingsData from '../data/devRankings.json';
+import devAchievementsData from '../data/devAchievements.json';
 
 export type StoredUser = Record<string, unknown> | null;
 
@@ -129,6 +130,25 @@ class AuthManager {
   // 개발자 모드: 랭킹 저장 (선택사항 - 필요시 사용)
   async setDevRankings(rankings: any[]): Promise<void> {
     await AsyncStorage.setItem('pets_dev_rankings', JSON.stringify(rankings));
+  }
+
+  // 개발자 모드: 업적 조회
+  async getDevAchievements(): Promise<any[]> {
+    const raw = await AsyncStorage.getItem('pets_dev_achievements');
+    if (raw) {
+      try {
+        return JSON.parse(raw) as any[];
+      } catch {
+        // 파싱 실패 시 기본값 사용
+      }
+    }
+    
+    return devAchievementsData as any[];
+  }
+
+  // 개발자 모드: 업적 저장 (선택사항 - 필요시 사용)
+  async setDevAchievements(achievements: any[]): Promise<void> {
+    await AsyncStorage.setItem('pets_dev_achievements', JSON.stringify(achievements));
   }
 }
 

@@ -1,5 +1,5 @@
 //업적 화면
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,19 +8,25 @@ import {
   StyleSheet,
   SafeAreaView,
   Image,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import HomeButton from "../../components/HomeButton";
+import AuthManager from "../../utils/AuthManager";
+import API_BASE_URL from "../../config/api";
 
 interface Achievement {
-  id: string;
-  title: string;
+  id: number;
+  name: string;
   description: string;
   category: string;
-  isCompleted: boolean;
-  isClaimed: boolean;
+  conditionType: string;
+  conditionValue: number;
   reward: number;
   icon: string;
-  completedDate?: string;
+  isCompleted: boolean;
+  isClaimed: boolean;
+  completedAt: string | null;
 }
 
 const categories = [
@@ -32,78 +38,109 @@ const categories = [
   { id: "special", name: "특별" },
 ];
 
-const mockAchievements: Achievement[] = [
-  {
-    id: "1",
-    title: "첫 운동 완료",
-    description: "첫 번째 운동을 완료하세요",
-    category: "exercise",
-    isCompleted: true,
-    isClaimed: false,
-    reward: 50,
-    icon: "🏃‍♂️",
-    completedDate: "2024-01-15",
-  },
-  {
-    id: "2",
-    title: "3일 연속 운동",
-    description: "3일 연속으로 운동을 완료하세요",
-    category: "streak",
-    isCompleted: true,
-    isClaimed: true,
-    reward: 100,
-    icon: "🔥",
-    completedDate: "2024-01-18",
-  },
-  {
-    id: "3",
-    title: "레벨 5 달성",
-    description: "레벨 5에 도달하세요",
-    category: "level",
-    isCompleted: false,
-    isClaimed: false,
-    reward: 200,
-    icon: "⭐",
-  },
-  {
-    id: "4",
-    title: "첫 친구 추가",
-    description: "첫 번째 친구를 추가하세요",
-    category: "social",
-    isCompleted: false,
-    isClaimed: false,
-    reward: 75,
-    icon: "👥",
-  },
-  {
-    id: "5",
-    title: "주간 목표 달성",
-    description: "주간 운동 목표를 달성하세요",
-    category: "exercise",
-    isCompleted: true,
-    isClaimed: false,
-    reward: 150,
-    icon: "🎯",
-    completedDate: "2024-01-20",
-  },
-];
-
 export default function AchievementScreen() {
   const [selectedCategory, setSelectedCategory] = useState("overview");
-  const [achievements, setAchievements] = useState<Achievement[]>(mockAchievements);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchAchievements();
+  }, []);
+
+  const fetchAchievements = async () => {
+    setIsLoading(true);
+    try {
+      // 개발자 모드: 로컬 데이터 사용
+      if (await AuthManager.isDevMode()) {
+        const devAchievements = await AuthManager.getDevAchievements();
+        setAchievements(devAchievements);
+        setIsLoading(false);
+        return;
+      }
+
+      const headers = await AuthManager.getAuthHeader();
+      if (!headers.Authorization) {
+        Alert.alert("오류", "인증이 필요합니다. 다시 로그인해주세요.");
+        setIsLoading(false);
+        return;
+      }
+
+      // 업적 체크 및 조회
+      await fetch(`${API_BASE_URL}/api/achievements/check`, {
+        method: "POST",
+        headers,
+      });
+
+      const response = await fetch(`${API_BASE_URL}/api/achievements`, {
+        headers,
+      });
+
+      if (response.status === 401) {
+        await AuthManager.logout();
+        Alert.alert("오류", "인증이 만료되었습니다. 다시 로그인해주세요.");
+        setIsLoading(false);
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error("업적 정보를 불러오지 못했습니다.");
+      }
+
+      const data = await response.json();
+      setAchievements(data.achievements || []);
+    } catch (error) {
+      console.error("업적 불러오기 실패:", error);
+      Alert.alert("오류", "업적 정보를 불러오지 못했습니다.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredAchievements = selectedCategory === "overview" 
     ? achievements 
     : achievements.filter(achievement => achievement.category === selectedCategory);
 
-  const claimReward = (achievementId: string) => {
-    setAchievements(prev => 
-      prev.map(achievement => 
-        achievement.id === achievementId 
-          ? { ...achievement, isClaimed: true }
-          : achievement
-      )
-    );
+  const claimReward = async (achievementId: number) => {
+    try {
+      // 개발자 모드: 로컬만 업데이트
+      if (await AuthManager.isDevMode()) {
+        setAchievements(prev => 
+          prev.map(achievement => 
+            achievement.id === achievementId 
+              ? { ...achievement, isClaimed: true }
+              : achievement
+          )
+        );
+        return;
+      }
+
+      const headers = await AuthManager.getAuthHeader();
+      if (!headers.Authorization) {
+        Alert.alert("오류", "인증이 필요합니다.");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/achievements/${achievementId}/claim`, {
+        method: "POST",
+        headers,
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        Alert.alert("오류", data?.error ?? "보상 수령에 실패했습니다.");
+        return;
+      }
+
+      const data = await response.json();
+      
+      // 업적 목록 새로고침
+      await fetchAchievements();
+      
+      Alert.alert("완료", `${data.reward} 경험치를 받았습니다!`);
+    } catch (error) {
+      console.error("보상 수령 실패:", error);
+      Alert.alert("오류", "보상 수령 중 문제가 발생했습니다.");
+    }
   };
 
   const getTotalScore = () => {
@@ -129,11 +166,11 @@ export default function AchievementScreen() {
       </View>
       
       <View style={styles.achievementContent}>
-        <Text style={styles.achievementTitle}>{achievement.title}</Text>
+        <Text style={styles.achievementTitle}>{achievement.name}</Text>
         <Text style={styles.achievementDescription}>{achievement.description}</Text>
-        {achievement.completedDate && (
+        {achievement.completedAt && (
           <Text style={styles.completedDate}>
-            완료일: {achievement.completedDate}
+            완료일: {new Date(achievement.completedAt).toLocaleDateString('ko-KR')}
           </Text>
         )}
       </View>
@@ -160,6 +197,18 @@ export default function AchievementScreen() {
       </View>
     </View>
   );
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <HomeButton />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>업적을 불러오는 중...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -208,7 +257,13 @@ export default function AchievementScreen() {
         {/* 오른쪽 업적 목록 */}
         <View style={styles.achievementsPanel}>
           <ScrollView showsVerticalScrollIndicator={false}>
-            {filteredAchievements.map(renderAchievement)}
+            {filteredAchievements.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>업적 데이터가 없습니다.</Text>
+              </View>
+            ) : (
+              filteredAchievements.map(renderAchievement)
+            )}
           </ScrollView>
         </View>
       </View>
@@ -220,6 +275,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: "#7f8c8d",
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 100,
+  },
+  emptyText: {
+    fontSize: 18,
+    color: "#7f8c8d",
   },
   header: {
     backgroundColor: "#f8f9fa",
