@@ -24,6 +24,9 @@ import { formatDuration } from "../../features/timer/utils/formatDuration";
 import { useWorkoutTimer } from "../../features/timer/hooks/useWorkoutTimer";
 import AuthManager from "../../utils/AuthManager";
 import API_BASE_URL from "../../config/api";
+import { useCustomization } from "../../context/CustomizationContext";
+import { useFocusEffect } from "@react-navigation/native";
+import { getClockImageFromType } from "../../utils/customizationUtils";
 
 type Mode = "aerobic" | "interval";
 type Phase = "idle" | "running" | "summary";
@@ -66,6 +69,28 @@ export default function TimerScreen() {
   const [hasClaimedReward, setHasClaimedReward] = useState(false);
   const [hasSavedRecord, setHasSavedRecord] = useState(false);
   const timer = useWorkoutTimer();
+  const { selectedClock, loadCustomizationFromServer } = useCustomization();
+
+  // 프로필에서 시계 정보 로드
+  useFocusEffect(
+    useCallback(() => {
+      const loadProfile = async () => {
+        try {
+          const headers = await AuthManager.getAuthHeader();
+          if (!headers.Authorization) return;
+
+          const response = await fetch(`${API_BASE_URL}/api/auth/me`, { headers });
+          if (response.ok) {
+            const data = await response.json();
+            loadCustomizationFromServer(data.profile?.backgroundType, data.profile?.clockType);
+          }
+        } catch (error) {
+          console.error("프로필 로드 실패:", error);
+        }
+      };
+      loadProfile();
+    }, [loadCustomizationFromServer])
+  );
 
   const handleStart = () => {
     finishRest(false);
@@ -255,6 +280,7 @@ export default function TimerScreen() {
       heartRate: summaryData.heartRate,
       hasReward,
       notes: null,
+      stats: summaryData.stats, // 스탯 정보 전송
     };
     
     // 유효성 검사
@@ -423,14 +449,24 @@ function TimerLanding({
 }) {
   const isInterval = mode === "interval";
 
+  const { selectedClock } = useCustomization();
+
   return (
     <View style={styles.landingContainer}>
-      <Image
-        source={require("../../assets/images/clock_icon.png")}
-        style={styles.clockImage}
-        accessibilityRole="image"
-        accessibilityLabel="운동 타이머 시계"
-      />
+      <View style={styles.clockContainer}>
+        <Image
+          source={selectedClock || require("../../assets/images/clock_icon.png")}
+          style={styles.clockImage}
+          accessibilityRole="image"
+          accessibilityLabel="운동 타이머 시계"
+        />
+        <Image
+          source={require("../../assets/images/animation/dog/dog1.png")}
+          style={styles.animationImage}
+          accessibilityRole="image"
+          accessibilityLabel="애니메이션"
+        />
+      </View>
 
       <View style={styles.modeSwitcher}>
         <ModeToggle
@@ -990,7 +1026,7 @@ function SummaryButton({
       disabled={disabled}
     >
       {icon}
-      <Text style={[styles.summaryButtonLabel, { color: disabled ? "#999" : textColor }]}>
+      <Text style={[styles.summaryButtonLabel, { color: textColor, fontFamily: 'KotraHope' }]}>
         {label}
       </Text>
     </TouchableOpacity>

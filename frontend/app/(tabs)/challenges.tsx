@@ -277,7 +277,7 @@ export default function ChallengesScreen() {
                   style={[styles.devButton, styles.devSuccessButton]}
                   onPress={() => setDistanceTracked(activeStage.distanceKm)}
                 >
-                  <Text style={[styles.devButtonText, { color: "#065F46" }]}>거리 달성 테스트</Text>
+                  <Text style={[styles.devButtonText, { fontFamily: 'KotraHope' }]}>거리 달성 테스트</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -351,7 +351,7 @@ export default function ChallengesScreen() {
                     }}
                     activeOpacity={0.9}
                   >
-                    <Text style={[styles.modalThemeTitle, { color: theme.accent }]}>{theme.title}</Text>
+                    <Text style={[styles.modalThemeTitle, { fontFamily: 'KotraHope' }]}>{theme.title}</Text>
                     <Text style={styles.modalThemeSubtitle}>
                       {isPlannedOnly ? "추가 예정" : theme.subtitle}
                     </Text>
@@ -521,18 +521,24 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginTop: 16,
     marginBottom: 12,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   subtitle: {
     fontSize: 14,
     color: "#6B7280",
     marginBottom: 24,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
     marginBottom: 12,
     marginTop: 24,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   themeRow: {
     paddingBottom: 12,
     gap: 12,
@@ -553,17 +559,23 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     marginBottom: 4,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   themeSubtitle: {
     fontSize: 13,
     color: "#1F2933",
     marginBottom: 8,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   themeDesc: {
     fontSize: 12,
     color: "#6B7280",
     lineHeight: 18,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   stageGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -585,27 +597,37 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#6B7280",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   stageDistance: {
     fontSize: 22,
     fontWeight: "700",
     marginTop: 6,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   stageTime: {
     fontSize: 14,
     color: "#374151",
     marginBottom: 6,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   stageReward: {
     fontSize: 13,
     fontWeight: "600",
     color: "#059669",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   stageNote: {
     fontSize: 12,
     color: "#6B7280",
     marginTop: 4,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   summaryCard: {
     backgroundColor: "#fff",
     borderRadius: 18,
@@ -620,7 +642,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     marginBottom: 12,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -632,22 +656,30 @@ const styles = StyleSheet.create({
   summaryLabel: {
     fontSize: 12,
     color: "#9CA3AF",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   summaryValue: {
     fontSize: 16,
     fontWeight: "600",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   summaryNote: {
     fontSize: 12,
     color: "#6B7280",
     lineHeight: 18,
     marginBottom: 16,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   summaryGuide: {
     fontSize: 12,
     color: "#9CA3AF",
     marginBottom: 12,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   startButton: {
     backgroundColor: "#2563EB",
     borderRadius: 14,
@@ -661,7 +693,9 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   runningSection: {
     gap: 16,
     marginTop: 40,
@@ -726,12 +760,16 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     fontSize: 14,
     letterSpacing: 1,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   runningTimer: {
     color: "#fff",
     fontSize: 48,
     fontWeight: "700",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   progressBlock: {
     marginTop: 4,
   },
@@ -739,7 +777,9 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontSize: 12,
     marginBottom: 6,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   progressBar: {
     width: "100%",
     height: 10,
@@ -759,7 +799,9 @@ const styles = StyleSheet.create({
     color: "#374151",
     fontSize: 12,
     marginTop: 6,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   abortButton: {
     borderWidth: 1,
     borderColor: "#F87171",
@@ -773,11 +815,15 @@ const styles = StyleSheet.create({
   abortButtonText: {
     color: "#F87171",
     fontWeight: "600",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   runningExitLabel: {
     color: "#374151",
     fontSize: 13,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   devButtonRow: {
     flexDirection: "row",
     gap: 10,
@@ -802,7 +848,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: "#7F1D1D",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   resultCard: {
     borderRadius: 20,
     padding: 22,
@@ -821,12 +869,16 @@ const styles = StyleSheet.create({
   resultTitle: {
     fontSize: 22,
     fontWeight: "700",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   resultSubtitle: {
     fontSize: 14,
     color: "#4B5563",
     marginTop: 6,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   resultRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -838,12 +890,16 @@ const styles = StyleSheet.create({
   resultLabel: {
     fontSize: 12,
     color: "#6B7280",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   resultValue: {
     fontSize: 16,
     fontWeight: "600",
     marginTop: 4,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   resultButtons: {
     flexDirection: "row",
     gap: 12,
@@ -859,7 +915,9 @@ const styles = StyleSheet.create({
   retryText: {
     color: "#fff",
     fontWeight: "600",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   backButton: {
     flex: 1,
     borderWidth: 1,
@@ -871,7 +929,9 @@ const styles = StyleSheet.create({
   backText: {
     color: "#2563EB",
     fontWeight: "600",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   summaryTimerBlock: {
     marginTop: 8,
     marginBottom: 16,
@@ -881,12 +941,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#6B7280",
     marginBottom: 4,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   summaryTimer: {
     fontSize: 42,
     fontWeight: "800",
     letterSpacing: 2,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   selectorRow: {
     flexDirection: "row",
     gap: 12,
@@ -911,16 +975,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#9CA3AF",
     marginBottom: 6,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   selectorValue: {
     fontSize: 18,
     fontWeight: "700",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   selectorDesc: {
     fontSize: 12,
     color: "#6B7280",
     marginTop: 6,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   summaryLevelBadge: {
     alignSelf: "flex-start",
     borderWidth: 1,
@@ -935,7 +1005,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: "#334155",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(15, 23, 42, 0.55)",
@@ -953,7 +1025,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     marginBottom: 16,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   modalContent: {
     paddingBottom: 20,
     gap: 12,
@@ -975,17 +1049,23 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
     marginBottom: 6,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   modalThemeSubtitle: {
     fontSize: 13,
     color: "#1F2933",
     marginBottom: 6,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   modalThemeDesc: {
     fontSize: 12,
     color: "#6B7280",
     lineHeight: 18,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   stageModalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(15, 23, 42, 0.55)",
@@ -1018,7 +1098,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#2563EB",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   stagePickerHeader: {
     flexDirection: "row",
     gap: 8,
@@ -1042,10 +1124,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#374151",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   stageNumTextActive: {
     color: "#1D4ED8",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   stageDetailCard: {
     borderWidth: 1,
     borderColor: "#E5E7EB",
@@ -1057,22 +1143,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: "#6B7280",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   stageDetailMain: {
     fontSize: 20,
     fontWeight: "700",
     marginTop: 6,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   stageDetailReward: {
     fontSize: 13,
     color: "#374151",
     marginTop: 6,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   stageDetailNote: {
     fontSize: 12,
     color: "#6B7280",
     marginTop: 10,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   modalActionRow: {
     flexDirection: "row",
     gap: 12,
@@ -1097,9 +1191,13 @@ const styles = StyleSheet.create({
   modalPrimaryText: {
     color: "#fff",
     fontWeight: "600",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   modalSecondaryText: {
     color: "#2563EB",
     fontWeight: "600",
-  },
+  
+
+    fontFamily: 'KotraHope',},
 });

@@ -263,8 +263,9 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 10,
-    fontSize: 16,
+    fontSize: 20,
     color: "#7f8c8d",
+    fontFamily: 'KotraHope',
   },
   emptyContainer: {
     flex: 1,
@@ -273,8 +274,9 @@ const styles = StyleSheet.create({
     paddingVertical: 100,
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: 22,
     color: "#7f8c8d",
+    fontFamily: 'KotraHope',
   },
   header: {
     backgroundColor: "#f8f9fa",
@@ -283,11 +285,12 @@ const styles = StyleSheet.create({
     borderBottomColor: "#e9ecef",
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "bold",
     color: "#333",
     textAlign: "center",
     marginBottom: 15,
+    fontFamily: 'KotraHope',
   },
   statsContainer: {
     flexDirection: "row",
@@ -297,15 +300,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 18,
     color: "#666",
     marginBottom: 5,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   statValue: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: "bold",
     color: "#4CAF50",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   content: {
     flex: 1,
     flexDirection: "row",
@@ -326,14 +333,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#e3f2fd",
   },
   categoryText: {
-    fontSize: 16,
+    fontSize: 20,
     color: "#666",
     textAlign: "center",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   activeCategoryText: {
     color: "#2196F3",
     fontWeight: "bold",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   achievementsPanel: {
     flex: 1,
     backgroundColor: "#fff",
@@ -362,27 +373,35 @@ const styles = StyleSheet.create({
     marginRight: 15,
   },
   iconText: {
-    fontSize: 24,
-  },
+    fontSize: 28,
+  
+
+    fontFamily: 'KotraHope',},
   achievementContent: {
     flex: 1,
     justifyContent: "center",
   },
   achievementTitle: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "bold",
     color: "#333",
     marginBottom: 5,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   achievementDescription: {
-    fontSize: 14,
+    fontSize: 18,
     color: "#666",
     marginBottom: 5,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   completedDate: {
-    fontSize: 12,
+    fontSize: 16,
     color: "#4CAF50",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   rewardSection: {
     alignItems: "center",
     justifyContent: "center",
@@ -398,8 +417,10 @@ const styles = StyleSheet.create({
   rewardText: {
     color: "#fff",
     fontWeight: "bold",
-    fontSize: 14,
-  },
+    fontSize: 18,
+  
+
+    fontFamily: 'KotraHope',},
   claimButton: {
     backgroundColor: "#4CAF50",
     borderRadius: 15,
@@ -409,8 +430,10 @@ const styles = StyleSheet.create({
   claimButtonText: {
     color: "#fff",
     fontWeight: "bold",
-    fontSize: 12,
-  },
+    fontSize: 16,
+  
+
+    fontFamily: 'KotraHope',},
   claimedBadge: {
     backgroundColor: "#4CAF50",
     borderRadius: 15,
@@ -420,6 +443,8 @@ const styles = StyleSheet.create({
   claimedText: {
     color: "#fff",
     fontWeight: "bold",
-    fontSize: 12,
-  },
+    fontSize: 16,
+  
+
+    fontFamily: 'KotraHope',},
 });
