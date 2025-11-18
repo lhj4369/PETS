@@ -106,6 +106,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#2d3436",
+    fontFamily: 'KotraHope',
   },
   intervalConfiguratorFooter: {
     gap: 10,
@@ -127,11 +128,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#4a6cf4",
+    fontFamily: 'KotraHope',
+  },
+  clockContainer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "flex-start",
+    marginLeft: -40,
+    marginBottom: 20,
   },
   clockImage: {
     width: 240,
     height: 240,
     resizeMode: "contain",
+  },
+  animationImage: {
+    width: 80,
+    height: 80,
+    resizeMode: "contain",
+    marginLeft: -20,
+    marginBottom: 20,
   },
   modeSwitcher: {
     flexDirection: "row",
@@ -154,6 +170,7 @@ const styles = StyleSheet.create({
   modeToggleLabel: {
     fontSize: 16,
     fontWeight: "600",
+    fontFamily: 'KotraHope',
   },
   modeToggleLabelActive: {
     color: "#ffffff",
@@ -198,6 +215,7 @@ const styles = StyleSheet.create({
   timerStateLabel: {
     fontSize: 16,
     color: "#636e72",
+    fontFamily: 'KotraHope',
   },
   controlRow: {
     flexDirection: "row",
@@ -250,6 +268,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#95a5a6",
     paddingVertical: 12,
+    fontFamily: 'KotraHope',
   },
   lapScroll: {
     maxHeight: 196,
@@ -324,6 +343,7 @@ const styles = StyleSheet.create({
   intervalRounds: {
     fontSize: 16,
     color: "#636e72",
+    fontFamily: 'KotraHope',
   },
   intervalConfigSummary: {
     fontSize: 14,
@@ -333,6 +353,7 @@ const styles = StyleSheet.create({
   intervalSubLabel: {
     fontSize: 13,
     color: "#95a5a6",
+    fontFamily: 'KotraHope',
   },
   restButton: {
     flexDirection: "row",

@@ -357,25 +357,31 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   previewPetText: {
-    fontSize: 60,
+    fontSize: 64,
     marginBottom: 5,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   previewPetImageAsset: {
     width: '100%',
     height: '100%',
     resizeMode: 'contain',
   },
   previewPetPlaceholder: {
-    fontSize: 14,
+    fontSize: 18,
     color: '#666',
     fontWeight: '500',
-  },
+  
+
+    fontFamily: 'KotraHope',},
   previewPetLabel: {
     marginTop: 8,
-    fontSize: 14,
+    fontSize: 18,
     color: '#666',
     fontWeight: '500',
-  },
+  
+
+    fontFamily: 'KotraHope',},
   previewTimerButtons: {
     flexDirection: 'row',
     gap: 20,
@@ -393,9 +399,11 @@ const styles = StyleSheet.create({
   },
   previewTimerButtonText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: 'bold',
-  },
+  
+
+    fontFamily: 'KotraHope',},
   menuContainer: {
     flexDirection: 'row',
     backgroundColor: '#fff',
@@ -419,14 +427,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#4CAF50',
   },
   menuTabText: {
-    fontSize: 16,
+    fontSize: 20,
     color: '#666',
     fontWeight: '500',
-  },
+  
+
+    fontFamily: 'KotraHope',},
   activeMenuTabText: {
     color: '#fff',
     fontWeight: 'bold',
-  },
+  
+
+    fontFamily: 'KotraHope',},
   contentContainer: {
     flex: 1,
     paddingHorizontal: 20,
@@ -457,11 +469,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f8f0',
   },
   optionText: {
-    fontSize: 16,
+    fontSize: 20,
     color: '#333',
     fontWeight: '500',
     textAlign: 'center',
-  },
+  
+
+    fontFamily: 'KotraHope',},
   saveButtonContainer: {
     padding: 20,
     backgroundColor: '#fff',
@@ -481,9 +495,11 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: 'bold',
-  },
+  
+
+    fontFamily: 'KotraHope',},
   previewBackgroundContainer: {
     width: 250,
     height: 230,

@@ -265,15 +265,17 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   title: {
-    fontSize: 48,
+    fontSize: 100,
     fontWeight: "bold",
     color: "#007AFF",
     marginBottom: 12,
+    fontFamily: 'KotraHope',
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: 24,
     color: "#666666",
     marginBottom: 40,
+    fontFamily: 'KotraHope',
   },
   input: {
     backgroundColor: "#f5f5f5",
@@ -284,7 +286,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: "#e0e0e0",
-    width: "100%",
+    width: "100%",    
   },
   loginButton: {
     backgroundColor: "#007AFF",
@@ -301,8 +303,9 @@ const styles = StyleSheet.create({
   },
   loginButtonText: {
     color: "#ffffff",
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "600",
+    fontFamily: 'KotraHope',
   },
   googleButton: {
     backgroundColor: "#FFFFFF",
@@ -328,8 +331,9 @@ const styles = StyleSheet.create({
   },
   googleButtonText: {
     color: "#3c4043",
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "500",
+    fontFamily: 'KotraHope',
   },
   devButton: {
     backgroundColor: "#6c757d",
@@ -342,8 +346,9 @@ const styles = StyleSheet.create({
   },
   devButtonText: {
     color: "#ffffff",
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "600",
+    fontFamily: 'KotraHope',
   },
   linkContainer: {
     flexDirection: "row",
@@ -352,11 +357,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   linkText: {
-    fontSize: 14,
+    fontSize: 18,
     color: "#666666",
+    fontFamily: 'KotraHope',
   },
   separator: {
-    fontSize: 14,
+    fontSize: 18,
     color: "#cccccc",
   },
 });
