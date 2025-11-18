@@ -135,16 +135,28 @@ export default function LoginScreen() {
   }, [response]);
 
   const handleDevLogin = async () => {
-    // 개발자 모드: JSON 파일에서 기본값 로드
-    const devProfile = await AuthManager.getDevProfile();
-    
-    if (devProfile) {
-      await AuthManager.login("dev-token", devProfile);
-      await AuthManager.setDevMode(true); // 개발자 모드
-      await AuthManager.setDevProfile(devProfile); // 개발자 모드
+    // 개발자 계정으로 로그인
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "Developer@test.net", password: "1234" }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data?.error ?? "개발자 로그인에 실패했습니다.");
+        return;
+      }
+
+      await AuthManager.login(data.token, data.account);
       router.replace("/(tabs)/home" as any);
-    } else {
-      alert("개발자 모드 프로필을 불러올 수 없습니다.");
+    } catch (error) {
+      console.error("개발자 로그인 요청 실패:", error);
+      alert("개발자 로그인 중 문제가 발생했습니다. 네트워크 상태를 확인해주세요.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

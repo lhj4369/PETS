@@ -50,14 +50,6 @@ export default function AchievementScreen() {
   const fetchAchievements = async () => {
     setIsLoading(true);
     try {
-      // 개발자 모드: 로컬 데이터 사용
-      if (await AuthManager.isDevMode()) {
-        const devAchievements = await AuthManager.getDevAchievements();
-        setAchievements(devAchievements);
-        setIsLoading(false);
-        return;
-      }
-
       const headers = await AuthManager.getAuthHeader();
       if (!headers.Authorization) {
         Alert.alert("오류", "인증이 필요합니다. 다시 로그인해주세요.");
@@ -102,18 +94,6 @@ export default function AchievementScreen() {
 
   const claimReward = async (achievementId: number) => {
     try {
-      // 개발자 모드: 로컬만 업데이트
-      if (await AuthManager.isDevMode()) {
-        setAchievements(prev => 
-          prev.map(achievement => 
-            achievement.id === achievementId 
-              ? { ...achievement, isClaimed: true }
-              : achievement
-          )
-        );
-        return;
-      }
-
       const headers = await AuthManager.getAuthHeader();
       if (!headers.Authorization) {
         Alert.alert("오류", "인증이 필요합니다.");
