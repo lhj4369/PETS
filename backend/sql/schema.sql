@@ -1,3 +1,7 @@
+```
+여기서 부터 계정 생성 관련 및 mysql 접속 관련 sql 코드(bash 라고 써있는 주석문을 터미널에 입력하면 됨)
+```
+
 -- mysql 계정생성
 CREATE USER 'pets'@'localhost' IDENTIFIED BY 'lhj4369';
 CREATE DATABASE pets;
@@ -8,6 +12,10 @@ FLUSH PRIVILEGES;
 ```bash
 mysql -u pets -p
 lhj4369
+```
+
+```
+여기서 부터 테이블 추가 관련 sql 코드
 ```
 
 -- 기존 테이블 삭제 (외래키 제약 때문에 workout_records, user_profiles를 먼저 삭제)
@@ -35,7 +43,9 @@ CREATE TABLE user_profiles (
   level INT NOT NULL DEFAULT 1,
   experience INT NOT NULL DEFAULT 0,
   strength INT NOT NULL DEFAULT 0,
-  agility INT NOT NULL DEFAULT 0,
+  agility INT NOT NULL DEFAULT 0,  
+  stamina INT NOT NULL DEFAULT 0,
+  concentration INT NOT NULL DEFAULT 0,
   background_type VARCHAR(20) DEFAULT 'home',
   clock_type VARCHAR(20) DEFAULT 'alarm',
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -97,6 +107,24 @@ INSERT INTO achievements (name, description, category, condition_type, condition
 ('일일퀘스트 1회 완료', '일일 퀘스트를 1회 완료하세요', 'special', 'daily_quest', 1, 150, '🎯'),
 ('주간 목표 달성', '주간 운동 목표를 달성하세요', 'special', 'weekly_goal', 1, 300, '🏆');
 
+-- 개발자 계정 생성 SQL 스크립트
+-- 이메일: Developer@test.net
+-- 비밀번호: 1234
+
+-- 기존 계정이 있으면 삭제
+DELETE FROM accounts WHERE email = 'Developer@test.net';
+
+-- 개발자 계정 생성
+INSERT INTO accounts (name, email, password) 
+VALUES (
+  'Developer',
+  'Developer@test.net',
+  '$2b$10$OhKUECu4OleIJ7q6GNipD.6Q2zeVSQQxzN1etK9OuCnfTPG1rZnRG'
+);
+
+'''
+여기서 부터 데이터 확인 삭제 관련 sql 코드
+'''
 -- 데이터 확인
 SELECT * FROM workout_records;
 SELECT * FROM user_profiles;
@@ -118,18 +146,3 @@ TRUNCATE TABLE workout_records;
 TRUNCATE TABLE user_profiles;
 TRUNCATE TABLE accounts;
 SET FOREIGN_KEY_CHECKS = 1;
-
--- 개발자 계정 생성 SQL 스크립트
--- 이메일: Developer@test.net
--- 비밀번호: 1234
-
--- 기존 계정이 있으면 삭제
-DELETE FROM accounts WHERE email = 'Developer@test.net';
-
--- 개발자 계정 생성
-INSERT INTO accounts (name, email, password) 
-VALUES (
-  'Developer',
-  'Developer@test.net',
-  '$2b$10$OhKUECu4OleIJ7q6GNipD.6Q2zeVSQQxzN1etK9OuCnfTPG1rZnRG'
-);
