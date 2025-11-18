@@ -971,10 +971,12 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   monthYear: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: "600",
     color: "#333",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   calendar: {
     backgroundColor: "#fff",
     borderRadius: 15,
@@ -989,17 +991,23 @@ const styles = StyleSheet.create({
   weekDay: {
     flex: 1,
     textAlign: "center",
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: "600",
     color: "#666",
     paddingVertical: 6,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   sunday: {
     color: "#f44336",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   saturday: {
     color: "#0277BD",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   daysGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1022,14 +1030,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#E3F2FD",
   },
   dayText: {
-    fontSize: 14,
+    fontSize: 18,
     color: "#333",
     fontWeight: "500",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   selectedDayText: {
     color: "#1976D2",
     fontWeight: "700",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   dotsContainer: {
     flexDirection: "row",
     justifyContent: "center",
@@ -1086,10 +1098,12 @@ const styles = StyleSheet.create({
     borderBottomColor: "#eee",
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "600",
     color: "#333",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   modalContent: {
     paddingHorizontal: 20,
     paddingTop: 15,
@@ -1110,19 +1124,23 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   label: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "600",
     color: "#333",
     marginBottom: 10,
     marginTop: 15,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   dateText: {
-    fontSize: 16,
+    fontSize: 20,
     color: "#666",
     padding: 12,
     backgroundColor: "#f5f5f5",
     borderRadius: 8,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   typeContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1152,20 +1170,26 @@ const styles = StyleSheet.create({
     backgroundColor: "#F0F0F0",
   },
   typeBtnText: {
-    fontSize: 14,
+    fontSize: 18,
     color: "#666",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   typeBtnTextActive: {
     color: "#1976D2",
     fontWeight: "600",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   input: {
-    fontSize: 16,
+    fontSize: 20,
     padding: 12,
     backgroundColor: "#f5f5f5",
     borderRadius: 8,
     marginBottom: 10,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   saveBtn: {
     backgroundColor: "#4CAF50",
     padding: 15,
@@ -1177,14 +1201,18 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "600",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   emptyText: {
     textAlign: "center",
     color: "#999",
     marginTop: 40,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   recordCard: {
     backgroundColor: "#f9f9f9",
     padding: 15,
@@ -1197,20 +1225,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   recordType: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "600",
     color: "#333",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   recordDuration: {
-    fontSize: 14,
+    fontSize: 18,
     color: "#666",
     marginTop: 4,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   recordNotes: {
-    fontSize: 14,
+    fontSize: 18,
     color: "#999",
     marginTop: 8,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   addRecordButton: {
     backgroundColor: "#E0E0E0",
     paddingVertical: 12,
@@ -1225,9 +1259,11 @@ const styles = StyleSheet.create({
   },
   addRecordButtonText: {
     color: "#1976D2",
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "600",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   recordsScrollView: {
     flex: 1,
   },
@@ -1245,15 +1281,19 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   recordSummaryText: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "600",
     color: "#333",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   recordSummaryTime: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "600",
     color: "#666",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   recordsList: {
     gap: 10,
   },
@@ -1276,25 +1316,37 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   recordItemType: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "600",
     marginBottom: 4,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   autoRecordType: {
     color: "#0D47A1",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   manualRecordType: {
     color: "#37474F",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   recordItemDuration: {
-    fontSize: 14,
-  },
+    fontSize: 18,
+  
+
+    fontFamily: 'KotraHope',},
   autoRecordDuration: {
     color: "#1565C0",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   manualRecordDuration: {
     color: "#546E7A",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   recordActions: {
     flexDirection: "row",
     alignItems: "center",
@@ -1310,9 +1362,11 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   emptyRecordsText: {
-    fontSize: 16,
+    fontSize: 20,
     color: "#999",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   monthModalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -1326,11 +1380,13 @@ const styles = StyleSheet.create({
     width: "80%",
   },
   monthModalTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: "600",
     textAlign: "center",
     marginBottom: 20,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   monthGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1348,13 +1404,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#4CAF50",
   },
   monthBtnText: {
-    fontSize: 14,
+    fontSize: 18,
     color: "#333",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   monthBtnTextActive: {
     color: "#fff",
     fontWeight: "600",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   monthModalButtons: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1373,7 +1433,9 @@ const styles = StyleSheet.create({
   },
   monthModalBtnText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "600",
-  },
+  
+
+    fontFamily: 'KotraHope',},
 });

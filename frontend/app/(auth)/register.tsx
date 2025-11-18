@@ -111,22 +111,24 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   title: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: "bold",
     color: "#007AFF",
     marginBottom: 12,
+    fontFamily: 'KotraHope',
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 20,
     color: "#666666",
     marginBottom: 32,
+    fontFamily: 'KotraHope',
   },
   input: {
     backgroundColor: "#f5f5f5",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontSize: 16,
+    fontSize: 20,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: "#e0e0e0",
@@ -147,12 +149,14 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     color: "#ffffff",
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "600",
+    fontFamily: 'KotraHope',
   },
   linkText: {
-    fontSize: 14,
+    fontSize: 18,
     color: "#007AFF",
+    fontFamily: 'KotraHope',
   },
 });
 

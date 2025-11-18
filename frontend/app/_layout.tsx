@@ -1,10 +1,16 @@
 import { Stack } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useEffect } from "react";
+import { useFonts } from "expo-font";
 import { CustomizationProvider } from "../context/CustomizationContext";
 import API_BASE_URL from "../config/api";
 
 export default function RootLayout() {
+  // KotraHope 폰트 로드
+  useFonts({
+    'KotraHope': require('../assets/fonts/KotraHope.ttf'),
+  });
+
   // 전역 fetch 래핑: ngrok 경고 페이지 회피 헤더/쿼리 추가
   useEffect(() => {
     const originalFetch = global.fetch;

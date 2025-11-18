@@ -105,7 +105,7 @@ async function checkAchievementsAsync(userId) {
 // 운동 기록 생성
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { workoutDate, workoutType, durationMinutes, heartRate, hasReward, notes } = req.body;
+    const { workoutDate, workoutType, durationMinutes, heartRate, hasReward, notes, stats } = req.body;
 
     if (!workoutDate || !workoutType || !durationMinutes) {
       return res.status(400).json({ error: '운동 날짜, 종류, 시간은 필수입니다.' });
@@ -119,6 +119,59 @@ router.post('/', authMiddleware, async (req, res) => {
       'INSERT INTO workout_records (user_id, workout_date, workout_type, duration_minutes, heart_rate, has_reward, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [req.user.id, workoutDate, workoutType, durationMinutes, heartRate || null, hasReward || false, notes || null]
     );
+
+    // 스탯 업데이트 및 경험치 계산
+    if (stats && Array.isArray(stats)) {
+      // 현재 프로필 조회
+      const [profileRows] = await db.query(
+        'SELECT strength, agility, stamina, concentration, level FROM user_profiles WHERE user_id = ?',
+        [req.user.id]
+      );
+
+      if (profileRows.length > 0) {
+        const profile = profileRows[0];
+        let newStrength = profile.strength || 0;
+        let newAgility = profile.agility || 0;
+        let newStamina = profile.stamina || 0;
+        let newConcentration = profile.concentration || 0;
+
+        // 스탯 증가
+        stats.forEach(stat => {
+          const label = stat.label || '';
+          if (label === '근력' || label === '힘') {
+            newStrength += stat.value;
+          } else if (label === '민첩') {
+            newAgility += stat.value;
+          } else if (label === '지구력') {
+            newStamina += stat.value;
+          } else if (label === '집중력') {
+            newConcentration += stat.value;
+          }
+        });
+
+        // 경험치 계산: 스탯 합산
+        const totalStats = newStrength + newAgility + newStamina + newConcentration;
+        
+        // 레벨당 100 경험치 필요 (레벨 1: 0-100, 레벨 2: 100-200, 레벨 3: 200-300...)
+        const requiredExpForCurrentLevel = (profile.level - 1) * 100;
+        const requiredExpForNextLevel = profile.level * 100;
+        
+        // 현재 레벨에서의 경험치 (0-100 사이)
+        const currentExp = totalStats - requiredExpForCurrentLevel;
+        
+        // 레벨업 체크
+        let newLevel = profile.level;
+        if (totalStats >= requiredExpForNextLevel) {
+          newLevel = Math.floor(totalStats / 100) + 1;
+        }
+
+        // 프로필 업데이트 (경험치는 스탯 합산)
+        await db.query(
+          'UPDATE user_profiles SET strength = ?, agility = ?, stamina = ?, concentration = ?, level = ?, experience = ? WHERE user_id = ?',
+          [newStrength, newAgility, newStamina, newConcentration, newLevel, totalStats, req.user.id]
+        );
+      }
+    }
 
     // 업적 자동 체크 (비동기로 실행하여 응답 지연 방지)
     checkAchievementsAsync(req.user.id).catch(err => {

@@ -304,7 +304,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     color: "#7f8c8d",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
@@ -314,7 +316,9 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     color: "#7f8c8d",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   title: {
     fontSize: 28,
     fontWeight: "bold",
@@ -322,7 +326,9 @@ const styles = StyleSheet.create({
     marginTop: 40,
     marginBottom: 30,
     color: "#2c3e50",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   podiumContainer: {
     flexDirection: "row",
     justifyContent: "center",
@@ -369,10 +375,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: "#fff",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   crownTextLarge: {
     fontSize: 30,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   podium: {
     width: "100%",
     borderTopLeftRadius: 10,
@@ -390,30 +400,39 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0, 0, 0, 0.3)",
     textShadowOffset: { width: 2, height: 2 },
     textShadowRadius: 3,
+    fontFamily: 'KotraHope',
   },
   podiumName: {
     fontSize: 16,
     fontWeight: "600",
     marginTop: 8,
     color: "#2c3e50",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   podiumNameLarge: {
     fontSize: 20,
     fontWeight: "bold",
     marginTop: 10,
     color: "#2c3e50",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   podiumScore: {
     fontSize: 14,
     color: "#7f8c8d",
     marginTop: 2,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   podiumScoreLarge: {
     fontSize: 16,
     fontWeight: "600",
     color: "#e67e22",
     marginTop: 3,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   listContainer: {
     backgroundColor: "#fff",
     borderTopLeftRadius: 20,
@@ -426,7 +445,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 20,
     color: "#2c3e50",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   rankItem: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -452,7 +473,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     width: 30,
     color: "#2c3e50",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   rankAnimalImage: {
     width: 32,
     height: 32,
@@ -462,7 +485,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: "#2c3e50",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   rankRight: {
     alignItems: "flex-end",
   },
@@ -470,12 +495,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: "#e67e22",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   rankTime: {
     fontSize: 14,
     color: "#95a5a6",
     marginTop: 2,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   // 모달 스타일
   modalOverlay: {
     flex: 1,
@@ -507,11 +536,15 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#2c3e50",
     marginBottom: 5,
-  },
+  
+
+    fontFamily: 'KotraHope',},
   modalOwner: {
     fontSize: 16,
     color: "#7f8c8d",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   modalDivider: {
     height: 2,
     backgroundColor: "#2c3e50",
@@ -530,10 +563,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#2c3e50",
     fontWeight: "500",
-  },
+  
+
+    fontFamily: 'KotraHope',},
   statValue: {
     fontSize: 16,
     color: "#2c3e50",
     fontWeight: "bold",
-  },
+  
+
+    fontFamily: 'KotraHope',},
 });
