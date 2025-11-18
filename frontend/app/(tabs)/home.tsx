@@ -94,82 +94,6 @@ const HomeScreen = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        // 개발자 모드: 로컬 목 데이터 우선 사용
-        if (await AuthManager.isDevMode()) {
-          const devData = (await AuthManager.getDevProfile()) ?? (await AuthManager.getUser());
-
-          if (devData && typeof devData === "object") {
-            const devAccount = devData as {
-              name?: string;
-              profile?: {
-                animalType?: AnimalId | null;
-                nickname?: string | null;
-                height?: number | null;
-                weight?: number | null;
-                level?: number | null;
-                experience?: number | null;
-                strength?: number | null;
-                agility?: number | null;
-              } | null;
-            };
-
-            const devProfile = devAccount.profile ?? null;
-            const animalType = (devProfile?.animalType as AnimalId | null) ?? null;
-            const nicknameValue = devProfile?.nickname ?? "";
-            const heightValue = devProfile?.height ?? null;
-            const weightValue = devProfile?.weight ?? null;
-            const levelValue = devProfile?.level ?? 1;
-            const experienceValue = devProfile?.experience ?? 0;
-            const strengthValue = devProfile?.strength ?? 0;
-            const agilityValue = devProfile?.agility ?? 0;
-
-            const hasAnimal = !!animalType;
-            const hasNickname = !!nicknameValue;
-
-            setAccountName(devAccount.name ?? "");
-            setSelectedAnimalId(animalType);
-            setNickname(nicknameValue ?? "");
-            setHeight(
-              heightValue !== null && heightValue !== undefined
-                ? String(heightValue)
-                : ""
-            );
-            setWeight(
-              weightValue !== null && weightValue !== undefined
-                ? String(weightValue)
-                : ""
-            );
-            setLevel(levelValue);
-            setExperience(experienceValue);
-            setStrength(strengthValue);
-            setAgility(agilityValue);
-            
-            // 동물이 있으면 CustomizationContext 업데이트
-            if (hasAnimal) {
-              const animalImage = getAnimalImage(animalType);
-              // 개발자 모드에서는 기본값 사용
-              setCustomization(animalImage, selectedBackground, selectedClock);
-            }
-            
-            setShowAnimalModal(!hasAnimal);
-            setShowProfileModal(hasAnimal && !hasNickname);
-          } else {
-            setAccountName("");
-            setSelectedAnimalId(null);
-            setNickname("");
-            setHeight("");
-            setWeight("");
-            setLevel(1);
-            setExperience(0);
-            setStrength(0);
-            setAgility(0);
-            setShowAnimalModal(true);
-            setShowProfileModal(false);
-          }
-
-          return;
-        }
-
         const headers = await AuthManager.getAuthHeader();
         if (!headers.Authorization) {
           router.replace("/(auth)/login" as any);
@@ -271,40 +195,6 @@ const HomeScreen = () => {
 
     if (!nickname.trim() || !height.trim() || !weight.trim()) {
       Alert.alert("알림", "모든 정보를 입력해주세요.");
-      return;
-    }
-
-    // 개발자 모드: 로컬 목 데이터 저장
-    if (await AuthManager.isDevMode()) {
-      const nameForDev = accountName || nickname || "개발자";
-      const devProfileData = {
-        id: "dev",
-        name: nameForDev,
-        email: "dev@example.com",
-        profile: {
-          animalType: selectedAnimalId,
-          nickname,
-          height: height ? Number(height) : null,
-          weight: weight ? Number(weight) : null,
-          level: 1,
-          experience: 0,
-          strength: 0,
-          agility: 0,
-        },
-      };
-
-      await AuthManager.setDevProfile(devProfileData); // 개발자 모드
-      await AuthManager.login("dev-token", devProfileData); // 개발자 모드
-      await AuthManager.setDevMode(true); // 개발자 모드
-
-      // CustomizationContext 업데이트
-      const animalImage = getAnimalImage(selectedAnimalId);
-      setCustomization(animalImage, selectedBackground, selectedClock);
-
-      setAccountName(nameForDev);
-      setShowAnimalModal(false);
-      setShowProfileModal(false);
-      Alert.alert("완료", "프로필이 저장되었습니다.");
       return;
     }
 
