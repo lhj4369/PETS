@@ -111,38 +111,6 @@ export default function RecordsScreen() {
   const fetchWorkoutRecords = useCallback(async () => {
     setIsLoading(true);
     try {
-      // 개발자 모드: 로컬 데이터 사용
-      if (await AuthManager.isDevMode()) {
-        const devRecords = await AuthManager.getDevWorkoutRecords();
-        
-        // 현재 월의 기록만 필터링
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
-        const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-        const lastDay = new Date(year, month + 1, 0).getDate();
-        const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-        
-        const filteredRecords = devRecords.filter((r: any) => {
-          return r.date >= startDate && r.date <= endDate;
-        });
-        
-        const records: WorkoutRecord[] = filteredRecords.map((r: any) => ({
-          id: r.id.toString(),
-          date: r.date,
-          duration: r.duration,
-          type: r.type,
-          notes: r.notes || undefined,
-          heartRate: r.heartRate ?? null,
-          hasReward: r.hasReward ?? false,
-          source: r.source ?? determineRecordSource(r),
-          createdAt: r.createdAt ?? null,
-        }));
-        
-        setWorkoutRecords(records);
-        setIsLoading(false);
-        return;
-      }
-
       const headers = await AuthManager.getAuthHeader();
       if (!headers.Authorization) {
         Alert.alert("오류", "인증이 필요합니다. 다시 로그인해주세요.");
@@ -275,42 +243,6 @@ export default function RecordsScreen() {
 
   const addWorkoutRecord = async (record: WorkoutRecordPayload) => {
     try {
-      // 개발자 모드: 로컬 저장
-      if (await AuthManager.isDevMode()) {
-        const newRecord: WorkoutRecord = {
-          ...record,
-          id: Date.now().toString(),
-          heartRate: null,
-          hasReward: false,
-          source: "manual",
-          createdAt: new Date().toISOString(),
-        };
-        
-        // AsyncStorage에 저장
-        const existingRecords = await AuthManager.getDevWorkoutRecords();
-        const updatedRecordsForStorage = [...existingRecords, {
-          id: newRecord.id,
-          date: newRecord.date,
-          duration: newRecord.duration,
-          type: newRecord.type,
-          notes: newRecord.notes || null,
-          heartRate: null,
-          hasReward: false,
-          source: "manual",
-          createdAt: newRecord.createdAt,
-        }];
-        await AuthManager.setDevWorkoutRecords(updatedRecordsForStorage);
-        
-        // 로컬 상태 업데이트
-        const updatedWorkoutRecords = sortRecordsByCreation([...workoutRecords, newRecord]);
-        setWorkoutRecords(updatedWorkoutRecords);
-        if (selectedDate && record.date === selectedDate) {
-          setSelectedDayRecords(sortRecordsByCreation([...selectedDayRecords, newRecord]));
-        }
-        setShowAddModal(false);
-        return;
-      }
-
       const headers = await AuthManager.getAuthHeader();
       if (!headers.Authorization) {
         Alert.alert("오류", "인증이 필요합니다.");
@@ -362,47 +294,7 @@ export default function RecordsScreen() {
     }
 
     try {
-      if (await AuthManager.isDevMode()) {
-        const existingRecords = await AuthManager.getDevWorkoutRecords();
-        const updatedRecords = existingRecords.map((r: any) =>
-          r.id.toString() === id
-            ? {
-                ...r,
-                duration: updates.duration,
-                type: updates.type,
-              }
-            : r
-        );
-
-        await AuthManager.setDevWorkoutRecords(updatedRecords);
-
-        const updatedWorkoutRecords = workoutRecords.map((r) =>
-          r.id === id
-            ? {
-                ...r,
-                duration: updates.duration,
-                type: updates.type,
-              }
-            : r
-        );
-        setWorkoutRecords(updatedWorkoutRecords);
-        if (selectedDate === targetRecord.date) {
-          setSelectedDayRecords((prev) =>
-            sortRecordsByCreation(
-              prev.map((r) =>
-                r.id === id
-                  ? {
-                      ...r,
-                      duration: updates.duration,
-                      type: updates.type,
-                    }
-                  : r
-              )
-            )
-          );
-        }
-      } else {
-        const headers = await AuthManager.getAuthHeader();
+      const headers = await AuthManager.getAuthHeader();
         if (!headers.Authorization) {
           Alert.alert("오류", "인증이 필요합니다.");
           return;
@@ -433,7 +325,6 @@ export default function RecordsScreen() {
         }
 
         await fetchWorkoutRecords();
-      }
 
       setShowEditModal(false);
       setEditingRecord(null);
@@ -472,22 +363,6 @@ export default function RecordsScreen() {
     if (!shouldDelete) return;
 
     try {
-      // 개발자 모드: 로컬 삭제
-      if (await AuthManager.isDevMode()) {
-        // AsyncStorage에서 삭제
-        const existingRecords = await AuthManager.getDevWorkoutRecords();
-        const updatedRecords = existingRecords.filter((r: any) => r.id.toString() !== id);
-        await AuthManager.setDevWorkoutRecords(updatedRecords);
-        
-        // 로컬 상태 업데이트
-        setWorkoutRecords(workoutRecords.filter((r) => r.id !== id));
-        setSelectedDayRecords(selectedDayRecords.filter((r) => r.id !== id));
-        if (selectedDayRecords.length === 1) {
-          setShowDetailModal(false);
-        }
-        return;
-      }
-
       const headers = await AuthManager.getAuthHeader();
       if (!headers.Authorization) {
         Alert.alert("오류", "인증이 필요합니다.");

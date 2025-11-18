@@ -239,29 +239,6 @@ export default function TimerScreen() {
     const day = String(now.getDate()).padStart(2, '0');
     const today = `${year}-${month}-${day}`;
     
-    // 개발자 모드: 로컬 저장
-    if (await AuthManager.isDevMode()) {
-      const durationMinutes = Math.floor(summaryData.elapsedMs / 1000 / 60);
-      const workoutType = summaryData.mode === "aerobic" ? "유산소" : "인터벌";
-      
-      const record = {
-        id: Date.now().toString(),
-        date: today,
-        duration: durationMinutes,
-        type: workoutType,
-        heartRate: summaryData.heartRate,
-        hasReward,
-        notes: null,
-        source: "auto",
-      };
-      
-      // 개발자 모드에서는 AsyncStorage에 저장
-      const existingRecords = await AuthManager.getDevWorkoutRecords();
-      const updatedRecords = [...existingRecords, record];
-      await AuthManager.setDevWorkoutRecords(updatedRecords);
-      return;
-    }
-
     const headers = await AuthManager.getAuthHeader();
     
     if (!headers.Authorization) {
