@@ -112,9 +112,24 @@ DELETE FROM user_profiles;
 DELETE FROM accounts;
 
 -- 방법 2: TRUNCATE 사용 (더 빠르지만 외래키 제약 때문에 순서대로 실행)
--- SET FOREIGN_KEY_CHECKS = 0;
--- TRUNCATE TABLE user_achievements;
--- TRUNCATE TABLE workout_records;
--- TRUNCATE TABLE user_profiles;
--- TRUNCATE TABLE accounts;
--- SET FOREIGN_KEY_CHECKS = 1;
+SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE user_achievements;
+TRUNCATE TABLE workout_records;
+TRUNCATE TABLE user_profiles;
+TRUNCATE TABLE accounts;
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- 개발자 계정 생성 SQL 스크립트
+-- 이메일: Developer@test.net
+-- 비밀번호: 1234
+
+-- 기존 계정이 있으면 삭제
+DELETE FROM accounts WHERE email = 'Developer@test.net';
+
+-- 개발자 계정 생성
+INSERT INTO accounts (name, email, password) 
+VALUES (
+  'Developer',
+  'Developer@test.net',
+  '$2b$10$OhKUECu4OleIJ7q6GNipD.6Q2zeVSQQxzN1etK9OuCnfTPG1rZnRG'
+);

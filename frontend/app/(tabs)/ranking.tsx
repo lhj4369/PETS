@@ -53,27 +53,6 @@ export default function RankingScreen() {
   const fetchRankings = async () => {
     setIsLoading(true);
     try {
-      // 개발자 모드: 로컬 데이터 우선 사용
-      if (await AuthManager.isDevMode()) {
-        const devRankings = await AuthManager.getDevRankings();
-        
-        const formattedRankings: RankingItem[] = devRankings.map((item: any, index: number) => ({
-          rank: index + 1,
-          name: item.name || "익명",
-          animal: ANIMAL_IMAGE_MAP[item.animalType] || DEFAULT_ANIMAL_IMAGE,
-          score: item.experience || 0,
-          nickname: item.nickname || item.name || "익명",
-          level: item.level || 1,
-          totalWorkouts: item.totalWorkouts || 0,
-          totalDurationMinutes: item.totalDurationMinutes || 0,
-          avgHeartRate: Math.round(item.avgHeartRate || 0),
-        }));
-
-        setRankings(formattedRankings);
-        setIsLoading(false);
-        return;
-      }
-
       const headers = await AuthManager.getAuthHeader();
       if (!headers.Authorization) {
         Alert.alert("오류", "인증이 필요합니다. 다시 로그인해주세요.");
