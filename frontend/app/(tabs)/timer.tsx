@@ -24,6 +24,7 @@ import { formatDuration } from "../../features/timer/utils/formatDuration";
 import { useWorkoutTimer } from "../../features/timer/hooks/useWorkoutTimer";
 import AuthManager from "../../utils/AuthManager";
 import API_BASE_URL from "../../config/api";
+import GoogleFitManager from "../../utils/GoogleFitManager";
 
 type Mode = "aerobic" | "interval";
 type Phase = "idle" | "running" | "summary";
@@ -43,6 +44,7 @@ type SummaryData = {
   intervalInfo?: {
     completedRounds: number;
   };
+  distance?: number; // 이동 거리 (미터)
 };
 
 export default function TimerScreen() {
@@ -65,12 +67,14 @@ export default function TimerScreen() {
   const [pausedForConfirm, setPausedForConfirm] = useState(false);
   const [hasClaimedReward, setHasClaimedReward] = useState(false);
   const [hasSavedRecord, setHasSavedRecord] = useState(false);
+  const workoutStartTimeRef = useRef<number | null>(null);
   const timer = useWorkoutTimer();
 
   const handleStart = () => {
     finishRest(false);
     timer.reset();
     timer.start();
+    workoutStartTimeRef.current = Date.now(); // 운동 시작 시간 저장
     setSummary(null);
     setLaps([]);
     setCompletedSets(0);
@@ -294,6 +298,7 @@ export default function TimerScreen() {
   const handleReturnToLanding = () => {
     finishRest(false);
     timer.reset();
+    workoutStartTimeRef.current = null;
     setSummary(null);
     setLaps([]);
     setCompletedSets(0);
@@ -311,19 +316,36 @@ export default function TimerScreen() {
     setPausedForConfirm(false);
   };
 
-  const handleStopConfirm = () => {
+  const handleStopConfirm = async () => {
     finishRest(false);
     const finalElapsed = timer.stop();
+    const endTime = Date.now();
+    const startTime = workoutStartTimeRef.current || endTime - finalElapsed;
+    
+    // Google Fit에서 이동 거리 가져오기
+    let distance = 0;
+    try {
+      const isAuthenticated = await GoogleFitManager.isAuthenticated();
+      if (isAuthenticated) {
+        distance = await GoogleFitManager.getDistance(startTime, endTime);
+      }
+    } catch (error) {
+      console.error("Google Fit 거리 가져오기 실패:", error);
+      // 에러가 발생해도 운동 종료는 진행
+    }
+    
     const summaryData = buildSummary(mode, finalElapsed, {
       laps,
       restDurationMs: activeRestDurationMs,
       completedSets,
+      distance, // 거리 정보 추가
     });
     setSummary(summaryData);
     setPhase("summary");
     setShowStopConfirm(false);
     setPausedForConfirm(false);
     setCompletedSets(0);
+    workoutStartTimeRef.current = null; // 시작 시간 초기화
   };
 
   const handleToggleIntervalConfigurator = () => {
@@ -1040,6 +1062,7 @@ function buildSummary(
     laps?: number[];
     restDurationMs?: number;
     completedSets?: number;
+    distance?: number;
   }
 ): SummaryData {
   const minutes = elapsedMs / 60_000;
@@ -1070,6 +1093,7 @@ function buildSummary(
         completedRounds,
       },
       restDurationMs: restDuration,
+      distance: options?.distance,
     };
   }
 
@@ -1079,5 +1103,6 @@ function buildSummary(
     heartRate,
     stats,
     laps,
+    distance: options?.distance,
   };
 }
