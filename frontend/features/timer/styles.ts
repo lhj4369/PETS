@@ -194,8 +194,9 @@ const styles = StyleSheet.create({
   },
   startWorkoutLabel: {
     color: "#ffffff",
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: "700",
+    fontFamily: 'KotraHope',
   },
   runningContainer: {
     flex: 1,
