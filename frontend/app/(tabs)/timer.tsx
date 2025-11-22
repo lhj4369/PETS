@@ -68,10 +68,11 @@ export default function TimerScreen() {
   const [pausedForConfirm, setPausedForConfirm] = useState(false);
   const [hasClaimedReward, setHasClaimedReward] = useState(false);
   const [hasSavedRecord, setHasSavedRecord] = useState(false);
+  const [animalType, setAnimalType] = useState<string | null>("dog");
   const timer = useWorkoutTimer();
-  const { selectedClock, loadCustomizationFromServer } = useCustomization();
+  const { loadCustomizationFromServer } = useCustomization();
 
-  // 프로필에서 시계 정보 로드
+  // 프로필에서 동물 정보 로드
   useFocusEffect(
     useCallback(() => {
       const loadProfile = async () => {
@@ -83,6 +84,7 @@ export default function TimerScreen() {
           if (response.ok) {
             const data = await response.json();
             loadCustomizationFromServer(data.profile?.backgroundType, data.profile?.clockType);
+            setAnimalType(data.profile?.animalType ?? "dog");
           }
         } catch (error) {
           console.error("프로필 로드 실패:", error);
@@ -386,6 +388,7 @@ export default function TimerScreen() {
           onToggleConfigurator={handleToggleIntervalConfigurator}
           onCloseConfigurator={handleCloseIntervalConfigurator}
           onResetRestDuration={handleResetRestDuration}
+          animalType={animalType}
         />
       )}
 
@@ -436,6 +439,7 @@ function TimerLanding({
   onToggleConfigurator,
   onCloseConfigurator,
   onResetRestDuration,
+  animalType,
 }: {
   mode: Mode;
   onModeChange: (next: Mode) => void;
@@ -446,22 +450,21 @@ function TimerLanding({
   onToggleConfigurator: () => void;
   onCloseConfigurator: () => void;
   onResetRestDuration: () => void;
+  animalType: string | null;
 }) {
   const isInterval = mode === "interval";
 
-  const { selectedClock } = useCustomization();
+  // 동물 타입에 따라 애니메이션 이미지 경로 결정 (임시로 모든 동물에 dog1.png 사용)
+  const getAnimationImage = () => {
+    // 일단 모든 동물에 dog1.png 하드코딩 (이미지 준비되면 수정 예정)
+    return require("../../assets/images/animation/dog/dog1.png");
+  };
 
   return (
     <View style={styles.landingContainer}>
       <View style={styles.clockContainer}>
         <Image
-          source={selectedClock || require("../../assets/images/clock_icon.png")}
-          style={styles.clockImage}
-          accessibilityRole="image"
-          accessibilityLabel="운동 타이머 시계"
-        />
-        <Image
-          source={require("../../assets/images/animation/dog/dog1.png")}
+          source={getAnimationImage()}
           style={styles.animationImage}
           accessibilityRole="image"
           accessibilityLabel="애니메이션"
@@ -663,6 +666,11 @@ function TimerRunning({
   onStartRest: () => void;
   onSkipRest: () => void;
 }) {
+  // 애니메이션 이미지 가져오기 (임시로 dog1.png만 사용)
+  const getAnimationImage = () => {
+    return require("../../assets/images/animation/dog/dog1.png");
+  };
+
   const lapEntries = useMemo(() => {
     if (mode !== "aerobic") {
       return [];
@@ -688,6 +696,17 @@ function TimerRunning({
 
   return (
     <View style={styles.runningContainer}>
+      {/* 애니메이션 이미지 (시간 위에 표시) */}
+      {!isResting && (
+        <View style={styles.animationContainer}>
+          <Image
+            source={getAnimationImage()}
+            style={styles.runningAnimationImage}
+            accessibilityRole="image"
+            accessibilityLabel="애니메이션"
+          />
+        </View>
+      )}
       <View style={styles.timerDisplay}>
         <Text style={styles.timerDigits}>{formatDuration(elapsedMs)}</Text>
         <Text style={styles.timerStateLabel}>{timerStateLabel}</Text>
