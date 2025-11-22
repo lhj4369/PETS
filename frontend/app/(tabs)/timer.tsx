@@ -633,6 +633,12 @@ function TimerLanding({
   const { selectedClock } = useCustomization();
   const insets = useSafeAreaInsets();
 
+  // 동물 타입에 따라 애니메이션 이미지 경로 결정 (임시로 모든 동물에 dog1.png 사용)
+  const getAnimationImage = () => {
+    // 일단 모든 동물에 dog1.png 하드코딩 (이미지 준비되면 수정 예정)
+    return require("../../assets/images/animation/dog/dog1.png");
+  };
+
   return (
     <View style={[styles.landingContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
       {/* ===== 레이아웃 변경: 메인 콘텐츠와 설정 영역 분리 =====
@@ -642,21 +648,6 @@ function TimerLanding({
         <View style={styles.modeSwitcher}>...</View>
         <TouchableOpacity style={styles.startWorkoutButton}>...</TouchableOpacity>
         {(isWeight || isInterval) && <View style={styles.intervalToggleSection}>...</View>}
-  // 동물 타입에 따라 애니메이션 이미지 경로 결정 (임시로 모든 동물에 dog1.png 사용)
-  const getAnimationImage = () => {
-    // 일단 모든 동물에 dog1.png 하드코딩 (이미지 준비되면 수정 예정)
-    return require("../../assets/images/animation/dog/dog1.png");
-  };
-
-  return (
-    <View style={styles.landingContainer}>
-      <View style={styles.clockContainer}>
-        <Image
-          source={getAnimationImage()}
-          style={styles.animationImage}
-          accessibilityRole="image"
-          accessibilityLabel="애니메이션"
-        />
       </View>
       ===== 변경 사항: 설정 영역을 고정 영역으로 분리하여 레이아웃 안정성 확보 ===== */}
       
@@ -664,13 +655,7 @@ function TimerLanding({
       <View style={styles.landingMainContent}>
         <View style={styles.clockContainer}>
           <Image
-            source={selectedClock || require("../../assets/images/clock_icon.png")}
-            style={styles.clockImage}
-            accessibilityRole="image"
-            accessibilityLabel="운동 타이머 시계"
-          />
-          <Image
-            source={require("../../assets/images/animation/dog/dog1.png")}
+            source={getAnimationImage()}
             style={styles.animationImage}
             accessibilityRole="image"
             accessibilityLabel="애니메이션"
