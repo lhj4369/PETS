@@ -178,7 +178,7 @@ router.post('/google', async (req, res) => {
 router.post('/profile', authMiddleware, async (req, res) => {
   try {
     const { animalType, nickname, height, weight, backgroundType, clockType } = req.body;
-    const allowedAnimals = ['capybara', 'fox', 'red_panda', 'guinea_pig'];
+    const allowedAnimals = ['dog', 'capybara', 'fox', 'red_panda', 'guinea_pig'];
     const allowedBackgrounds = ['home', 'spring', 'summer', 'fall', 'winter', 'city'];
     const allowedClocks = ['cute', 'alarm', 'sand', 'mini'];
 
@@ -227,7 +227,7 @@ router.post('/profile', authMiddleware, async (req, res) => {
 router.post('/customization', authMiddleware, async (req, res) => {
   try {
     const { animalType, backgroundType, clockType } = req.body;
-    const allowedAnimals = ['capybara', 'fox', 'red_panda', 'guinea_pig'];
+    const allowedAnimals = ['dog', 'capybara', 'fox', 'red_panda', 'guinea_pig'];
     const allowedBackgrounds = ['home', 'spring', 'summer', 'fall', 'winter', 'city'];
     const allowedClocks = ['cute', 'alarm', 'sand', 'mini'];
 
