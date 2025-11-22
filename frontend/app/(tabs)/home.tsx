@@ -30,10 +30,11 @@ const BASE_WIDTH = 390;
 const BASE_HEIGHT = 844;
 
 const ANIMAL_OPTIONS = [
-  { id: "capybara", label: "카피바라", emoji: "🦫", image: require("../../assets/images/animals/capibara.png") },
-  { id: "fox", label: "여우", emoji: "🦊", image: require("../../assets/images/animals/fox.png") },
-  { id: "red_panda", label: "레서판다", emoji: "🦝", image: require("../../assets/images/animals/red_panda.png") },
-  { id: "guinea_pig", label: "기니피그", emoji: "🐹", image: require("../../assets/images/animals/ginipig.png") },
+  { id: "dog", label: "강아지", image: require("../../assets/images/animals/dog.png") },
+  { id: "capybara", label: "카피바라", image: require("../../assets/images/animals/capibara.png") },
+  { id: "fox", label: "여우", image: require("../../assets/images/animals/fox.png") },
+  { id: "red_panda", label: "레서판다", image: require("../../assets/images/animals/red_panda.png") },
+  { id: "guinea_pig", label: "기니피그", image: require("../../assets/images/animals/ginipig.png") },
 ] as const;
 
 type AnimalId = (typeof ANIMAL_OPTIONS)[number]["id"];
@@ -497,7 +498,7 @@ const HomeScreen = () => {
                 {selectedAnimalId && (
                   <View style={styles.selectedAnimalSummary}>
                     <Image
-                      source={ANIMAL_OPTIONS.find((animal) => animal.id === selectedAnimalId)?.image ?? require("../../assets/images/animals/capibara.png")}
+                      source={ANIMAL_OPTIONS.find((animal) => animal.id === selectedAnimalId)?.image ?? require("../../assets/images/animals/dog.png")}
                       style={styles.selectedAnimalImage}
                       resizeMode="contain"
                     />

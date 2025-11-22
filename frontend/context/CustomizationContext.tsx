@@ -2,7 +2,7 @@ import { ImageSourcePropType } from "react-native";
 import { createContext, ReactNode, useContext, useMemo, useState } from "react";
 import { getBackgroundImageFromType, getClockImageFromType } from "../utils/customizationUtils";
 
-export const DEFAULT_ANIMAL_IMAGE = require("../assets/images/dog_character.png");
+export const DEFAULT_ANIMAL_IMAGE = require("../assets/images/animals/dog.png");
 export const DEFAULT_BACKGROUND_IMAGE = require("../assets/images/background_test.png");
 export const DEFAULT_CLOCK_IMAGE = require("../assets/images/clocks/alarm.png");
 
