@@ -7,11 +7,62 @@ const styles = StyleSheet.create({
     backgroundColor: "#f9fafc",
     paddingHorizontal: 24,
   },
+  // ===== 레이아웃 변경: 메인 콘텐츠와 설정 영역 분리 =====
+  // 이전 구조 (되돌리려면 아래 주석 해제):
+  // landingContainer: {
+  //   flex: 1,
+  //   alignItems: "center",
+  //   justifyContent: "center",
+  //   gap: 40,
+  // },
+  // ===== 변경 사항: 설정 영역을 고정 영역으로 분리하여 레이아웃 안정성 확보 =====
   landingContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: 20,
+  },
+  landingMainContent: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
     gap: 40,
+    width: "100%",
+    paddingBottom: 30, // 운동 시작 버튼과 설정 버튼 사이 간격 조정
+  },
+  landingConfigSection: {
+    width: "100%",
+    height: 70, // 고정 높이로 레이아웃 안정성 확보
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  configModalOverlay: {
+    flex: 1,
+    backgroundColor: "transparent", // 뒷배경 어둡게 바뀌는 효과 제거
+    justifyContent: "flex-end",
+  },
+  configModalContent: {
+    backgroundColor: "#f5f5f5", // 회색 계열 배경색
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
+    paddingHorizontal: 24,
+    maxHeight: "80%",
+  },
+  configModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  configModalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#2d3436",
+  },
+  configModalCloseButton: {
+    padding: 4,
   },
   intervalToggleSection: {
     width: "100%",
