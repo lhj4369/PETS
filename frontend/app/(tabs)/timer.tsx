@@ -576,6 +576,7 @@ export default function TimerScreen() {
           onSkipRest={handleSkipRest}
           isWorking={isWorking}
           workoutRemainingMs={workoutRemainingMs}
+          animalType={animalType}
         />
       )}
 
@@ -633,10 +634,24 @@ function TimerLanding({
   const { selectedClock } = useCustomization();
   const insets = useSafeAreaInsets();
 
-  // 동물 타입에 따라 애니메이션 이미지 경로 결정 (임시로 모든 동물에 dog1.png 사용)
+  // 동물 타입에 따라 애니메이션 이미지 경로 결정
   const getAnimationImage = () => {
-    // 일단 모든 동물에 dog1.png 하드코딩 (이미지 준비되면 수정 예정)
-    return require("../../assets/images/animation/dog/dog1.png");
+    const type = animalType || "dog";
+    
+    switch (type) {
+      case "dog":
+        return require("../../assets/images/animation/dog/dog1.png");
+      case "capybara":
+        return require("../../assets/images/animation/capibara/capibara1.png");
+      case "fox":
+        return require("../../assets/images/animation/fox/fox1.png");
+      case "guinea_pig":
+        return require("../../assets/images/animation/ginipig/ginipig1.png");
+      case "red_panda":
+        return require("../../assets/images/animation/red_panda/red_panda1.png");
+      default:
+        return require("../../assets/images/animation/dog/dog1.png");
+    }
   };
 
   return (
@@ -921,6 +936,7 @@ function TimerRunning({
   onSkipRest,
   isWorking,
   workoutRemainingMs,
+  animalType,
 }: {
   mode: Mode;
   elapsedMs: number;
@@ -937,10 +953,26 @@ function TimerRunning({
   onSkipRest: () => void;
   isWorking?: boolean;
   workoutRemainingMs?: number;
+  animalType?: string | null;
 }) {
-  // 애니메이션 이미지 가져오기 (임시로 dog1.png만 사용)
+  // 동물 타입에 따라 애니메이션 이미지 경로 결정
   const getAnimationImage = () => {
-    return require("../../assets/images/animation/dog/dog1.png");
+    const type = animalType || "dog";
+    
+    switch (type) {
+      case "dog":
+        return require("../../assets/images/animation/dog/dog1.png");
+      case "capybara":
+        return require("../../assets/images/animation/capibara/capibara1.png");
+      case "fox":
+        return require("../../assets/images/animation/fox/fox1.png");
+      case "guinea_pig":
+        return require("../../assets/images/animation/ginipig/ginipig1.png");
+      case "red_panda":
+        return require("../../assets/images/animation/red_panda/red_panda1.png");
+      default:
+        return require("../../assets/images/animation/dog/dog1.png");
+    }
   };
 
   const lapEntries = useMemo(() => {
