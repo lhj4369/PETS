@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -17,6 +17,7 @@ interface ExerciseChatViewProps {
   onChangeInput: (text: string) => void;
   onSend: () => void;
   onBackToDaily: () => void;
+  isLoadingResponse?: boolean;
 }
 
 export default function ExerciseChatView({
@@ -25,8 +26,29 @@ export default function ExerciseChatView({
   onChangeInput,
   onSend,
   onBackToDaily,
+  isLoadingResponse = false,
 }: ExerciseChatViewProps) {
-  const isSendDisabled = useMemo(() => inputText.trim() === "", [inputText]);
+  const isSendDisabled = useMemo(() => inputText.trim() === "" || isLoadingResponse, [inputText, isLoadingResponse]);
+  
+  // 로딩 애니메이션을 위한 점 깜빡임
+  const [loadingDots, setLoadingDots] = useState(".");
+  
+  useEffect(() => {
+    if (!isLoadingResponse) {
+      setLoadingDots(".");
+      return;
+    }
+    
+    const interval = setInterval(() => {
+      setLoadingDots((prev) => {
+        if (prev === ".") return "..";
+        if (prev === "..") return "...";
+        return ".";
+      });
+    }, 500);
+    
+    return () => clearInterval(interval);
+  }, [isLoadingResponse]);
 
   const renderExerciseMessage = ({ item }: { item: ChatMessage }) => (
     <View
@@ -82,6 +104,19 @@ export default function ExerciseChatView({
         keyExtractor={(item) => item.id}
         style={styles.chatList}
         contentContainerStyle={styles.chatContent}
+        ListFooterComponent={
+          isLoadingResponse ? (
+            <View style={[styles.messageRow, styles.aiRow]}>
+              <View style={styles.profileColumn}>
+                <View style={styles.profilePlaceholder} />
+                <Text style={styles.profileName}>헬시</Text>
+              </View>
+              <View style={[styles.bubble, styles.aiBubble]}>
+                <Text style={styles.bubbleText}>입력중{loadingDots}</Text>
+              </View>
+            </View>
+          ) : null
+        }
       />
 
       <View style={styles.inputBar}>
