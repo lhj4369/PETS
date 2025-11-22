@@ -123,6 +123,7 @@ export default function CustomizeScreen() {
   useEffect(() => {
     if (!selectedClock) {
       updateClockSelection(DEFAULT_CLOCK_NAME);
+      setActiveClock(DEFAULT_CLOCK_NAME);
       return;
     }
     // 이미지 소스 직접 비교 대신 타입 기반으로 찾기
@@ -133,9 +134,11 @@ export default function CustomizeScreen() {
     });
     if (match) {
       updateClockSelection(match.name);
+      setActiveClock(match.name);
     } else {
       // 매칭 실패 시 기본값(알람 시계)으로 설정
       updateClockSelection(DEFAULT_CLOCK_NAME);
+      setActiveClock(DEFAULT_CLOCK_NAME);
     }
   }, [selectedClock]);
 
@@ -290,6 +293,12 @@ export default function CustomizeScreen() {
             </ImageBackground>
           </View>
         </View>
+
+        <View style={styles.previewTimerButtons}>
+          <TouchableOpacity style={styles.previewTimerButton}>
+            <Text style={styles.previewTimerButtonText}>타이머</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* 메뉴 탭 */}
@@ -340,22 +349,13 @@ const styles = StyleSheet.create({
   },
   previewPetContainer: {
     alignItems: 'center',
+    marginBottom: 20,
   },
   homePreviewWrapper: {
     width: 300,
     height: 350,
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    borderWidth: 3,
-    borderColor: '#ddd',
+    borderRadius: 16,
     overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   homePreviewBackground: {
     width: '100%',
@@ -371,9 +371,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#666',
     fontWeight: '500',
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: 'KotraHope',
+  },
   previewAnimal: {
     width: 170,
     height: 170,
@@ -387,6 +386,26 @@ const styles = StyleSheet.create({
     width: 90,
     height: 90,
     resizeMode: 'contain',
+  },
+  previewTimerButtons: {
+    flexDirection: 'row',
+    gap: 20,
+  },
+  previewTimerButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 25,
+    paddingVertical: 12,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  previewTimerButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   menuContainer: {
     flexDirection: 'row',
@@ -414,15 +433,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#666',
     fontWeight: '500',
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: 'KotraHope',
+  },
   activeMenuTabText: {
     color: '#fff',
     fontWeight: 'bold',
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: 'KotraHope',
+  },
   contentContainer: {
     flex: 1,
     paddingHorizontal: 20,
@@ -457,9 +474,8 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '500',
     textAlign: 'center',
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: 'KotraHope',
+  },
   saveButtonContainer: {
     padding: 20,
     backgroundColor: '#fff',
@@ -481,7 +497,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 22,
     fontWeight: 'bold',
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: 'KotraHope',
+  },
 });
