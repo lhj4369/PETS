@@ -1,6 +1,6 @@
 //커스터마이징 화면
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView, Image, ImageBackground } from "react-native";
-import { useEffect, useState, useRef } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView, Image } from "react-native";
+import { useEffect, useState } from "react";
 import { router } from "expo-router";
 import HomeButton from "../../components/HomeButton";
 import dog from "../../assets/images/animals/dog.png";
@@ -78,37 +78,10 @@ export default function CustomizeScreen() {
     return match?.name ?? DEFAULT_CLOCK_NAME;
   });
 
-  const defaultClockImage = clocks.find(clock => clock.name === DEFAULT_CLOCK_NAME)?.src ?? clocks[0].src;
-  const selectedAnimalData = animals.find(a => a.name === activeAnimal);
-  const selectedBgData = backgrounds.find(bg => bg.name === activeBackground);
-  const selectedClockData = clocks.find(clock => clock.name === activeClock);
-
-  const selectionsRef = useRef({
-    animal: activeAnimal,
-    background: activeBackground,
-    clock: activeClock,
-  });
-
-  const updateAnimalSelection = (name: string) => {
-    selectionsRef.current.animal = name;
-    setActiveAnimal(name);
-  };
-
-  const updateBackgroundSelection = (name: string) => {
-    selectionsRef.current.background = name;
-    setActiveBackground(name);
-  };
-
-  const updateClockSelection = (name: string) => {
-    selectionsRef.current.clock = name;
-    setActiveClock(name);
-  };
-
   useEffect(() => {
     const match = animals.find(a => a.src === selectedAnimal);
     if (match) {
       setActiveAnimal(match.name);
-      selectionsRef.current.animal = match.name;
     }
   }, [selectedAnimal]);
 
@@ -116,13 +89,12 @@ export default function CustomizeScreen() {
     const match = backgrounds.find(bg => bg.src === selectedBackground);
     if (match) {
       setActiveBackground(match.name);
-      selectionsRef.current.background = match.name;
     }
   }, [selectedBackground]);
 
   useEffect(() => {
     if (!selectedClock) {
-      updateClockSelection(DEFAULT_CLOCK_NAME);
+      setActiveClock(DEFAULT_CLOCK_NAME);
       return;
     }
     // 이미지 소스 직접 비교 대신 타입 기반으로 찾기
@@ -132,10 +104,10 @@ export default function CustomizeScreen() {
       return clockTypeFromSrc === clockType;
     });
     if (match) {
-      updateClockSelection(match.name);
+      setActiveClock(match.name);
     } else {
       // 매칭 실패 시 기본값(알람 시계)으로 설정
-      updateClockSelection(DEFAULT_CLOCK_NAME);
+      setActiveClock(DEFAULT_CLOCK_NAME);
     }
   }, [selectedClock]);
 
@@ -151,7 +123,7 @@ export default function CustomizeScreen() {
                   styles.optionItem,
                   activeAnimal === a.name && styles.selectedOption
                 ]}
-                onPress={() => updateAnimalSelection(a.name)}
+                onPress={() => setActiveAnimal(a.name)}
               >
                 <Image
                   source={a.src}
@@ -172,7 +144,7 @@ export default function CustomizeScreen() {
                     styles.optionItem,
                     activeBackground === bg.name && styles.selectedOption
                   ]}
-                  onPress={() => updateBackgroundSelection(bg.name)}
+                  onPress={() => setActiveBackground(bg.name)}
                 >
                   <Image
                     source={bg.src}
@@ -194,7 +166,7 @@ export default function CustomizeScreen() {
                       styles.optionItem,
                       activeClock === clock.name && styles.selectedOption,
                     ]}
-                    onPress={() => updateClockSelection(clock.name)}
+                    onPress={() => setActiveClock(clock.name)}
                   >
                     <Image
                       source={clock.src}
@@ -212,15 +184,9 @@ export default function CustomizeScreen() {
   };
 
   const handleSave = async () => {
-    const { animal, background, clock } = selectionsRef.current;
-    const selectedAnimalData = animals.find(a => a.name === animal);
-    const selectedBgData = backgrounds.find(bg => bg.name === background);
-    const selectedClockData = clocks.find(c => c.name === clock);
-
-    if (!selectedAnimalData) {
-      Alert.alert("알림", "동물을 선택해주세요.");
-      return;
-    }
+    const selectedAnimalData = animals.find(a => a.name === activeAnimal);
+    const selectedBgData = backgrounds.find(bg => bg.name === activeBackground);
+    const selectedClockData = clocks.find(c => c.name === activeClock);
 
     // 로컬 상태 업데이트
     setCustomization(
@@ -272,23 +238,56 @@ export default function CustomizeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <HomeButton />
-      {/* 미리보기 영역 - 홈화면과 동일 구성 */}
+      {/* 미리보기 영역 - 홈화면과 유사하지만 스탯 없이 */}
       <View style={styles.previewContainer}>
         <View style={styles.previewPetContainer}>
-          <View style={styles.homePreviewWrapper}>
-            <ImageBackground
-              source={selectedBgData?.src ?? home}
-              style={styles.homePreviewBackground}
-              imageStyle={styles.homePreviewBackgroundImage}
-            >
-              <Image source={selectedClockData?.src ?? defaultClockImage} style={styles.previewClock} />
-              {selectedAnimalData ? (
-                <Image source={selectedAnimalData.src} style={styles.previewAnimal} />
+          {(() => {
+            const selectedAnimalData = animals.find(a => a.name === activeAnimal);
+            const selectedBgData = backgrounds.find(bg => bg.name === activeBackground);
+            const selectedClockData = clocks.find(clock => clock.name === activeClock);
+            const isBackgroundMode = selectedMenu === '배경';
+            const isClockMode = selectedMenu === '시계';
+            const previewLabel = isBackgroundMode ? '배경 이미지' : isClockMode ? '시계 이미지' : '동물 이미지';
+
+            const renderPreviewImage = () => {
+              if (isBackgroundMode) {
+                return selectedBgData ? (
+                  <Image source={selectedBgData.src} style={styles.previewBackgroundImage} />
+                ) : (
+                  <Text style={styles.previewPetPlaceholder}>{previewLabel}</Text>
+                );
+              }
+
+              if (isClockMode) {
+                return selectedClockData ? (
+                  <Image source={selectedClockData.src} style={styles.previewClockImage} />
+                ) : (
+                  <Text style={styles.previewPetPlaceholder}>{previewLabel}</Text>
+                );
+              }
+
+              return selectedAnimalData ? (
+                <Image source={selectedAnimalData.src} style={styles.previewAnimalImage} />
               ) : (
-                <Text style={styles.previewPetPlaceholder}>동물을 선택해주세요</Text>
-              )}
-            </ImageBackground>
-          </View>
+                <Text style={styles.previewPetPlaceholder}>{previewLabel}</Text>
+              );
+            };
+
+            return (
+              <>
+                <View style={isBackgroundMode ? styles.previewBackgroundContainer : styles.previewPetImage}>
+                  {renderPreviewImage()}
+                </View>
+                <Text style={styles.previewPetLabel}>{previewLabel}</Text>
+              </>
+            );
+          })()}
+        </View>
+        
+        <View style={styles.previewTimerButtons}>
+          <TouchableOpacity style={styles.previewTimerButton}>
+            <Text style={styles.previewTimerButtonText}>타이머</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -335,58 +334,67 @@ const styles = StyleSheet.create({
   },
   previewContainer: {
     alignItems: 'center',
-    paddingTop: 40,
-    paddingBottom: 0,
+    paddingTop: 100,
+    paddingBottom: 20,
   },
   previewPetContainer: {
     alignItems: 'center',
+    marginBottom: 20,
   },
-  homePreviewWrapper: {
-    width: 300,
-    height: 350,
+  previewPetImage: {
+    width: 220,
+    height: 180,
     backgroundColor: '#fff',
-    borderRadius: 24,
-    borderWidth: 3,
-    borderColor: '#ddd',
-    overflow: 'hidden',
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#ddd',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  homePreviewBackground: {
+  previewPetText: {
+    fontSize: 60,
+    marginBottom: 5,
+  },
+  previewPetImageAsset: {
     width: '100%',
     height: '100%',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingBottom: 32,
-  },
-  homePreviewBackgroundImage: {
-    resizeMode: 'cover',
+    resizeMode: 'contain',
   },
   previewPetPlaceholder: {
-    fontSize: 18,
+    fontSize: 14,
     color: '#666',
     fontWeight: '500',
-  
-
-    fontFamily: 'KotraHope',},
-  previewAnimal: {
-    width: 170,
-    height: 170,
-    resizeMode: 'contain',
-    marginLeft: 25,
   },
-  previewClock: {
-    position: 'absolute',
-    top: 180,
-    left: 10,
-    width: 90,
-    height: 90,
-    resizeMode: 'contain',
+  previewPetLabel: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  previewTimerButtons: {
+    flexDirection: 'row',
+    gap: 20,
+  },
+  previewTimerButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 25,
+    paddingVertical: 12,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  previewTimerButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   menuContainer: {
     flexDirection: 'row',
@@ -411,18 +419,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#4CAF50',
   },
   menuTabText: {
-    fontSize: 20,
+    fontSize: 16,
     color: '#666',
     fontWeight: '500',
-  
-
-    fontFamily: 'KotraHope',},
+  },
   activeMenuTabText: {
     color: '#fff',
     fontWeight: 'bold',
-  
-
-    fontFamily: 'KotraHope',},
+  },
   contentContainer: {
     flex: 1,
     paddingHorizontal: 20,
@@ -453,13 +457,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f8f0',
   },
   optionText: {
-    fontSize: 20,
+    fontSize: 16,
     color: '#333',
     fontWeight: '500',
     textAlign: 'center',
-  
-
-    fontFamily: 'KotraHope',},
+  },
   saveButtonContainer: {
     padding: 20,
     backgroundColor: '#fff',
@@ -479,9 +481,39 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: '#fff',
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: 'bold',
-  
-
-    fontFamily: 'KotraHope',},
+  },
+  previewBackgroundContainer: {
+    width: 250,
+    height: 230,
+    borderRadius: 16,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 3,
+    borderColor: '#ddd',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginBottom: 10,
+  },
+  previewBackgroundImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+  },
+  previewAnimalImage: {
+    width: 120,
+    height: 120,
+    resizeMode: 'contain',
+  },  
+  previewClockImage: {
+    width: 120,
+    height: 120,
+    resizeMode: 'contain',
+  },
 });
