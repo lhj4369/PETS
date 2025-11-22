@@ -182,11 +182,9 @@ const styles = StyleSheet.create({
     fontFamily: 'KotraHope',
   },
   clockContainer: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "flex-start",
-    marginLeft: -40,
-    marginBottom: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
   },
   clockImage: {
     width: 240,
@@ -194,11 +192,9 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
   },
   animationImage: {
-    width: 80,
-    height: 80,
+    width: 250,
+    height: 250,
     resizeMode: "contain",
-    marginLeft: -20,
-    marginBottom: 20,
   },
   modeSwitcher: {
     flexDirection: "row",
@@ -253,6 +249,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     gap: 32,
+  },
+  animationContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: -20,
+  },
+  runningAnimationImage: {
+    width: 200,
+    height: 200,
+    resizeMode: "contain",
   },
   timerDisplay: {
     alignItems: "center",
