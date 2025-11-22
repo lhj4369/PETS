@@ -528,6 +528,8 @@ export default function RecordsScreen() {
                                 styles.dot,
                                 type === "유산소"
                                   ? styles.aerobicDot
+                                  : type === "웨이트"
+                                  ? styles.weightDot
                                   : type === "인터벌"
                                   ? styles.intervalDot
                                   : styles.otherDot,
@@ -1055,13 +1057,16 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   aerobicDot: {
-    backgroundColor: "#FFD54F",
+    backgroundColor: "#FFD54F", // 노란색
+  },
+  weightDot: {
+    backgroundColor: "#4A90E2", // 파란색 (기존 인터벌 색상)
   },
   intervalDot: {
-    backgroundColor: "#4A90E2",
+    backgroundColor: "#FF8A3D", // 주황색 계열
   },
   otherDot: {
-    backgroundColor: "#9E9E9E",
+    backgroundColor: "#9E9E9E", // 회색
   },
   modalOverlay: {
     flex: 1,
