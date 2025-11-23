@@ -293,12 +293,6 @@ export default function CustomizeScreen() {
             </ImageBackground>
           </View>
         </View>
-
-        <View style={styles.previewTimerButtons}>
-          <TouchableOpacity style={styles.previewTimerButton}>
-            <Text style={styles.previewTimerButtonText}>타이머</Text>
-          </TouchableOpacity>
-        </View>
       </View>
 
       {/* 메뉴 탭 */}
@@ -386,26 +380,6 @@ const styles = StyleSheet.create({
     width: 90,
     height: 90,
     resizeMode: 'contain',
-  },
-  previewTimerButtons: {
-    flexDirection: 'row',
-    gap: 20,
-  },
-  previewTimerButton: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 25,
-    paddingVertical: 12,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  previewTimerButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
   },
   menuContainer: {
     flexDirection: 'row',

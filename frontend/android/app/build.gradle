@@ -179,4 +179,8 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    // Google Fit API
+    implementation("com.google.android.gms:play-services-fitness:21.2.0")
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
 }
