@@ -25,6 +25,7 @@ import { useWorkoutTimer } from "../../features/timer/hooks/useWorkoutTimer";
 import AuthManager from "../../utils/AuthManager";
 import API_BASE_URL from "../../config/api";
 import GoogleFitManager from "../../utils/GoogleFitManager";
+import HeartRateCamera from "../../components/HeartRateCamera";
 
 type Mode = "aerobic" | "interval";
 type Phase = "idle" | "running" | "summary";
@@ -67,6 +68,8 @@ export default function TimerScreen() {
   const [pausedForConfirm, setPausedForConfirm] = useState(false);
   const [hasClaimedReward, setHasClaimedReward] = useState(false);
   const [hasSavedRecord, setHasSavedRecord] = useState(false);
+  const [showHeartRateCamera, setShowHeartRateCamera] = useState(false);
+  const [pendingSummaryData, setPendingSummaryData] = useState<SummaryData | null>(null);
   const workoutStartTimeRef = useRef<number | null>(null);
   const timer = useWorkoutTimer();
 
@@ -330,22 +333,63 @@ export default function TimerScreen() {
         distance = await GoogleFitManager.getDistance(startTime, endTime);
       }
     } catch (error) {
-      console.error("Google Fit 거리 가져오기 실패:", error);
+      console.error("Google Fit 데이터 가져오기 실패:", error);
       // 에러가 발생해도 운동 종료는 진행
     }
     
-    const summaryData = buildSummary(mode, finalElapsed, {
+    // 임시 summary 데이터 생성 (심박수는 카메라 측정 후 업데이트)
+    const tempSummaryData = buildSummary(mode, finalElapsed, {
       laps,
       restDurationMs: activeRestDurationMs,
       completedSets,
-      distance, // 거리 정보 추가
+      distance,
+      heartRate: null, // 카메라 측정 후 업데이트
     });
-    setSummary(summaryData);
-    setPhase("summary");
+    
+    // 카메라 측정 모달 표시
+    setPendingSummaryData(tempSummaryData);
     setShowStopConfirm(false);
     setPausedForConfirm(false);
-    setCompletedSets(0);
-    workoutStartTimeRef.current = null; // 시작 시간 초기화
+    setShowHeartRateCamera(true);
+  };
+
+  const handleHeartRateMeasurementComplete = (averageHeartRate: number) => {
+    setShowHeartRateCamera(false);
+    
+    // summary 데이터 업데이트 및 표시 (바로 이동)
+    if (pendingSummaryData) {
+      const updatedSummary = {
+        ...pendingSummaryData,
+        heartRate: averageHeartRate,
+      };
+      setSummary(updatedSummary);
+      setPhase("summary");
+      setCompletedSets(0);
+      workoutStartTimeRef.current = null;
+      setPendingSummaryData(null);
+      
+      // 심박수에 따른 팝업 표시 (summary 화면으로 이동한 후)
+      setTimeout(() => {
+        if (averageHeartRate >= 120) {
+          Alert.alert("좋아요!", `평균 심박수: ${averageHeartRate} bpm\n운동 강도가 적절합니다!`);
+        } else {
+          Alert.alert("안 좋아요!", `평균 심박수: ${averageHeartRate} bpm\n운동 강도를 높여보세요!`);
+        }
+      }, 100);
+    }
+  };
+
+  const handleHeartRateMeasurementCancel = () => {
+    setShowHeartRateCamera(false);
+    
+    // 측정 취소 시에도 summary 표시 (시뮬레이션된 심박수 사용)
+    if (pendingSummaryData) {
+      setSummary(pendingSummaryData);
+      setPhase("summary");
+      setCompletedSets(0);
+      workoutStartTimeRef.current = null;
+      setPendingSummaryData(null);
+    }
   };
 
   const handleToggleIntervalConfigurator = () => {
@@ -417,6 +461,12 @@ export default function TimerScreen() {
         visible={showStopConfirm}
         onConfirm={handleStopConfirm}
         onCancel={handleStopCancel}
+      />
+
+      <HeartRateCamera
+        visible={showHeartRateCamera}
+        onComplete={handleHeartRateMeasurementComplete}
+        onCancel={handleHeartRateMeasurementCancel}
       />
     </SafeAreaView>
   );
@@ -1063,12 +1113,21 @@ function buildSummary(
     restDurationMs?: number;
     completedSets?: number;
     distance?: number;
+    heartRate?: number | null; // Google Fit에서 가져온 심박수 (옵셔널)
   }
 ): SummaryData {
   const minutes = elapsedMs / 60_000;
-  const baseHeartRate = mode === "aerobic" ? 118 : 125;
-  const heartRate = Math.min(185, Math.round(baseHeartRate + minutes * 4));
   const laps = options?.laps ?? [];
+  
+  // Google Fit에서 심박수를 가져왔다면 사용하고, 없으면 시뮬레이션된 값 사용
+  let heartRate: number;
+  if (options?.heartRate !== null && options?.heartRate !== undefined) {
+    heartRate = options.heartRate;
+  } else {
+    // 시뮬레이션된 심박수 계산
+    const baseHeartRate = mode === "aerobic" ? 118 : 125;
+    heartRate = Math.min(185, Math.round(baseHeartRate + minutes * 4));
+  }
 
   const stats: SummaryStat[] =
     mode === "aerobic"
