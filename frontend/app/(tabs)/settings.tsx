@@ -68,21 +68,11 @@ export default function SettingsScreen() {
       await AuthManager.logout();
       
       // 로그아웃 완료 후 로그인 화면으로 이동
-      // 웹 환경에서는 window.location을 사용, 모바일에서는 router.replace 사용
-      if (typeof window !== 'undefined') {
-        // 웹 환경: 전체 페이지 리로드하여 확실히 로그인 화면으로 이동
-        window.location.href = '/login';
-      } else {
-        // 모바일 환경
-        router.replace("/(auth)/login" as any);
-      }
+      // 모바일과 웹 모두 router.replace 사용
+      router.replace("/(auth)/login" as any);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "알 수 없는 오류";
-      if (typeof window !== 'undefined' && window.alert) {
-        window.alert("로그아웃 중 문제가 발생했습니다: " + errorMessage);
-      } else {
-        Alert.alert("오류", "로그아웃 중 문제가 발생했습니다: " + errorMessage);
-      }
+      Alert.alert("오류", "로그아웃 중 문제가 발생했습니다: " + errorMessage);
     }
   };
 
