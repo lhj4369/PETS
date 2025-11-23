@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SafeAreaView, StyleSheet } from "react-native";
+import { SafeAreaView, StyleSheet, Alert } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import HomeButton from "../../components/HomeButton";
 import DailyChatView from "../../components/chatting/DailyChatView";
 import ExerciseChatView from "../../components/chatting/ExerciseChatView";
 import { ChatMessage } from "../../types/chat";
+import AuthManager from "../../utils/AuthManager";
+import API_BASE_URL from "../../config/api";
 
 const DAILY_SCRIPTS = [
   "안녕! 오늘 하루는 어땠어? 나는 네 얘기를 듣는 게 제일 좋아.",
@@ -83,11 +85,10 @@ export default function ChattingScreen() {
     }, 4000);
   };
 
-  const getRandomResponse = () =>
-    EXERCISE_RESPONSES[Math.floor(Math.random() * EXERCISE_RESPONSES.length)];
+  const [isLoadingResponse, setIsLoadingResponse] = useState(false);
 
-  const sendMessage = () => {
-    if (inputText.trim() === "") return;
+  const sendMessage = async () => {
+    if (inputText.trim() === "" || isLoadingResponse) return;
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -96,18 +97,74 @@ export default function ChattingScreen() {
       timestamp: new Date(),
     };
 
+    const userMessageText = inputText;
     setMessages((prev) => [...prev, userMessage]);
     setInputText("");
+    setIsLoadingResponse(true);
 
-    setTimeout(() => {
+    try {
+      const headers = await AuthManager.getAuthHeader();
+      
+      if (!headers.Authorization) {
+        Alert.alert("오류", "로그인이 필요합니다.");
+        setIsLoadingResponse(false);
+        return;
+      }
+
+      // 대화 히스토리 전송 (최근 10개)
+      const conversationHistory = messages.slice(-10);
+
+      const response = await fetch(`${API_BASE_URL}/api/chat`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: userMessageText,
+          conversationHistory,
+        }),
+      });
+
+      if (response.status === 401) {
+        await AuthManager.logout();
+        Alert.alert("오류", "인증이 만료되었습니다. 다시 로그인해주세요.");
+        setIsLoadingResponse(false);
+        return;
+      }
+
+      if (!response.ok) {
+        let errorMessage = "채팅 응답 생성에 실패했습니다.";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData?.error || errorMessage;
+          console.error("채팅 API 에러 응답:", errorData);
+        } catch (e) {
+          console.error("에러 응답 파싱 실패:", e);
+          errorMessage = `서버 오류 (${response.status}): ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      
       const aiResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        text: getRandomResponse(),
+        text: data.message,
         isUser: false,
-        timestamp: new Date(),
+        timestamp: new Date(data.timestamp || new Date()),
       };
+      
       setMessages((prev) => [...prev, aiResponse]);
-    }, 1000 + Math.random() * 1000);
+    } catch (error: any) {
+      console.error("채팅 메시지 전송 실패:", error);
+      Alert.alert("오류", error?.message ?? "채팅 메시지 전송 중 문제가 발생했습니다.");
+      
+      // 에러 발생 시 사용자 메시지 제거 (선택사항)
+      // setMessages((prev) => prev.filter((msg) => msg.id !== userMessage.id));
+    } finally {
+      setIsLoadingResponse(false);
+    }
   };
 
   const handleSwitchToExercise = useCallback(() => {
@@ -136,6 +193,7 @@ export default function ChattingScreen() {
           onChangeInput={setInputText}
           onSend={sendMessage}
           onBackToDaily={handleSwitchToDaily}
+          isLoadingResponse={isLoadingResponse}
         />
       )}
     </SafeAreaView>
@@ -146,5 +204,5 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: "#f7f7f7",
-  },
+  },  
 });
