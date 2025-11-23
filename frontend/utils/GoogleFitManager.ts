@@ -343,6 +343,118 @@ class GoogleFitManager {
   }
 
   /**
+   * 특정 기간의 평균 심박수 가져오기 (bpm)
+   * Google Fit에서 기록된 심박수 데이터를 가져옵니다.
+   * (웨어러블 기기, Google Fit 앱의 카메라 측정, 또는 다른 앱에서 기록된 데이터)
+   */
+  async getHeartRate(startTimeMillis: number, endTimeMillis: number): Promise<number | null> {
+    const response = await this.fetchApi(
+      `/users/me/dataset:aggregate`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          aggregateBy: [
+            {
+              dataTypeName: 'com.google.heart_rate.bpm',
+            },
+          ],
+          bucketByTime: { durationMillis: endTimeMillis - startTimeMillis },
+          startTimeMillis,
+          endTimeMillis,
+        }),
+      }
+    );
+
+    const data = await response.json();
+    const heartRateValues: number[] = [];
+
+    if (data.bucket && data.bucket.length > 0) {
+      for (const bucket of data.bucket) {
+        if (bucket.dataset && bucket.dataset.length > 0) {
+          for (const dataset of bucket.dataset) {
+            if (dataset.point && dataset.point.length > 0) {
+              for (const point of dataset.point) {
+                if (point.value && point.value.length > 0) {
+                  for (const value of point.value) {
+                    // 심박수는 fpVal (부동소수점) 또는 intVal (정수)로 올 수 있습니다
+                    if (value.fpVal !== undefined) {
+                      heartRateValues.push(value.fpVal);
+                    } else if (value.intVal !== undefined) {
+                      heartRateValues.push(value.intVal);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (heartRateValues.length === 0) {
+      return null; // 데이터가 없으면 null 반환
+    }
+
+    // 평균 심박수 계산
+    const averageHeartRate = heartRateValues.reduce((sum, val) => sum + val, 0) / heartRateValues.length;
+    return Math.round(averageHeartRate);
+  }
+
+  /**
+   * 특정 기간의 최신 심박수 가져오기 (bpm)
+   * 가장 최근에 기록된 심박수 값을 반환합니다.
+   */
+  async getLatestHeartRate(startTimeMillis: number, endTimeMillis: number): Promise<number | null> {
+    const response = await this.fetchApi(
+      `/users/me/dataset:aggregate`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          aggregateBy: [
+            {
+              dataTypeName: 'com.google.heart_rate.bpm',
+            },
+          ],
+          bucketByTime: { durationMillis: endTimeMillis - startTimeMillis },
+          startTimeMillis,
+          endTimeMillis,
+        }),
+      }
+    );
+
+    const data = await response.json();
+    let latestHeartRate: number | null = null;
+    let latestTime = 0;
+
+    if (data.bucket && data.bucket.length > 0) {
+      for (const bucket of data.bucket) {
+        if (bucket.dataset && bucket.dataset.length > 0) {
+          for (const dataset of bucket.dataset) {
+            if (dataset.point && dataset.point.length > 0) {
+              for (const point of dataset.point) {
+                const pointTime = parseInt(point.startTimeNanos) / 1000000; // 나노초를 밀리초로 변환
+                if (pointTime > latestTime && point.value && point.value.length > 0) {
+                  for (const value of point.value) {
+                    if (value.fpVal !== undefined) {
+                      latestHeartRate = value.fpVal;
+                      latestTime = pointTime;
+                    } else if (value.intVal !== undefined) {
+                      latestHeartRate = value.intVal;
+                      latestTime = pointTime;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return latestHeartRate ? Math.round(latestHeartRate) : null;
+  }
+
+  /**
    * 활동 데이터 쓰기 (걸음 수)
    */
   async writeSteps(steps: number, startTimeMillis: number, endTimeMillis: number): Promise<void> {
