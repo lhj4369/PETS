@@ -19,6 +19,10 @@ import {
   REST_MAX_MS,
   REST_MIN_MS,
   REST_STEP_MS,
+  DEFAULT_WORKOUT_DURATION_MS,
+  WORKOUT_MAX_MS,
+  WORKOUT_MIN_MS,
+  WORKOUT_STEP_MS,
 } from "../../features/timer/constants";
 import { formatDuration } from "../../features/timer/utils/formatDuration";
 import { useWorkoutTimer } from "../../features/timer/hooks/useWorkoutTimer";
@@ -26,8 +30,12 @@ import AuthManager from "../../utils/AuthManager";
 import API_BASE_URL from "../../config/api";
 import GoogleFitManager from "../../utils/GoogleFitManager";
 import HeartRateCamera from "../../components/HeartRateCamera";
+import { useCustomization } from "../../context/CustomizationContext";
+import { useFocusEffect } from "@react-navigation/native";
+import { getClockImageFromType } from "../../utils/customizationUtils";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-type Mode = "aerobic" | "interval";
+type Mode = "aerobic" | "weight" | "interval";
 type Phase = "idle" | "running" | "summary";
 
 type SummaryStat = {
@@ -64,6 +72,15 @@ export default function TimerScreen() {
   const restEndTimeRef = useRef<number | null>(null);
   const restFrameRef = useRef<number | null>(null);
   const wasRunningBeforeRestRef = useRef(false);
+  
+  // 새로운 인터벌 타이머를 위한 상태
+  const [workoutDurationMs, setWorkoutDurationMs] = useState(DEFAULT_WORKOUT_DURATION_MS);
+  const [workoutRemainingMs, setWorkoutRemainingMs] = useState(0);
+  const [isWorking, setIsWorking] = useState(false);
+  const workoutEndTimeRef = useRef<number | null>(null);
+  const workoutFrameRef = useRef<number | null>(null);
+  const startWorkoutRef = useRef<(() => void) | null>(null);
+  const startRestForIntervalRef = useRef<(() => void) | null>(null);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [pausedForConfirm, setPausedForConfirm] = useState(false);
   const [hasClaimedReward, setHasClaimedReward] = useState(false);
@@ -71,10 +88,35 @@ export default function TimerScreen() {
   const [showHeartRateCamera, setShowHeartRateCamera] = useState(false);
   const [pendingSummaryData, setPendingSummaryData] = useState<SummaryData | null>(null);
   const workoutStartTimeRef = useRef<number | null>(null);
+  const [animalType, setAnimalType] = useState<string | null>("dog");
   const timer = useWorkoutTimer();
+  const { loadCustomizationFromServer } = useCustomization();
+
+  // 프로필에서 동물 정보 로드
+  useFocusEffect(
+    useCallback(() => {
+      const loadProfile = async () => {
+        try {
+          const headers = await AuthManager.getAuthHeader();
+          if (!headers.Authorization) return;
+
+          const response = await fetch(`${API_BASE_URL}/api/auth/me`, { headers });
+          if (response.ok) {
+            const data = await response.json();
+            loadCustomizationFromServer(data.profile?.backgroundType, data.profile?.clockType);
+            setAnimalType(data.profile?.animalType ?? "dog");
+          }
+        } catch (error) {
+          console.error("프로필 로드 실패:", error);
+        }
+      };
+      loadProfile();
+    }, [loadCustomizationFromServer])
+  );
 
   const handleStart = () => {
     finishRest(false);
+    stopWorkoutTimer();
     timer.reset();
     timer.start();
     workoutStartTimeRef.current = Date.now(); // 운동 시작 시간 저장
@@ -83,14 +125,27 @@ export default function TimerScreen() {
     setCompletedSets(0);
     setHasClaimedReward(false);
     setHasSavedRecord(false);
-    const initialRest =
-      mode === "interval" ? restDurationMs : DEFAULT_REST_DURATION_MS;
-    setActiveRestDurationMs(initialRest);
     setShowIntervalConfigurator(false);
+    
+    if (mode === "interval") {
+      // 새로운 인터벌 타이머: 운동부터 시작
+      setActiveRestDurationMs(restDurationMs);
+      startWorkout();
+    } else {
+      // 유산소 또는 웨이트 타이머
+      timer.start();
+      const initialRest =
+        mode === "weight" ? restDurationMs : DEFAULT_REST_DURATION_MS;
+      setActiveRestDurationMs(initialRest);
+    }
     setPhase("running");
   };
 
   const handlePauseToggle = () => {
+    if (mode === "interval") {
+      // 새로운 인터벌 타이머는 일시정지/재개 기능 없음 (자동으로 진행)
+      return;
+    }
     if (!timer.isRunning) {
       return;
     }
@@ -132,17 +187,112 @@ export default function TimerScreen() {
     restEndTimeRef.current = null;
   }, []);
 
+  // 새로운 인터벌 타이머: 운동 시간 타이머 관리
+  const stopWorkoutTimer = useCallback(() => {
+    if (workoutFrameRef.current !== null) {
+      cancelAnimationFrame(workoutFrameRef.current);
+      workoutFrameRef.current = null;
+    }
+    workoutEndTimeRef.current = null;
+  }, []);
+
+  // 새로운 인터벌 타이머: 운동 시작
+  const startWorkout = useCallback(() => {
+    stopWorkoutTimer();
+    setIsWorking(true);
+    setWorkoutRemainingMs(workoutDurationMs);
+    workoutEndTimeRef.current = Date.now() + workoutDurationMs;
+    
+    const tick = () => {
+      if (workoutEndTimeRef.current === null) {
+        return;
+      }
+      const remaining = Math.max(workoutEndTimeRef.current - Date.now(), 0);
+      setWorkoutRemainingMs(remaining);
+      if (remaining <= 0) {
+        // 운동 시간 종료
+        stopWorkoutTimer();
+        setIsWorking(false);
+        setWorkoutRemainingMs(0);
+        setCompletedSets((prev) => prev + 1);
+        
+        // 자동으로 휴식 시작
+        if (restDurationMs > 0 && startRestForIntervalRef.current) {
+          startRestForIntervalRef.current();
+        } else if (restDurationMs === 0 && startWorkoutRef.current) {
+          // 휴식 시간이 0이면 바로 다음 운동 시작
+          startWorkoutRef.current();
+        }
+      } else {
+        workoutFrameRef.current = requestAnimationFrame(tick);
+      }
+    };
+    workoutFrameRef.current = requestAnimationFrame(tick);
+  }, [workoutDurationMs, stopWorkoutTimer, restDurationMs]);
+
+  // 새로운 인터벌 타이머: 휴식 시작
+  const startRestForInterval = useCallback(() => {
+    stopRestTimer();
+    setIsResting(true);
+    setRestRemainingMs(restDurationMs);
+    restEndTimeRef.current = Date.now() + restDurationMs;
+    const tick = () => {
+      if (restEndTimeRef.current === null) {
+        return;
+      }
+      const remaining = Math.max(restEndTimeRef.current - Date.now(), 0);
+      setRestRemainingMs(remaining);
+      if (remaining <= 0) {
+        // 휴식 시간 종료 - 자동으로 운동 시작
+        stopRestTimer();
+        setIsResting(false);
+        setRestRemainingMs(0);
+        if (startWorkoutRef.current) {
+          startWorkoutRef.current();
+        }
+      } else {
+        restFrameRef.current = requestAnimationFrame(tick);
+      }
+    };
+    restFrameRef.current = requestAnimationFrame(tick);
+  }, [restDurationMs, stopRestTimer]);
+
+  // ref 업데이트
+  useEffect(() => {
+    startWorkoutRef.current = startWorkout;
+    startRestForIntervalRef.current = startRestForInterval;
+  }, [startWorkout, startRestForInterval]);
+
+  // 새로운 인터벌 타이머: 운동 중일 때만 메인 타이머 시작/재개
+  useEffect(() => {
+    if (mode !== "interval") return;
+    
+    if (isWorking) {
+      // 운동 중: 메인 타이머 시작 또는 재개
+      if (!timer.isRunning) {
+        timer.start();
+      } else if (timer.isPaused) {
+        timer.resume();
+      }
+    } else if (isResting) {
+      // 휴식 중: 메인 타이머 일시정지
+      if (timer.isRunning && !timer.isPaused) {
+        timer.pause();
+      }
+    }
+  }, [mode, isWorking, isResting, timer]);
+
   const finishRest = useCallback(
     (shouldResume: boolean) => {
       stopRestTimer();
       setIsResting(false);
       setRestRemainingMs(0);
-      if (shouldResume && wasRunningBeforeRestRef.current) {
-        timer.resume();
+      // wasRunningBeforeRestRef는 useEffect에서 사용하므로 여기서는 false로 설정하지 않음
+      if (!shouldResume) {
+        wasRunningBeforeRestRef.current = false;
       }
-      wasRunningBeforeRestRef.current = false;
     },
-    [stopRestTimer, timer]
+    [stopRestTimer]
   );
 
   const tickRest = useCallback(() => {
@@ -152,11 +302,17 @@ export default function TimerScreen() {
     const remaining = Math.max(restEndTimeRef.current - Date.now(), 0);
     setRestRemainingMs(remaining);
     if (remaining <= 0) {
-      finishRest(true);
+      if (mode === "interval") {
+        // 새로운 인터벌 타이머는 startRestForInterval에서 처리하므로 여기서는 처리하지 않음
+        finishRest(false);
+      } else {
+        // 웨이트 타이머: 휴식이 끝나면 재개
+        finishRest(true);
+      }
     } else {
       restFrameRef.current = requestAnimationFrame(() => tickRest());
     }
-  }, [finishRest]);
+  }, [finishRest, mode]);
 
   const handleStartRest = () => {
     if (isResting) {
@@ -189,8 +345,32 @@ export default function TimerScreen() {
   useEffect(() => {
     return () => {
       stopRestTimer();
+      stopWorkoutTimer();
     };
-  }, [stopRestTimer]);
+  }, [stopRestTimer, stopWorkoutTimer]);
+
+  // 휴식이 끝나면 자동으로 타이머 재개
+  useEffect(() => {
+    if (!isResting && wasRunningBeforeRestRef.current) {
+      // 휴식이 끝났고, 휴식 전에 타이머가 실행 중이었다면 자동으로 재개
+      const shouldResume = wasRunningBeforeRestRef.current;
+      wasRunningBeforeRestRef.current = false;
+      
+      if (shouldResume) {
+        // 약간의 지연을 두고 재개 (상태 업데이트가 완료된 후)
+        const timeoutId = setTimeout(() => {
+          if (timer.isRunning && timer.isPaused) {
+            timer.resume();
+          } else if (!timer.isRunning) {
+            // 타이머가 멈춰있으면 다시 시작
+            timer.start();
+          }
+        }, 50);
+        
+        return () => clearTimeout(timeoutId);
+      }
+    }
+  }, [isResting, timer]);
 
   const handleRequestStop = () => {
     if (!timer.isPaused && timer.isRunning) {
@@ -253,7 +433,10 @@ export default function TimerScreen() {
     }
 
     const durationMinutes = Math.max(1, Math.floor(summaryData.elapsedMs / 1000 / 60)); // 최소 1분
-    const workoutType = summaryData.mode === "aerobic" ? "유산소" : "인터벌";
+    const workoutType = 
+      summaryData.mode === "aerobic" ? "유산소" 
+      : summaryData.mode === "weight" ? "웨이트"
+      : "인터벌";
 
     const payload = {
       workoutDate: today,
@@ -262,6 +445,7 @@ export default function TimerScreen() {
       heartRate: summaryData.heartRate,
       hasReward,
       notes: null,
+      stats: summaryData.stats, // 스탯 정보 전송
     };
     
     // 유효성 검사
@@ -321,6 +505,7 @@ export default function TimerScreen() {
 
   const handleStopConfirm = async () => {
     finishRest(false);
+    stopWorkoutTimer();
     const finalElapsed = timer.stop();
     const endTime = Date.now();
     const startTime = workoutStartTimeRef.current || endTime - finalElapsed;
@@ -401,7 +586,7 @@ export default function TimerScreen() {
   };
 
   useEffect(() => {
-    if (mode !== "interval") {
+    if (mode !== "weight" && mode !== "interval") {
       setShowIntervalConfigurator(false);
     }
   }, [mode]);
@@ -426,6 +611,18 @@ export default function TimerScreen() {
           onToggleConfigurator={handleToggleIntervalConfigurator}
           onCloseConfigurator={handleCloseIntervalConfigurator}
           onResetRestDuration={handleResetRestDuration}
+          workoutDurationMs={workoutDurationMs}
+          onAdjustWorkoutDuration={(delta) => {
+            setWorkoutDurationMs((prev) => {
+              const nextValue = Math.min(
+                WORKOUT_MAX_MS,
+                Math.max(WORKOUT_MIN_MS, prev + delta)
+              );
+              return Math.round(nextValue / WORKOUT_STEP_MS) * WORKOUT_STEP_MS;
+            });
+          }}
+          onResetWorkoutDuration={() => setWorkoutDurationMs(DEFAULT_WORKOUT_DURATION_MS)}
+          animalType={animalType}
         />
       )}
 
@@ -444,6 +641,9 @@ export default function TimerScreen() {
           onAddLap={handleAddLap}
           onStartRest={handleStartRest}
           onSkipRest={handleSkipRest}
+          isWorking={isWorking}
+          workoutRemainingMs={workoutRemainingMs}
+          animalType={animalType}
         />
       )}
 
@@ -482,6 +682,10 @@ function TimerLanding({
   onToggleConfigurator,
   onCloseConfigurator,
   onResetRestDuration,
+  workoutDurationMs,
+  onAdjustWorkoutDuration,
+  onResetWorkoutDuration,
+  animalType,
 }: {
   mode: Mode;
   onModeChange: (next: Mode) => void;
@@ -492,66 +696,156 @@ function TimerLanding({
   onToggleConfigurator: () => void;
   onCloseConfigurator: () => void;
   onResetRestDuration: () => void;
+  workoutDurationMs: number;
+  onAdjustWorkoutDuration: (deltaMs: number) => void;
+  onResetWorkoutDuration: () => void;
+  animalType: string | null;
 }) {
+  const isWeight = mode === "weight";
   const isInterval = mode === "interval";
 
-  return (
-    <View style={styles.landingContainer}>
-      <Image
-        source={require("../../assets/images/clock_icon.png")}
-        style={styles.clockImage}
-        accessibilityRole="image"
-        accessibilityLabel="운동 타이머 시계"
-      />
+  const { selectedClock } = useCustomization();
+  const insets = useSafeAreaInsets();
 
-      <View style={styles.modeSwitcher}>
-        <ModeToggle
-          isActive={mode === "aerobic"}
-          label="유산소"
-          onPress={() => onModeChange("aerobic")}
-        />
-        <ModeToggle
-          isActive={isInterval}
-          label="인터벌"
-          onPress={() => onModeChange("interval")}
-        />
+  // 동물 타입에 따라 애니메이션 이미지 경로 결정
+  const getAnimationImage = () => {
+    const type = animalType || "dog";
+    
+    switch (type) {
+      case "dog":
+        return require("../../assets/images/animation/dog/dog1.png");
+      case "capybara":
+        return require("../../assets/images/animation/capibara/capibara1.png");
+      case "fox":
+        return require("../../assets/images/animation/fox/fox1.png");
+      case "guinea_pig":
+        return require("../../assets/images/animation/ginipig/ginipig1.png");
+      case "red_panda":
+        return require("../../assets/images/animation/red_panda/red_panda1.png");
+      default:
+        return require("../../assets/images/animation/dog/dog1.png");
+    }
+  };
+
+  return (
+    <View style={[styles.landingContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+      {/* ===== 레이아웃 변경: 메인 콘텐츠와 설정 영역 분리 =====
+          이전 구조 (되돌리려면 아래 주석 해제):
+      <View style={styles.landingContainer}>
+        <View style={styles.clockContainer}>...</View>
+        <View style={styles.modeSwitcher}>...</View>
+        <TouchableOpacity style={styles.startWorkoutButton}>...</TouchableOpacity>
+        {(isWeight || isInterval) && <View style={styles.intervalToggleSection}>...</View>}
+      </View>
+      ===== 변경 사항: 설정 영역을 고정 영역으로 분리하여 레이아웃 안정성 확보 ===== */}
+      
+      {/* 메인 콘텐츠 영역 */}
+      <View style={styles.landingMainContent}>
+        <View style={styles.clockContainer}>
+          <Image
+            source={getAnimationImage()}
+            style={styles.animationImage}
+            accessibilityRole="image"
+            accessibilityLabel="애니메이션"
+          />
+        </View>
+
+        <View style={styles.modeSwitcher}>
+          <ModeToggle
+            isActive={mode === "aerobic"}
+            label="유산소"
+            onPress={() => onModeChange("aerobic")}
+          />
+          <ModeToggle
+            isActive={isWeight}
+            label="웨이트"
+            onPress={() => onModeChange("weight")}
+          />
+          <ModeToggle
+            isActive={isInterval}
+            label="인터벌"
+            onPress={() => onModeChange("interval")}
+          />
+        </View>
+
+        <TouchableOpacity
+          style={styles.startWorkoutButton}
+          onPress={onStart}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="play" size={24} color="#fff" />
+          <Text style={styles.startWorkoutLabel}>운동 시작</Text>
+        </TouchableOpacity>
       </View>
 
-      <TouchableOpacity
-        style={styles.startWorkoutButton}
-        onPress={onStart}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="play" size={24} color="#fff" />
-        <Text style={styles.startWorkoutLabel}>운동 시작</Text>
-      </TouchableOpacity>
-
-      {isInterval && (
-        <View style={styles.intervalToggleSection}>
+      {/* 설정 영역 (고정 영역으로 분리) */}
+      <View style={[styles.landingConfigSection, { paddingBottom: insets.bottom }]}>
+        {(isWeight || isInterval) ? (
           <TouchableOpacity
             style={styles.intervalToggleButton}
             onPress={onToggleConfigurator}
             activeOpacity={0.85}
           >
             <Ionicons name="settings-outline" size={18} color="#4a6cf4" />
-            <Text style={styles.intervalToggleLabel}>인터벌 설정</Text>
+            <Text style={styles.intervalToggleLabel}>
+              {isWeight ? "웨이트 설정" : "인터벌 설정"}
+            </Text>
             <Ionicons
-              name={showConfigurator ? "chevron-up" : "chevron-down"}
+              name="chevron-up"
               size={18}
               color="#4a6cf4"
             />
           </TouchableOpacity>
+        ) : (
+          // 유산소 모드일 때는 빈 공간 유지 (레이아웃 안정성을 위해)
+          <View style={styles.intervalToggleSection} />
+        )}
+      </View>
 
-          {showConfigurator && (
-            <IntervalConfigurator
-              restDurationMs={restDurationMs}
-              onAdjust={onAdjustRestDuration}
-              onClose={onCloseConfigurator}
-              onReset={onResetRestDuration}
-            />
-          )}
+      {/* 설정 모달 */}
+      <Modal
+        visible={showConfigurator}
+        transparent
+        animationType="slide"
+        onRequestClose={onCloseConfigurator}
+      >
+        <View style={styles.configModalOverlay}>
+          <View style={styles.configModalContent}>
+            <View style={styles.configModalHeader}>
+              <Text style={styles.configModalTitle}>
+                {isWeight ? "웨이트 설정" : "인터벌 설정"}
+              </Text>
+              <TouchableOpacity
+                onPress={onCloseConfigurator}
+                style={styles.configModalCloseButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            {isWeight ? (
+              <IntervalConfigurator
+                restDurationMs={restDurationMs}
+                onAdjust={onAdjustRestDuration}
+                onClose={onCloseConfigurator}
+                onReset={onResetRestDuration}
+                hideHeader={true}
+              />
+            ) : (
+              <IntervalConfigurator
+                restDurationMs={restDurationMs}
+                onAdjust={onAdjustRestDuration}
+                onClose={onCloseConfigurator}
+                onReset={onResetRestDuration}
+                workoutDurationMs={workoutDurationMs}
+                onAdjustWorkoutDuration={onAdjustWorkoutDuration}
+                onResetWorkoutDuration={onResetWorkoutDuration}
+                hideHeader={true}
+              />
+            )}
+          </View>
         </View>
-      )}
+      </Modal>
     </View>
   );
 }
@@ -561,26 +855,50 @@ function IntervalConfigurator({
   onAdjust,
   onClose,
   onReset,
+  workoutDurationMs,
+  onAdjustWorkoutDuration,
+  onResetWorkoutDuration,
+  hideHeader,
 }: {
   restDurationMs: number;
   onAdjust: (deltaMs: number) => void;
   onClose: () => void;
   onReset: () => void;
+  workoutDurationMs?: number;
+  onAdjustWorkoutDuration?: (deltaMs: number) => void;
+  onResetWorkoutDuration?: () => void;
+  hideHeader?: boolean;
 }) {
+  const isNewInterval = workoutDurationMs !== undefined;
+  
   return (
     <View style={styles.intervalConfigurator}>
-      <View style={styles.intervalConfiguratorHeader}>
-        <Text style={styles.intervalConfiguratorTitle}>인터벌 설정</Text>
-        <TouchableOpacity
-          onPress={onClose}
-          style={styles.intervalConfiguratorClose}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.intervalConfiguratorCloseText}>닫기</Text>
-        </TouchableOpacity>
-      </View>
+      {!hideHeader && (
+        <View style={styles.intervalConfiguratorHeader}>
+          <Text style={styles.intervalConfiguratorTitle}>
+            {isNewInterval ? "인터벌 설정" : "웨이트 설정"}
+          </Text>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.intervalConfiguratorClose}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.intervalConfiguratorCloseText}>닫기</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={styles.intervalConfigRows}>
+        {isNewInterval && workoutDurationMs !== undefined && onAdjustWorkoutDuration && (
+          <IntervalConfigRow
+            label="세트별 운동 시간"
+            value={workoutDurationMs}
+            onDecrease={() => onAdjustWorkoutDuration(-WORKOUT_STEP_MS)}
+            onIncrease={() => onAdjustWorkoutDuration(WORKOUT_STEP_MS)}
+            canDecrease={workoutDurationMs > WORKOUT_MIN_MS}
+            canIncrease={workoutDurationMs < WORKOUT_MAX_MS}
+          />
+        )}
         <IntervalConfigRow
           label="세트 간 휴식 시간"
           value={restDurationMs}
@@ -594,7 +912,12 @@ function IntervalConfigurator({
       <View style={styles.intervalConfiguratorFooter}>
         <TouchableOpacity
           style={styles.intervalResetButton}
-          onPress={onReset}
+          onPress={() => {
+            onReset();
+            if (onResetWorkoutDuration) {
+              onResetWorkoutDuration();
+            }
+          }}
           activeOpacity={0.85}
         >
           <Ionicons name="refresh" size={16} color="#4a6cf4" />
@@ -684,6 +1007,9 @@ function TimerRunning({
   onAddLap,
   onStartRest,
   onSkipRest,
+  isWorking,
+  workoutRemainingMs,
+  animalType,
 }: {
   mode: Mode;
   elapsedMs: number;
@@ -698,7 +1024,30 @@ function TimerRunning({
   onAddLap: () => void;
   onStartRest: () => void;
   onSkipRest: () => void;
+  isWorking?: boolean;
+  workoutRemainingMs?: number;
+  animalType?: string | null;
 }) {
+  // 동물 타입에 따라 애니메이션 이미지 경로 결정
+  const getAnimationImage = () => {
+    const type = animalType || "dog";
+    
+    switch (type) {
+      case "dog":
+        return require("../../assets/images/animation/dog/dog1.png");
+      case "capybara":
+        return require("../../assets/images/animation/capibara/capibara1.png");
+      case "fox":
+        return require("../../assets/images/animation/fox/fox1.png");
+      case "guinea_pig":
+        return require("../../assets/images/animation/ginipig/ginipig1.png");
+      case "red_panda":
+        return require("../../assets/images/animation/red_panda/red_panda1.png");
+      default:
+        return require("../../assets/images/animation/dog/dog1.png");
+    }
+  };
+
   const lapEntries = useMemo(() => {
     if (mode !== "aerobic") {
       return [];
@@ -714,7 +1063,16 @@ function TimerRunning({
     });
   }, [laps, mode]);
 
-  const timerStateLabel = isResting
+  const isNewInterval = mode === "interval";
+  const timerStateLabel = isNewInterval
+    ? isWorking
+      ? "운동 중"
+      : isResting
+      ? "휴식 중"
+      : isPaused
+      ? "일시정지"
+      : "진행 중"
+    : isResting
     ? "휴식 중"
     : isPaused
     ? "일시정지"
@@ -724,44 +1082,68 @@ function TimerRunning({
 
   return (
     <View style={styles.runningContainer}>
+      {/* 애니메이션 이미지 (시간 위에 표시) */}
+      {!isResting && (
+        <View style={styles.animationContainer}>
+          <Image
+            source={getAnimationImage()}
+            style={styles.runningAnimationImage}
+            accessibilityRole="image"
+            accessibilityLabel="애니메이션"
+          />
+        </View>
+      )}
       <View style={styles.timerDisplay}>
         <Text style={styles.timerDigits}>{formatDuration(elapsedMs)}</Text>
         <Text style={styles.timerStateLabel}>{timerStateLabel}</Text>
       </View>
 
-      {mode === "interval" && (
+      {(mode === "weight" || mode === "interval") && (
         <>
-          <IntervalPanel
-            isResting={isResting}
-            restRemainingMs={restRemainingMs}
-            restDurationMs={restDurationMs}
-            completedSets={completedSets}
-          />
-          <TouchableOpacity
-            style={[
-              styles.restButton,
-              isResting ? styles.restButtonActive : undefined,
-              restButtonDisabled ? styles.restButtonDisabled : undefined,
-            ]}
-            onPress={isResting ? onSkipRest : onStartRest}
-            activeOpacity={0.85}
-            disabled={restButtonDisabled}
-          >
-            <Ionicons
-            name={isResting ? "play" : "moon"}
-              size={18}
-              color={isResting ? "#ffffff" : restButtonDisabled ? "#b2bec3" : "#4a6cf4"}
+          {isNewInterval ? (
+            <IntervalPanel
+              isResting={isResting}
+              restRemainingMs={restRemainingMs}
+              restDurationMs={restDurationMs}
+              completedSets={completedSets}
+              isWorking={isWorking}
+              workoutRemainingMs={workoutRemainingMs}
             />
-            <Text
-              style={[
-                styles.restButtonLabel,
-                isResting ? styles.restButtonLabelActive : undefined,
-                restButtonDisabled ? styles.restButtonLabelDisabled : undefined,
-              ]}
-            >
-              {isResting ? "휴식 종료" : "휴식 시작"}
-            </Text>
-          </TouchableOpacity>
+          ) : (
+            <>
+              <IntervalPanel
+                isResting={isResting}
+                restRemainingMs={restRemainingMs}
+                restDurationMs={restDurationMs}
+                completedSets={completedSets}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.restButton,
+                  isResting ? styles.restButtonActive : undefined,
+                  restButtonDisabled ? styles.restButtonDisabled : undefined,
+                ]}
+                onPress={isResting ? onSkipRest : onStartRest}
+                activeOpacity={0.85}
+                disabled={restButtonDisabled}
+              >
+                <Ionicons
+                  name={isResting ? "play" : "moon"}
+                  size={18}
+                  color={isResting ? "#ffffff" : restButtonDisabled ? "#b2bec3" : "#4a6cf4"}
+                />
+                <Text
+                  style={[
+                    styles.restButtonLabel,
+                    isResting ? styles.restButtonLabelActive : undefined,
+                    restButtonDisabled ? styles.restButtonLabelDisabled : undefined,
+                  ]}
+                >
+                  {isResting ? "휴식 종료" : "휴식 시작"}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </>
       )}
 
@@ -771,7 +1153,7 @@ function TimerRunning({
           label={isPaused ? "재개" : "일시정지"}
           onPress={onPauseToggle}
           variant="primary"
-          disabled={isResting}
+          disabled={isResting || mode === "interval"}
         />
         <ControlButton
           icon="stop"
@@ -844,13 +1226,13 @@ function TimerSummary({
         {data.mode === "aerobic" && (
           <SummaryRow label="구간 수" value={`${data.laps?.length ?? 0}`} />
         )}
-        {data.mode === "interval" && typeof data.restDurationMs === "number" && (
+        {(data.mode === "weight" || data.mode === "interval") && typeof data.restDurationMs === "number" && (
           <SummaryRow
             label="휴식 시간(세트당)"
             value={formatDuration(data.restDurationMs)}
           />
         )}
-        {data.mode === "interval" && data.intervalInfo && (
+        {(data.mode === "weight" || data.mode === "interval") && data.intervalInfo && (
           <SummaryRow
             label="완료 세트"
             value={`${data.intervalInfo.completedRounds}회`}
@@ -969,12 +1351,18 @@ function IntervalPanel({
   restRemainingMs,
   restDurationMs,
   completedSets,
+  isWorking,
+  workoutRemainingMs,
 }: {
   isResting: boolean;
   restRemainingMs: number;
   restDurationMs: number;
   completedSets: number;
+  isWorking?: boolean;
+  workoutRemainingMs?: number;
 }) {
+  const isNewInterval = isWorking !== undefined;
+  
   return (
     <View style={styles.intervalPanel}>
       <View
@@ -993,17 +1381,32 @@ function IntervalPanel({
             {formatDuration(restRemainingMs)}
           </Text>
           <Text style={styles.intervalSubLabel}>
-            휴식이 끝나면 자동으로 운동이 재개됩니다.
+            {isNewInterval 
+              ? "휴식이 끝나면 자동으로 운동이 시작됩니다."
+              : "휴식이 끝나면 자동으로 운동이 재개됩니다."}
           </Text>
         </>
       ) : (
         <>
-          <Text style={styles.intervalConfigSummary}>
-            휴식 {formatDuration(restDurationMs)}
-          </Text>
-          <Text style={styles.intervalSubLabel}>
-            세트 종료 후 휴식 버튼을 눌러 주세요.
-          </Text>
+          {isNewInterval && isWorking && workoutRemainingMs !== undefined ? (
+            <>
+              <Text style={styles.intervalTimer}>
+                {formatDuration(workoutRemainingMs)}
+              </Text>
+              <Text style={styles.intervalSubLabel}>
+                운동 시간이 끝나면 자동으로 휴식이 시작됩니다.
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.intervalConfigSummary}>
+                휴식 {formatDuration(restDurationMs)}
+              </Text>
+              <Text style={styles.intervalSubLabel}>
+                세트 종료 후 휴식 버튼을 눌러 주세요.
+              </Text>
+            </>
+          )}
         </>
       )}
       <Text style={styles.intervalRounds}>완료 세트 : {completedSets}회</Text>
@@ -1062,7 +1465,7 @@ function SummaryButton({
       disabled={disabled}
     >
       {icon}
-      <Text style={[styles.summaryButtonLabel, { color: disabled ? "#999" : textColor }]}>
+      <Text style={[styles.summaryButtonLabel, { color: textColor, fontFamily: 'KotraHope' }]}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -1140,7 +1543,7 @@ function buildSummary(
           { label: "집중력", value: Math.max(1, Math.round(minutes / 7) + 2) },
         ];
 
-  if (mode === "interval") {
+  if (mode === "weight" || mode === "interval") {
     const completedRounds = options?.completedSets ?? 0;
     const restDuration = options?.restDurationMs ?? DEFAULT_REST_DURATION_MS;
     return {

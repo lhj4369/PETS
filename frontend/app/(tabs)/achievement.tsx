@@ -7,10 +7,10 @@ import {
   ScrollView,
   StyleSheet,
   SafeAreaView,
-  Image,
   ActivityIndicator,
   Alert,
 } from "react-native";
+import { router } from "expo-router";
 import HomeButton from "../../components/HomeButton";
 import AuthManager from "../../utils/AuthManager";
 import API_BASE_URL from "../../config/api";
@@ -30,16 +30,16 @@ interface Achievement {
 }
 
 const categories = [
-  { id: "overview", name: "개요" },
-  { id: "exercise", name: "운동" },
-  { id: "streak", name: "연속" },
-  { id: "level", name: "레벨" },
-  { id: "social", name: "소셜" },
-  { id: "special", name: "특별" },
+  { id: "overview", name: "개요", icon: "📊" },
+  { id: "exercise", name: "운동", icon: "💪" },
+  { id: "streak", name: "연속", icon: "🔥" },
+  { id: "level", name: "레벨", icon: "⭐" },
+  { id: "social", name: "소셜", icon: "👥" },
+  { id: "special", name: "특별", icon: "🎁" },
 ];
 
 export default function AchievementScreen() {
-  const [selectedCategory, setSelectedCategory] = useState("overview");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -90,7 +90,9 @@ export default function AchievementScreen() {
 
   const filteredAchievements = selectedCategory === "overview" 
     ? achievements 
-    : achievements.filter(achievement => achievement.category === selectedCategory);
+    : selectedCategory 
+    ? achievements.filter(achievement => achievement.category === selectedCategory)
+    : [];
 
   const claimReward = async (achievementId: number) => {
     try {
@@ -178,6 +180,18 @@ export default function AchievementScreen() {
     </View>
   );
 
+  const handleCategorySelect = (categoryId: string) => {
+    setSelectedCategory(categoryId);
+  };
+
+  const handleBackToMain = () => {
+    setSelectedCategory(null);
+  };
+
+  const handleNavigateToChallenges = () => {
+    router.push("/(tabs)/challenges");
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -190,12 +204,55 @@ export default function AchievementScreen() {
     );
   }
 
+  // 초기 화면 (분류 선택 화면)
+  if (selectedCategory === null) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <HomeButton />
+        <View style={styles.mainContainer}>
+          <Text style={styles.mainTitle}>업적</Text>
+          
+          {/* 분류 버튼 그리드 (2x3) */}
+          <View style={styles.categoryGrid}>
+            {categories.map((category) => (
+              <TouchableOpacity
+                key={category.id}
+                style={styles.categoryButton}
+                onPress={() => handleCategorySelect(category.id)}
+              >
+                <Text style={styles.categoryButtonIcon}>{category.icon}</Text>
+                <Text style={styles.categoryButtonText}>{category.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* 기록 도전 버튼 */}
+          <TouchableOpacity
+            style={styles.challengeButton}
+            onPress={handleNavigateToChallenges}
+          >
+            <Text style={styles.challengeButtonText}>기록 도전</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // 분류별 업적 화면
+  const selectedCategoryName = categories.find(cat => cat.id === selectedCategory)?.name || "업적";
+
   return (
     <SafeAreaView style={styles.container}>
-       <HomeButton />
+      <HomeButton />
       {/* 헤더 */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>업적</Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={handleBackToMain} style={styles.backButton}>
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{selectedCategoryName}</Text>
+          <View style={styles.backButtonPlaceholder} />
+        </View>
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>달성한 업적</Text>
@@ -208,44 +265,17 @@ export default function AchievementScreen() {
         </View>
       </View>
 
-      <View style={styles.content}>
-        {/* 왼쪽 카테고리 네비게이션 */}
-        <View style={styles.categoryPanel}>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {categories.map((category) => (
-              <TouchableOpacity
-                key={category.id}
-                style={[
-                  styles.categoryItem,
-                  selectedCategory === category.id && styles.activeCategory,
-                ]}
-                onPress={() => setSelectedCategory(category.id)}
-              >
-                <Text
-                  style={[
-                    styles.categoryText,
-                    selectedCategory === category.id && styles.activeCategoryText,
-                  ]}
-                >
-                  {category.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* 오른쪽 업적 목록 */}
-        <View style={styles.achievementsPanel}>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {filteredAchievements.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>업적 데이터가 없습니다.</Text>
-              </View>
-            ) : (
-              filteredAchievements.map(renderAchievement)
-            )}
-          </ScrollView>
-        </View>
+      {/* 업적 목록 */}
+      <View style={styles.achievementsPanel}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {filteredAchievements.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>업적 데이터가 없습니다.</Text>
+            </View>
+          ) : (
+            filteredAchievements.map(renderAchievement)
+          )}
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -263,9 +293,84 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 10,
-    fontSize: 16,
+    fontSize: 20,
     color: "#7f8c8d",
+    fontFamily: 'KotraHope',
   },
+  // 초기 화면 스타일
+  mainContainer: {
+    flex: 1,
+    padding: 20,
+  },
+  mainTitle: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center",
+    marginTop: 20,
+    marginBottom: 40,
+    fontFamily: 'KotraHope',
+  },
+  categoryGrid: {
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+  },
+  categoryButton: {
+    width: "48%",
+    aspectRatio: 1.2,
+    backgroundColor: "#f8f9fa",
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: "#e9ecef",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 15,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  categoryButtonIcon: {
+    fontSize: 48,
+    marginBottom: 10,
+  },
+  categoryButtonText: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#333",
+    fontFamily: 'KotraHope',
+  },
+  challengeButton: {
+    backgroundColor: "#4CAF50",
+    borderRadius: 15,
+    paddingVertical: 18,
+    paddingHorizontal: 30,
+    alignItems: "center",
+    marginTop: 20,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  challengeButtonText: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#fff",
+    fontFamily: 'KotraHope',
+  },
+  // 분류별 화면 스타일
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
@@ -273,8 +378,9 @@ const styles = StyleSheet.create({
     paddingVertical: 100,
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: 22,
     color: "#7f8c8d",
+    fontFamily: 'KotraHope',
   },
   header: {
     backgroundColor: "#f8f9fa",
@@ -282,12 +388,33 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#e9ecef",
   },
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 15,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  backButtonText: {
+    fontSize: 28,
+    color: "#2196F3",
+    fontWeight: "bold",
+  },
+  backButtonPlaceholder: {
+    width: 40,
+  },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "bold",
     color: "#333",
     textAlign: "center",
-    marginBottom: 15,
+    flex: 1,
+    fontFamily: 'KotraHope',
   },
   statsContainer: {
     flexDirection: "row",
@@ -297,42 +424,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 18,
     color: "#666",
     marginBottom: 5,
+    fontFamily: 'KotraHope',
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: "bold",
     color: "#4CAF50",
-  },
-  content: {
-    flex: 1,
-    flexDirection: "row",
-  },
-  categoryPanel: {
-    width: 120,
-    backgroundColor: "#f8f9fa",
-    borderRightWidth: 1,
-    borderRightColor: "#e9ecef",
-  },
-  categoryItem: {
-    paddingVertical: 15,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e9ecef",
-  },
-  activeCategory: {
-    backgroundColor: "#e3f2fd",
-  },
-  categoryText: {
-    fontSize: 16,
-    color: "#666",
-    textAlign: "center",
-  },
-  activeCategoryText: {
-    color: "#2196F3",
-    fontWeight: "bold",
+    fontFamily: 'KotraHope',
   },
   achievementsPanel: {
     flex: 1,
@@ -362,26 +463,30 @@ const styles = StyleSheet.create({
     marginRight: 15,
   },
   iconText: {
-    fontSize: 24,
+    fontSize: 28,
+    fontFamily: 'KotraHope',
   },
   achievementContent: {
     flex: 1,
     justifyContent: "center",
   },
   achievementTitle: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "bold",
     color: "#333",
     marginBottom: 5,
+    fontFamily: 'KotraHope',
   },
   achievementDescription: {
-    fontSize: 14,
+    fontSize: 18,
     color: "#666",
     marginBottom: 5,
+    fontFamily: 'KotraHope',
   },
   completedDate: {
-    fontSize: 12,
+    fontSize: 16,
     color: "#4CAF50",
+    fontFamily: 'KotraHope',
   },
   rewardSection: {
     alignItems: "center",
@@ -398,7 +503,8 @@ const styles = StyleSheet.create({
   rewardText: {
     color: "#fff",
     fontWeight: "bold",
-    fontSize: 14,
+    fontSize: 18,
+    fontFamily: 'KotraHope',
   },
   claimButton: {
     backgroundColor: "#4CAF50",
@@ -409,7 +515,8 @@ const styles = StyleSheet.create({
   claimButtonText: {
     color: "#fff",
     fontWeight: "bold",
-    fontSize: 12,
+    fontSize: 16,
+    fontFamily: 'KotraHope',
   },
   claimedBadge: {
     backgroundColor: "#4CAF50",
@@ -420,6 +527,7 @@ const styles = StyleSheet.create({
   claimedText: {
     color: "#fff",
     fontWeight: "bold",
-    fontSize: 12,
+    fontSize: 16,
+    fontFamily: 'KotraHope',
   },
 });
