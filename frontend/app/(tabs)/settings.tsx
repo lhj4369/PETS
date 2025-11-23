@@ -67,7 +67,6 @@ export default function SettingsScreen() {
       // 로그아웃 처리
       await AuthManager.logout();
       
-      // 로그아웃 완료 후 로그인 화면으로 이동
       // 모바일과 웹 모두 router.replace 사용
       router.replace("/(auth)/login" as any);
     } catch (error) {
