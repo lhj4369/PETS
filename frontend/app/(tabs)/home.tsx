@@ -93,9 +93,13 @@ const HomeScreen = () => {
   };
 
   const petSize = Math.min(240, screenWidth * 0.5);
-  const buttonSize = Math.max(96, Math.min(144, screenWidth * 0.3));
+  const buttonSize = Math.max(60, Math.min(100, screenWidth * 0.25));
   const cardHeight = Math.max(140, Math.min(200, screenWidth * 0.45));
   const clockIconSize = Math.max(60, Math.min(100, screenWidth * 0.25));
+  const trophyWidth = buttonSize * 1.1;
+  const trophyHeight = cardHeight;
+  const calendarWidth = buttonSize * 1.3;
+  const calendarHeight = cardHeight * 1.2;
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -308,7 +312,7 @@ const HomeScreen = () => {
         <View
           style={[
             styles.statusBarContainer,
-            { paddingTop: insets.top + 20, maxWidth: Math.min(360, screenWidth - 32) },
+            { paddingTop: insets.top + 20, maxWidth: Math.min(320, screenWidth - 32) },
           ]}
         >
           <TouchableOpacity
@@ -363,20 +367,21 @@ const HomeScreen = () => {
 
         <View style={styles.centerContainer}>
           <TouchableOpacity
-            style={[styles.petPortrait, { width: petSize * 0.8, height: petSize * 0.8, marginTop: -150 }]}
+            style={[styles.petPortrait, { width: petSize * 0.8, height: petSize * 0.8, marginTop: -280 }]}
             activeOpacity={0.7}
             onPress={navigateToCustomize}
           >
             <Image
               source={selectedAnimal ?? DEFAULT_ANIMAL_IMAGE}
-              style={[styles.petPortraitImage, { width: petSize * 0.8, height: petSize * 0.8 }]}
+              style={[styles.petPortraitImage, { width: petSize * 1.2, height: petSize * 1.2}]}
             />
           </TouchableOpacity>
 
+          {/* 시계 오브젝트 컨테이너 */}
           <View
             style={[
               styles.clockButtonContainer,
-              { transform: [{ translateX: -150 * scale }, { translateY: -100 * scale }] },
+              { transform: [{ translateX: -180 * scale }, { translateY: 0 * scale }] },
             ]}
           >
             <TouchableOpacity
@@ -391,38 +396,41 @@ const HomeScreen = () => {
             </TouchableOpacity>
           </View>
 
+
+          {/* 달력 오브젝트 컨테이너 */}
           <View
             style={[
               styles.recordsButtonContainer,
-              { transform: [{ translateX: 30 * scale }, { translateY: 20 * scale }] },
+              { transform: [{ translateX: 60 * scale }, { translateY: -20 * scale }] },
             ]}
           >
             <TouchableOpacity
-              style={[styles.recordsButton, { width: buttonSize * 1.3, height: cardHeight * 1.2 }]}
+              style={[styles.recordsButton, { width: calendarWidth, height: calendarHeight }]}
               onPress={navigateToRecords}
               activeOpacity={0.8}
             >
               <Image
                 source={require("../../assets/images/calendar.png")}
-                style={[styles.recordsButtonIcon, { width: buttonSize * 1.3, height: cardHeight * 1.2 }]}
+                style={[styles.recordsButtonIcon, { width: calendarWidth, height: calendarHeight }]}
               />
             </TouchableOpacity>
           </View>
 
+          {/* 트로피 오브젝트 컨테이너 */}
           <View
             style={[
               styles.trophyButtonContainer,
-              { transform: [{ translateX: -180 * scale }, { translateY: 20 * scale }] },
+              { transform: [{ translateX: -60 * scale }, { translateY: 10 * scale }] },
             ]}
           >
             <TouchableOpacity
-              style={[styles.trophyButton, { width: buttonSize * 1.1, height: cardHeight }]}
+              style={[styles.trophyButton, { width: trophyWidth, height: trophyHeight }]}
               onPress={navigateToAchievement}
               activeOpacity={0.8}
             >
               <Image
                 source={require("../../assets/images/trophy.png")}
-                style={[styles.trophyButtonIcon, { width: buttonSize * 1.1, height: cardHeight }]}
+                style={[styles.trophyButtonIcon, { width: trophyWidth, height: trophyHeight }]}
               />
             </TouchableOpacity>
           </View>
