@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "pets",
+    "slug": "pets",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/app_icon.png",
+    "scheme": "frontend",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.idog.googlelogin"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/app_icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.idog.googlelogin"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/app_icon.png",
+      "viewport": {
+        "width": "device-width",
+        "initialScale": 1,
+        "maximumScale": 1,
+        "userScalable": false
+      }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/app_icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "b52779a1-0ec1-4e86-a16c-84f0c5cb6b2e"
+      }
+    }
+  }
+}

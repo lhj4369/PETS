@@ -6,15 +6,24 @@ import { Ionicons } from '@expo/vector-icons';
 let CameraView: any = null;
 let useCameraPermissions: any = null;
 
-if (Platform.OS !== 'web') {
-  try {
-    const cameraModule = require('expo-camera');
-    CameraView = cameraModule.CameraView;
-    useCameraPermissions = cameraModule.useCameraPermissions;
-  } catch (e) {
-    console.warn('expo-camera를 로드할 수 없습니다:', e);
+// 네이티브 환경에서 expo-camera 로드 시도
+const loadCameraModule = () => {
+  if (Platform.OS === 'web') {
+    return;
   }
-}
+  if (!CameraView || !useCameraPermissions) {
+    try {
+      const cameraModule = require('expo-camera');
+      CameraView = cameraModule.CameraView;
+      useCameraPermissions = cameraModule.useCameraPermissions;
+    } catch (e) {
+      console.warn('expo-camera를 로드할 수 없습니다:', e);
+    }
+  }
+};
+
+// 초기 로드
+loadCameraModule();
 
 interface HeartRateCameraProps {
   visible: boolean;
@@ -24,12 +33,25 @@ interface HeartRateCameraProps {
 
 // 네이티브용 컴포넌트 (카메라 사용)
 function NativeHeartRateCamera({ visible, onComplete, onCancel }: HeartRateCameraProps) {
+  // useCameraPermissions가 없으면 동적으로 로드 시도
   if (!useCameraPermissions) {
-    // expo-camera를 사용할 수 없는 경우 웹 모드로 전환
-    return <WebHeartRateCamera visible={visible} onComplete={onComplete} onCancel={onCancel} />;
+    loadCameraModule();
   }
   
-  const [permission, requestPermission] = useCameraPermissions();
+  // useCameraPermissions Hook 사용 (항상 호출되어야 함)
+  // useCameraPermissions가 없으면 기본 상태 사용
+  const [fallbackPermission, setFallbackPermission] = useState<{ granted: boolean }>({ granted: false });
+  
+  // Hook이 있으면 사용, 없으면 fallback 사용
+  const hookResult = useCameraPermissions 
+    ? useCameraPermissions() 
+    : [fallbackPermission, async () => {
+        const result = { granted: false };
+        setFallbackPermission(result);
+        return result;
+      }];
+  
+  const [permission, requestPermission] = hookResult;
   const [isMeasuring, setIsMeasuring] = useState(false);
   const [countdown, setCountdown] = useState(10);
   const [currentHeartRate, setCurrentHeartRate] = useState<number | null>(null);
@@ -347,20 +369,13 @@ export default function HeartRateCamera(props: HeartRateCameraProps) {
     return <WebHeartRateCamera {...props} />;
   }
   
-  // 네이티브에서는 expo-camera를 동적으로 로드
-  if (!CameraView) {
-    try {
-      const cameraModule = require('expo-camera');
-      CameraView = cameraModule.CameraView;
-      const { useCameraPermissions } = cameraModule;
-      // NativeHeartRateCamera를 동적으로 생성
-      return <NativeHeartRateCamera {...props} />;
-    } catch (e) {
-      console.warn('expo-camera를 로드할 수 없습니다. 웹 모드로 전환합니다.');
-      return <WebHeartRateCamera {...props} />;
-    }
-  }
+  // 네이티브(iOS/Android)에서는 항상 NativeHeartRateCamera 사용
+  // expo-camera를 동적으로 로드 시도
+  loadCameraModule();
   
+  console.log('HeartRateCamera - Platform:', Platform.OS, 'CameraView:', !!CameraView, 'useCameraPermissions:', !!useCameraPermissions);
+  
+  // iOS/Android에서는 항상 NativeHeartRateCamera 사용
   return <NativeHeartRateCamera {...props} />;
 }
 

@@ -23,7 +23,11 @@ export default function SettingsScreen() {
     if (response?.type === "success") {
       const { authentication } = response;
       if (authentication?.accessToken) {
-        handleAuthSuccess(authentication.accessToken);
+        // iOS에서도 refresh token을 함께 저장
+        handleAuthSuccess(
+          authentication.accessToken,
+          authentication.refreshToken || undefined
+        );
       }
     } else if (response?.type === "error") {
       console.error("Google Fit 인증 에러:", response.error);
@@ -44,9 +48,10 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleAuthSuccess = async (accessToken: string) => {
+  const handleAuthSuccess = async (accessToken: string, refreshToken?: string) => {
     try {
-      await GoogleFitManager.saveToken(accessToken);
+      // access token과 refresh token 모두 저장
+      await GoogleFitManager.saveToken(accessToken, refreshToken);
       setIsAuthenticated(true);
       Alert.alert("성공", "Google Fit 인증이 완료되었습니다.");
     } catch (error) {

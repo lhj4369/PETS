@@ -1238,7 +1238,10 @@ function TimerSummary({
             value={`${data.intervalInfo.completedRounds}회`}
           />
         )}
-        <SummaryRow label="심박수" value={`${data.heartRate} bpm`} />
+        <SummaryRow 
+          label="심박수" 
+          value={data.heartRate > 0 ? `${data.heartRate} bpm` : "측정 중..."} 
+        />
       </View>
 
       <View style={styles.summaryStats}>
@@ -1522,14 +1525,16 @@ function buildSummary(
   const minutes = elapsedMs / 60_000;
   const laps = options?.laps ?? [];
   
-  // Google Fit에서 심박수를 가져왔다면 사용하고, 없으면 시뮬레이션된 값 사용
+  // 측정된 심박수 사용 (카메라로 측정한 값 또는 Google Fit에서 가져온 값)
+  // 측정된 심박수가 없으면 기본값 사용 (나중에 측정으로 업데이트됨)
   let heartRate: number;
-  if (options?.heartRate !== null && options?.heartRate !== undefined) {
+  if (options?.heartRate !== null && options?.heartRate !== undefined && options.heartRate > 0) {
+    // 측정된 심박수 사용
     heartRate = options.heartRate;
   } else {
-    // 시뮬레이션된 심박수 계산
-    const baseHeartRate = mode === "aerobic" ? 118 : 125;
-    heartRate = Math.min(185, Math.round(baseHeartRate + minutes * 4));
+    // 측정 전 임시 값 (카메라 측정 후 업데이트됨)
+    // 측정이 완료되면 실제 측정값으로 대체됨
+    heartRate = 0; // 측정 대기 중
   }
 
   const stats: SummaryStat[] =
