@@ -312,7 +312,7 @@ const HomeScreen = () => {
         <View
           style={[
             styles.statusBarContainer,
-            { paddingTop: insets.top + 20, maxWidth: Math.min(320, screenWidth - 32) },
+            { paddingTop: insets.top + 50, maxWidth: Math.min(320, screenWidth - 32) },
           ]}
         >
           <TouchableOpacity
@@ -320,8 +320,19 @@ const HomeScreen = () => {
             activeOpacity={0.7}
             onPress={navigateToRanking}
           >
-            <Text style={styles.petName}>{nickname || accountName || "PETS"}</Text>
-            <Text style={styles.statusText}>레벨 {level}</Text>
+            {/* 프로필 수정 버튼 - 우측 상단 */}
+            <TouchableOpacity 
+              style={styles.editProfileButton} 
+              onPress={(e) => {
+                e.stopPropagation();
+                handleEditProfile();
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.editProfileIcon}>✏️</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.petName}>Lv.{level} {nickname || accountName || "PETS"}</Text>
             
             {/* 경험치 바 */}
             <View style={styles.expBarContainer}>
@@ -339,10 +350,6 @@ const HomeScreen = () => {
                 {Math.max(0, experience - (level - 1) * 100)} / 100
               </Text>
             </View>
-            
-            <TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
-              <Text style={styles.editProfileText}>프로필 수정</Text>
-            </TouchableOpacity>
 
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
@@ -582,10 +589,10 @@ const styles = StyleSheet.create({
   statusBar: {
     width: "100%",
     backgroundColor: "#ffffff",
-    borderRadius: 60,
+    borderRadius: 20,
     borderWidth: 2,
     borderColor: "#e0e0e0",
-    paddingVertical: 16,
+    paddingVertical: 10,
     paddingHorizontal: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -610,7 +617,8 @@ const styles = StyleSheet.create({
   },
   expBarContainer: {
     width: "100%",
-    marginBottom: 12,
+    marginBottom: 8,
+    marginTop: 4,
   },
   expBarBackground: {
     width: "100%",
@@ -632,18 +640,19 @@ const styles = StyleSheet.create({
     fontFamily: 'KotraHope',
   },
   editProfileButton: {
-    alignSelf: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 12,
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "#F0F4FF",
-    marginBottom: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
   },
-  editProfileText: {
-    color: "#007AFF",
-    fontSize: 18,
-    fontWeight: "600",
-    fontFamily: 'KotraHope',
+  editProfileIcon: {
+    fontSize: 20,
   },
   statsContainer: {
     width: "100%",
@@ -658,7 +667,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#F8F9FA",
     borderRadius: 40,
-    paddingVertical: 12,
+    paddingVertical: 8,
     paddingHorizontal: 8,
     borderWidth: 1,
     borderColor: "#E9ECEF",
