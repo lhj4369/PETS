@@ -114,6 +114,7 @@ export default function LoginScreen() {
 
       // 로그인 성공
       await AuthManager.login(data.token, data.account);
+      setIsGoogleLoading(false);
       router.replace("/(tabs)/home" as any);
     } catch (error) {
       console.error("구글 로그인 처리 실패:", error);

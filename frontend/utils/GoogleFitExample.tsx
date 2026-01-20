@@ -16,8 +16,10 @@ export default function GoogleFitExample() {
   const [calories, setCalories] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Google Fit 인증 요청 생성
-  const [request, response, promptAsync] = GoogleFitManager.createAuthRequest();
+  // Google Fit 인증 요청 생성 (React Hook은 컴포넌트 내에서 직접 사용)
+  const [request, response, promptAsync] = Google.useAuthRequest(
+    GoogleFitManager.getAuthRequestConfig()
+  );
 
   // 인증 상태 확인
   useEffect(() => {

@@ -77,21 +77,22 @@ class GoogleFitManager {
   private readonly baseUrl = 'https://www.googleapis.com/fitness/v1';
 
   /**
-   * Google Fit 인증 요청 생성
+   * Google Fit 인증 요청 설정 반환
+   * React Hook은 컴포넌트 내에서 직접 사용해야 하므로, 설정만 반환합니다.
    */
-  createAuthRequest() {
-    return Google.useAuthRequest({
+  getAuthRequestConfig() {
+    return {
       webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "",
       androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "",
       iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "",
       scopes: GOOGLE_FIT_SCOPES,
       // iOS에서도 refresh token을 받기 위한 옵션
-      responseType: 'code',
+      responseType: 'code' as const,
       extraParams: {
         access_type: 'offline', // refresh token을 받기 위해 필요
         prompt: 'consent', // 매번 동의 화면 표시 (refresh token 보장)
       },
-    });
+    };
   }
 
   /**
@@ -157,7 +158,7 @@ class GoogleFitManager {
    * 토큰 갱신 (참고: 클라이언트 사이드에서는 refresh token 갱신이 제한적입니다)
    * 토큰이 만료되면 사용자에게 재인증을 요청해야 합니다.
    */
-  private async refreshToken(): Promise<void> {
+  private async refreshAccessToken(): Promise<void> {
     if (!this.refreshToken) {
       await this.loadStoredToken();
     }
@@ -187,7 +188,7 @@ class GoogleFitManager {
     // 401 Unauthorized 오류 시 토큰 갱신 시도
     if (response.status === 401) {
       try {
-        await this.refreshToken();
+        await this.refreshAccessToken();
         // 갱신 후 재시도
         headers = await this.getAuthHeaders();
         response = await fetch(`${this.baseUrl}${endpoint}`, {

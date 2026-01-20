@@ -340,7 +340,7 @@ export default function RecordsScreen() {
       return;
     }
 
-    const confirmDelete = () => {
+    const confirmDelete = (): boolean | Promise<boolean> => {
       if (Platform.OS === 'web') {
         return window.confirm("이 운동 기록을 삭제하시겠습니까?");
       }
@@ -356,9 +356,10 @@ export default function RecordsScreen() {
       });
     };
 
+    const confirmResult = confirmDelete();
     const shouldDelete = Platform.OS === 'web' 
-      ? confirmDelete() 
-      : await confirmDelete();
+      ? (confirmResult as boolean)
+      : await (confirmResult as Promise<boolean>);
 
     if (!shouldDelete) return;
 

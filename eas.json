@@ -6,22 +6,13 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal",
-      "env": {
-        "PREBUILD_SCRIPT": "node scripts/prepare-build.js"
-      }
+      "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal",
-      "env": {
-        "PREBUILD_SCRIPT": "node scripts/prepare-build.js"
-      }
+      "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true,
-      "env": {
-        "PREBUILD_SCRIPT": "node scripts/prepare-build.js"
-      }
+      "autoIncrement": true
     }
   },
   "submit": {
