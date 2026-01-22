@@ -71,6 +71,7 @@ const HomeScreen = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [pendingAnimal, setPendingAnimal] = useState<AnimalId | null>(null);
   const [showAnimalConfirm, setShowAnimalConfirm] = useState(false);
+  const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
 
   const [selectedAnimalId, setSelectedAnimalId] = useState<AnimalId | null>(null);
   const [nickname, setNickname] = useState("");
@@ -97,9 +98,9 @@ const HomeScreen = () => {
   const cardHeight = Math.max(140, Math.min(200, screenWidth * 0.45));
   const clockIconSize = Math.max(60, Math.min(100, screenWidth * 0.25));
   const trophyWidth = buttonSize * 1.1;
-  const trophyHeight = cardHeight;
-  const calendarWidth = buttonSize * 1.3;
-  const calendarHeight = cardHeight * 1.2;
+  const trophyHeight = buttonSize * 1.3;
+  const calendarWidth = buttonSize * 1.2;
+  const calendarHeight = buttonSize * 1.2;
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -294,7 +295,7 @@ const HomeScreen = () => {
 
   return (
     <ImageBackground
-      source={selectedBackground ?? DEFAULT_BACKGROUND_IMAGE}
+      source={require("../../assets/images/background_test3.png")}
       style={styles.background}
       resizeMode="contain"
     >
@@ -305,14 +306,64 @@ const HomeScreen = () => {
           </View>
         )}
 
-        <ChatBubbleButton />
-        <SettingsButton />
-        <RankingButton />
+        {/* 햄버거 메뉴 버튼 */}
+        <TouchableOpacity 
+          style={[styles.hamburgerButton, { top: insets.top + 30 }]} //햄버거 메뉴 상하 위치 조절
+          onPress={() => setShowHamburgerMenu(!showHamburgerMenu)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.hamburgerIcon}>☰</Text>
+        </TouchableOpacity>
+
+        {/* 햄버거 메뉴 드롭다운 */}
+        {showHamburgerMenu && (
+          <View style={[styles.hamburgerMenu, { top: insets.top + 100 }]}>
+            <TouchableOpacity 
+              style={styles.hamburgerMenuItem}
+              onPress={() => {
+                setShowHamburgerMenu(false);
+                router.push("/(tabs)/chat" as any);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.hamburgerMenuIcon}>💬</Text>
+              <Text style={styles.hamburgerMenuText}>채팅</Text>
+            </TouchableOpacity>
+
+            <View style={styles.hamburgerMenuDivider} />
+
+            <TouchableOpacity 
+              style={styles.hamburgerMenuItem}
+              onPress={() => {
+                setShowHamburgerMenu(false);
+                navigateToRanking();
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.hamburgerMenuIcon}>🏆</Text>
+              <Text style={styles.hamburgerMenuText}>랭킹</Text>
+            </TouchableOpacity>
+
+            <View style={styles.hamburgerMenuDivider} />
+
+            <TouchableOpacity 
+              style={styles.hamburgerMenuItem}
+              onPress={() => {
+                setShowHamburgerMenu(false);
+                router.push("/(tabs)/settings" as any);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.hamburgerMenuIcon}>⚙️</Text>
+              <Text style={styles.hamburgerMenuText}>설정</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View
           style={[
             styles.statusBarContainer,
-            { paddingTop: insets.top + 50, maxWidth: Math.min(320, screenWidth - 32) },
+            { paddingTop: insets.top + 90, maxWidth: Math.min(280, screenWidth - 80) }, //상태창 상하 위치 조절
           ]}
         >
           <TouchableOpacity
@@ -374,7 +425,7 @@ const HomeScreen = () => {
 
         <View style={styles.centerContainer}>
           <TouchableOpacity
-            style={[styles.petPortrait, { width: petSize * 0.8, height: petSize * 0.8, marginTop: -280 }]}
+            style={[styles.petPortrait, { width: petSize * 0.8, height: petSize * 0.8, marginTop: -240 }]} //동물 이미지 상하 위치 조절
             activeOpacity={0.7}
             onPress={navigateToCustomize}
           >
@@ -388,7 +439,7 @@ const HomeScreen = () => {
           <View
             style={[
               styles.clockButtonContainer,
-              { transform: [{ translateX: -180 * scale }, { translateY: 0 * scale }] },
+              { transform: [{ translateX: -180 * scale }, { translateY: 58 * scale }] }, //시계 오브젝트 위치 조정
             ]}
           >
             <TouchableOpacity
@@ -401,6 +452,7 @@ const HomeScreen = () => {
                 style={[styles.clockButtonIcon, { width: clockIconSize, height: clockIconSize }]}
               />
             </TouchableOpacity>
+            <Text style={styles.objectLabel}>타이머</Text>
           </View>
 
 
@@ -408,7 +460,7 @@ const HomeScreen = () => {
           <View
             style={[
               styles.recordsButtonContainer,
-              { transform: [{ translateX: 60 * scale }, { translateY: -20 * scale }] },
+              { transform: [{ translateX: 60 * scale }, { translateY: 40 * scale }] }, //달력 오브젝트 위치 조정
             ]}
           >
             <TouchableOpacity
@@ -421,13 +473,14 @@ const HomeScreen = () => {
                 style={[styles.recordsButtonIcon, { width: calendarWidth, height: calendarHeight }]}
               />
             </TouchableOpacity>
+            <Text style={styles.objectLabel}>운동 기록</Text>
           </View>
 
           {/* 트로피 오브젝트 컨테이너 */}
           <View
             style={[
               styles.trophyButtonContainer,
-              { transform: [{ translateX: -60 * scale }, { translateY: 10 * scale }] },
+              { transform: [{ translateX: -60 * scale }, { translateY: 30 * scale }] }, //트로피 오브젝트 위치 조정
             ]}
           >
             <TouchableOpacity
@@ -440,6 +493,7 @@ const HomeScreen = () => {
                 style={[styles.trophyButtonIcon, { width: trophyWidth, height: trophyHeight }]}
               />
             </TouchableOpacity>
+            <Text style={styles.objectLabel}>업적</Text>
           </View>
         </View>
 
@@ -579,6 +633,66 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     zIndex: 20,
+  },
+  hamburgerButton: {
+    position: "absolute",
+    right: 8, //햄버거 메뉴 좌우 위치 조절
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 15,
+    borderWidth: 2,
+    borderColor: "#e0e0e0",
+  },
+  hamburgerIcon: {
+    fontSize: 24,
+    color: "#333",
+    fontWeight: "600",
+  },
+  hamburgerMenu: {
+    position: "absolute",
+    right: 16,
+    width: 140,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    zIndex: 14,
+    borderWidth: 2,
+    borderColor: "#e0e0e0",
+    overflow: "hidden",
+  },
+  hamburgerMenuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  hamburgerMenuIcon: {
+    fontSize: 20,
+  },
+  hamburgerMenuText: {
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "500",
+    fontFamily: 'KotraHope',
+  },
+  hamburgerMenuDivider: {
+    height: 1,
+    backgroundColor: "#e0e0e0",
+    marginHorizontal: 12,
   },
   statusBarContainer: {
     alignSelf: "center",
@@ -734,6 +848,18 @@ const styles = StyleSheet.create({
   },
   trophyButtonIcon: {
     resizeMode: "contain",
+  },
+  objectLabel: {
+    fontSize: 24,
+    color: "#333",
+    fontWeight: "600",
+    fontFamily: 'KotraHope',
+    textAlign: "center",
+    marginTop: 5,
+    backgroundColor: "rgba(255, 255, 255, 0.85)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   modalOverlay: {
     flex: 1,
