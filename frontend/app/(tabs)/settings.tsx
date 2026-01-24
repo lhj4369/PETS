@@ -1,14 +1,35 @@
 //설정 화면
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { View, Text, SafeAreaView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from "react-native";
+import { router } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import * as Google from "expo-auth-session/providers/google";
 import HomeButton from "../../components/HomeButton";
 import GoogleFitManager from "../../utils/GoogleFitManager";
+import AuthManager from "../../utils/AuthManager";
+import API_BASE_URL from "../../config/api";
+
+type ProfileResponse = {
+  account?: {
+    id: number;
+    name: string;
+    email: string;
+  } | null;
+  profile?: {
+    nickname: string | null;
+  } | null;
+};
 
 export default function SettingsScreen() {
+  // Google Fit 관련 상태
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleFitLoading, setIsGoogleFitLoading] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
+
+  // 사용자 프로필 관련 상태
+  const [nickname, setNickname] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
 
   // Google Fit 인증 요청 생성 (React Hook은 컴포넌트 내에서 직접 사용)
   const [request, response, promptAsync] = Google.useAuthRequest(
@@ -34,7 +55,7 @@ export default function SettingsScreen() {
     } else if (response?.type === "error") {
       console.error("Google Fit 인증 에러:", response.error);
       Alert.alert("인증 실패", "Google Fit 인증에 실패했습니다.");
-      setIsLoading(false);
+      setIsGoogleFitLoading(false);
     }
   }, [response]);
 
@@ -60,33 +81,33 @@ export default function SettingsScreen() {
       console.error("토큰 저장 실패:", error);
       Alert.alert("오류", "토큰 저장에 실패했습니다.");
     } finally {
-      setIsLoading(false);
+      setIsGoogleFitLoading(false);
     }
   };
 
-  const handleLogin = async () => {
+  const handleGoogleFitLogin = async () => {
     if (!request) {
       Alert.alert("알림", "Google Fit 인증을 준비하는 중입니다. 잠시 후 다시 시도해주세요.");
       return;
     }
 
-    setIsLoading(true);
+    setIsGoogleFitLoading(true);
     try {
       await promptAsync();
     } catch (error) {
       console.error("Google Fit 로그인 요청 실패:", error);
       Alert.alert("오류", "Google Fit 로그인 중 문제가 발생했습니다.");
-      setIsLoading(false);
+      setIsGoogleFitLoading(false);
     }
   };
 
-  const handleLogout = async () => {
+  const handleGoogleFitLogout = async () => {
     try {
       await GoogleFitManager.clearToken();
       setIsAuthenticated(false);
       Alert.alert("완료", "Google Fit 인증이 해제되었습니다.");
     } catch (error) {
-      console.error("로그아웃 실패:", error);
+      console.error("Google Fit 로그아웃 실패:", error);
       Alert.alert("오류", "로그아웃 중 문제가 발생했습니다.");
     }
   };
@@ -97,7 +118,7 @@ export default function SettingsScreen() {
       return;
     }
 
-    setIsLoading(true);
+    setIsGoogleFitLoading(true);
     try {
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -115,49 +136,14 @@ export default function SettingsScreen() {
       console.error("연결 테스트 실패:", error);
       Alert.alert("연결 테스트 실패", error?.message || "Google Fit API 연결에 실패했습니다.");
     } finally {
-      setIsLoading(false);
-    }
+      setIsGoogleFitLoading(false);
+  }
   };
 
-  if (isChecking) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <HomeButton />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>인증 상태 확인 중...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-import { View, Text, SafeAreaView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from "react-native";
-import { router } from "expo-router";
-import { useState, useCallback } from "react";
-import { useFocusEffect } from "@react-navigation/native";
-import HomeButton from "../../components/HomeButton";
-import AuthManager from "../../utils/AuthManager";
-import API_BASE_URL from "../../config/api";
-
-type ProfileResponse = {
-  account?: {
-    id: number;
-    name: string;
-    email: string;
-  } | null;
-  profile?: {
-    nickname: string | null;
-  } | null;
-};
-
-export default function SettingsScreen() {
-  const [nickname, setNickname] = useState<string>("");
-  const [email, setEmail] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(true);
-
+  // 사용자 프로필 가져오기
   const fetchProfile = useCallback(async () => {
     try {
-      setIsLoading(true);
+      setIsProfileLoading(true);
       const headers = await AuthManager.getAuthHeader();
       
       if (!headers.Authorization) {
@@ -184,7 +170,7 @@ export default function SettingsScreen() {
     } catch (error) {
       Alert.alert("오류", "사용자 정보를 불러오는데 실패했습니다.");
     } finally {
-      setIsLoading(false);
+      setIsProfileLoading(false);
     }
   }, []);
 
@@ -194,7 +180,7 @@ export default function SettingsScreen() {
     }, [fetchProfile])
   );
 
-  const handleLogout = async () => {
+  const handleAppLogout = async () => {
     try {
       // 로그아웃 처리
       await AuthManager.logout();
@@ -206,6 +192,18 @@ export default function SettingsScreen() {
       Alert.alert("오류", "로그아웃 중 문제가 발생했습니다: " + errorMessage);
     }
   };
+
+  if (isChecking) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <HomeButton />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>인증 상태 확인 중...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -224,11 +222,11 @@ export default function SettingsScreen() {
 
         {!isAuthenticated ? (
           <TouchableOpacity
-            style={[styles.button, styles.loginButton, isLoading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={!request || isLoading}
+            style={[styles.button, styles.loginButton, isGoogleFitLoading && styles.buttonDisabled]}
+            onPress={handleGoogleFitLogin}
+            disabled={!request || isGoogleFitLoading}
           >
-            {isLoading ? (
+            {isGoogleFitLoading ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.buttonText}>Google Fit 로그인</Text>
@@ -239,9 +237,9 @@ export default function SettingsScreen() {
             <TouchableOpacity
               style={[styles.button, styles.testButton]}
               onPress={handleTestConnection}
-              disabled={isLoading}
+              disabled={isGoogleFitLoading}
             >
-              {isLoading ? (
+              {isGoogleFitLoading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.buttonText}>연결 테스트</Text>
@@ -250,10 +248,10 @@ export default function SettingsScreen() {
 
             <TouchableOpacity
               style={[styles.button, styles.logoutButton]}
-              onPress={handleLogout}
-              disabled={isLoading}
+              onPress={handleGoogleFitLogout}
+              disabled={isGoogleFitLoading}
             >
-              <Text style={styles.buttonText}>로그아웃</Text>
+              <Text style={styles.buttonText}>Google Fit 로그아웃</Text>
             </TouchableOpacity>
           </>
         )}
@@ -266,7 +264,7 @@ export default function SettingsScreen() {
             • 실제 기기에서 테스트하는 것을 권장합니다.
           </Text>
         </View>
-        {isLoading ? (
+        {isProfileLoading ? (
           <ActivityIndicator size="large" color="#2b59ff" style={styles.loader} />
         ) : (
           <>
@@ -285,17 +283,27 @@ export default function SettingsScreen() {
               </View>
             </View>
 
-            {/* 로그아웃 버튼 */}
+            {/* 앱 로그아웃 버튼 */}
             <TouchableOpacity 
               style={styles.logoutButton} 
-              onPress={handleLogout}
+              onPress={handleAppLogout}
               activeOpacity={0.7}
-              disabled={isLoading}
+              disabled={isProfileLoading}
               hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
               accessibilityRole="button"
               accessibilityLabel="로그아웃"
             >
               <Text style={styles.logoutButtonText}>로그아웃</Text>
+            </TouchableOpacity>
+
+            {/* 계정 삭제 링크 */}
+            <TouchableOpacity 
+              style={styles.deleteAccountLink}
+              onPress={() => router.push("/(auth)/delete-account" as any)}
+              activeOpacity={0.7}
+              disabled={isProfileLoading}
+            >
+              <Text style={styles.deleteAccountLinkText}>계정 삭제</Text>
             </TouchableOpacity>
           </>
         )}
@@ -475,6 +483,17 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 18,
     fontWeight: "bold",
+    fontFamily: 'KotraHope',
+  },
+  deleteAccountLink: {
+    marginTop: 16,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  deleteAccountLinkText: {
+    color: "#FF3B30",
+    fontSize: 16,
+    textDecorationLine: "underline",
     fontFamily: 'KotraHope',
   },
 });

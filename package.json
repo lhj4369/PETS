@@ -4,7 +4,9 @@
   "main": "expo-router/entry",
   "scripts": {
     "prepare-build": "node scripts/prepare-build.js",
-    "postinstall": "node scripts/prepare-build.js"
+    "postinstall": "node scripts/prepare-build.js",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

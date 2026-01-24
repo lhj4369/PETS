@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, ActivityIndicator, Platform } from "react-native";
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -16,12 +16,48 @@ export default function LoginScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
+  // 환경 변수 확인
+  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "";
+  const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "";
+  const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "";
+
+  // 현재 플랫폼에 맞는 클라이언트 ID 확인
+  const getCurrentPlatformClientId = () => {
+    if (Platform.OS === "android") return androidClientId;
+    if (Platform.OS === "ios") return iosClientId;
+    return webClientId;
+  };
+
+  // 디버깅: 클라이언트 ID 로그 출력 (개발 환경에서만)
+  useEffect(() => {
+    if (__DEV__) {
+      console.log("=== Google OAuth 클라이언트 ID 확인 ===");
+      console.log("플랫폼:", Platform.OS);
+      console.log("Web Client ID:", webClientId ? `${webClientId.substring(0, 20)}...` : "❌ 없음");
+      console.log("Android Client ID:", androidClientId ? `${androidClientId.substring(0, 20)}...` : "❌ 없음");
+      console.log("iOS Client ID:", iosClientId ? `${iosClientId.substring(0, 20)}...` : "❌ 없음");
+      console.log("현재 플랫폼 Client ID:", getCurrentPlatformClientId() ? `${getCurrentPlatformClientId().substring(0, 20)}...` : "❌ 없음");
+      console.log("패키지 이름 (app.json):", Platform.OS === "android" ? "com.idog.googlelogin" : "com.idog.googlelogin");
+      console.log("=====================================");
+    }
+  }, []);
+
   // Google 인증 요청을 위한 훅 초기화
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || "",
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || "",
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || "",
-  });
+  // Android에서는 useAuthRequest가 커스텀 URI 스킴을 사용하려고 해서 오류가 발생할 수 있습니다
+  // Android에서는 androidClientId만 제공하고, expo-auth-session이 자동으로 처리하도록 합니다
+  const [request, response, promptAsync] = Google.useAuthRequest(
+    Platform.OS === 'android'
+      ? {
+          // Android에서는 androidClientId만 사용
+          androidClientId: androidClientId,
+          // webClientId는 Android에서 사용하지 않음 (커스텀 URI 스킴 오류 방지)
+        }
+      : {
+          // iOS와 Web에서는 기존 설정 사용
+          webClientId: webClientId,
+          iosClientId: iosClientId,
+        }
+  );
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -55,6 +91,25 @@ export default function LoginScreen() {
 
   // Google 로그인 처리하는 함수
   const handleGoogleLogin = async () => {
+    // 환경 변수 확인
+    const currentClientId = getCurrentPlatformClientId();
+    
+    if (!currentClientId || currentClientId === "") {
+      const platformName = Platform.OS === "android" ? "Android" : Platform.OS === "ios" ? "iOS" : "Web";
+      alert(
+        `구글 로그인 설정이 완료되지 않았습니다.\n\n` +
+        `현재 플랫폼: ${platformName}\n\n` +
+        `해결 방법:\n` +
+        `1. 로컬 개발: 프로젝트 루트에 .env 파일을 생성하고\n` +
+        `   EXPO_PUBLIC_GOOGLE_${platformName.toUpperCase()}_CLIENT_ID를 설정하세요.\n\n` +
+        `2. EAS 빌드: 다음 명령어로 환경 변수를 등록하세요:\n` +
+        `   eas secret:create --scope project --name EXPO_PUBLIC_GOOGLE_${platformName.toUpperCase()}_CLIENT_ID --value "your-client-id"\n\n` +
+        `자세한 내용은 GOOGLE_LOGIN_SETUP.md 파일을 참고하세요.`
+      );
+      setIsGoogleLoading(false);
+      return;
+    }
+
     if (!request) {
       alert("구글 로그인을 준비하는 중입니다. 잠시 후 다시 시도해주세요.");
       return;
@@ -129,7 +184,39 @@ export default function LoginScreen() {
       handleGoogleAuthSuccess(response.authentication?.accessToken);
     } else if (response?.type === "error") {
       console.error("구글 로그인 에러:", response.error);
-      alert("구글 로그인에 실패했습니다.");
+      console.error("에러 코드:", response.error?.code);
+      console.error("에러 메시지:", response.error?.message);
+      console.error("사용된 클라이언트 ID:", getCurrentPlatformClientId());
+      
+      // 구체적인 에러 메시지 표시
+      let errorMessage = "구글 로그인에 실패했습니다.";
+      
+      if (response.error?.code === "invalid_request" || response.error?.message?.includes("client_id")) {
+        const platformName = Platform.OS === "android" ? "Android" : Platform.OS === "ios" ? "iOS" : "Web";
+        errorMessage = 
+          `구글 로그인 설정 오류: 클라이언트 ID가 없습니다.\n\n` +
+          `현재 플랫폼: ${platformName}\n\n` +
+          `해결 방법:\n` +
+          `1. 로컬 개발: 프로젝트 루트에 .env 파일 생성\n` +
+          `2. EAS 빌드: eas secret:create 명령어로 환경 변수 등록\n\n` +
+          `자세한 내용은 GOOGLE_LOGIN_SETUP.md 파일을 참고하세요.`;
+      } else if (response.error?.code === "invalid_client" || response.error?.message?.includes("OAuth client")) {
+        const platformName = Platform.OS === "android" ? "Android" : Platform.OS === "ios" ? "iOS" : "Web";
+        errorMessage = 
+          `구글 OAuth 클라이언트를 찾을 수 없습니다.\n\n` +
+          `현재 플랫폼: ${platformName}\n` +
+          `패키지/번들 ID: com.idog.googlelogin\n\n` +
+          `확인 사항:\n` +
+          `1. Google Cloud Console에서 ${platformName} OAuth 클라이언트 ID 확인\n` +
+          `2. 패키지 이름이 정확히 "com.idog.googlelogin"인지 확인\n` +
+          `3. EAS Secrets에 저장된 클라이언트 ID가 올바른지 확인\n` +
+          `4. 최신 빌드를 다시 생성했는지 확인\n\n` +
+          `디버깅: 개발자 콘솔에서 클라이언트 ID를 확인하세요.`;
+      } else if (response.error?.message) {
+        errorMessage = `구글 로그인 오류: ${response.error.message}`;
+      }
+      
+      alert(errorMessage);
       setIsGoogleLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
