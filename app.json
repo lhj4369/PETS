@@ -19,7 +19,11 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.idog.googlelogin"
+      "package": "com.idog.googlelogin",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -58,9 +62,11 @@
       "reactCompiler": true
     },
     "extra": {
+      "router": {},
       "eas": {
         "projectId": "b52779a1-0ec1-4e86-a16c-84f0c5cb6b2e"
       }
-    }
+    },
+    "owner": "kachu0514"
   }
 }
