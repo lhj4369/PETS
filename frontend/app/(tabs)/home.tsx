@@ -71,6 +71,7 @@ const HomeScreen = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [pendingAnimal, setPendingAnimal] = useState<AnimalId | null>(null);
   const [showAnimalConfirm, setShowAnimalConfirm] = useState(false);
+  const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
 
   const [selectedAnimalId, setSelectedAnimalId] = useState<AnimalId | null>(null);
   const [nickname, setNickname] = useState("");
@@ -93,9 +94,13 @@ const HomeScreen = () => {
   };
 
   const petSize = Math.min(240, screenWidth * 0.5);
-  const buttonSize = Math.max(96, Math.min(144, screenWidth * 0.3));
+  const buttonSize = Math.max(60, Math.min(100, screenWidth * 0.25));
   const cardHeight = Math.max(140, Math.min(200, screenWidth * 0.45));
   const clockIconSize = Math.max(60, Math.min(100, screenWidth * 0.25));
+  const trophyWidth = buttonSize * 1.1;
+  const trophyHeight = buttonSize * 1.3;
+  const calendarWidth = buttonSize * 1.2;
+  const calendarHeight = buttonSize * 1.2;
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -301,14 +306,64 @@ const HomeScreen = () => {
           </View>
         )}
 
-        <ChatBubbleButton />
-        <SettingsButton />
-        <RankingButton />
+        {/* 햄버거 메뉴 버튼 */}
+        <TouchableOpacity 
+          style={[styles.hamburgerButton, { top: insets.top + 28 }]} //햄버거 메뉴 상하 위치 조절
+          onPress={() => setShowHamburgerMenu(!showHamburgerMenu)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.hamburgerIcon}>☰</Text>
+        </TouchableOpacity>
+
+        {/* 햄버거 메뉴 드롭다운 */}
+        {showHamburgerMenu && (
+          <View style={[styles.hamburgerMenu, { top: insets.top + 100 }]}>
+            <TouchableOpacity 
+              style={styles.hamburgerMenuItem}
+              onPress={() => {
+                setShowHamburgerMenu(false);
+                router.push("/(tabs)/chat" as any);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.hamburgerMenuIcon}>💬</Text>
+              <Text style={styles.hamburgerMenuText}>채팅</Text>
+            </TouchableOpacity>
+
+            <View style={styles.hamburgerMenuDivider} />
+
+            <TouchableOpacity 
+              style={styles.hamburgerMenuItem}
+              onPress={() => {
+                setShowHamburgerMenu(false);
+                navigateToRanking();
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.hamburgerMenuIcon}>🏆</Text>
+              <Text style={styles.hamburgerMenuText}>랭킹</Text>
+            </TouchableOpacity>
+
+            <View style={styles.hamburgerMenuDivider} />
+
+            <TouchableOpacity 
+              style={styles.hamburgerMenuItem}
+              onPress={() => {
+                setShowHamburgerMenu(false);
+                router.push("/(tabs)/settings" as any);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.hamburgerMenuIcon}>⚙️</Text>
+              <Text style={styles.hamburgerMenuText}>설정</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View
           style={[
             styles.statusBarContainer,
-            { paddingTop: insets.top + 20, maxWidth: Math.min(360, screenWidth - 32) },
+            { paddingTop: insets.top + 80, maxWidth: Math.min(280, screenWidth - 80) }, //상태창 상하 위치 조절
           ]}
         >
           <TouchableOpacity
@@ -316,8 +371,19 @@ const HomeScreen = () => {
             activeOpacity={0.7}
             onPress={navigateToRanking}
           >
-            <Text style={styles.petName}>{nickname || accountName || "PETS"}</Text>
-            <Text style={styles.statusText}>레벨 {level}</Text>
+            {/* 프로필 수정 버튼 - 우측 상단 */}
+            <TouchableOpacity 
+              style={styles.editProfileButton} 
+              onPress={(e) => {
+                e.stopPropagation();
+                handleEditProfile();
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.editProfileIcon}>✏️</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.petName}>Lv.{level} {nickname || accountName || "PETS"}</Text>
             
             {/* 경험치 바 */}
             <View style={styles.expBarContainer}>
@@ -335,10 +401,6 @@ const HomeScreen = () => {
                 {Math.max(0, experience - (level - 1) * 100)} / 100
               </Text>
             </View>
-            
-            <TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
-              <Text style={styles.editProfileText}>프로필 수정</Text>
-            </TouchableOpacity>
 
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
@@ -363,20 +425,21 @@ const HomeScreen = () => {
 
         <View style={styles.centerContainer}>
           <TouchableOpacity
-            style={[styles.petPortrait, { width: petSize * 0.8, height: petSize * 0.8, marginTop: -150 }]}
+            style={[styles.petPortrait, { width: petSize * 0.8, height: petSize * 0.8, marginTop: -240 }]} //동물 이미지 상하 위치 조절
             activeOpacity={0.7}
             onPress={navigateToCustomize}
           >
             <Image
               source={selectedAnimal ?? DEFAULT_ANIMAL_IMAGE}
-              style={[styles.petPortraitImage, { width: petSize * 0.8, height: petSize * 0.8 }]}
+              style={[styles.petPortraitImage, { width: petSize * 1.2, height: petSize * 1.2}]}
             />
           </TouchableOpacity>
 
+          {/* 시계 오브젝트 컨테이너 */}
           <View
             style={[
               styles.clockButtonContainer,
-              { transform: [{ translateX: -150 * scale }, { translateY: -100 * scale }] },
+              { transform: [{ translateX: -180 * scale }, { translateY: 58 * scale }] }, //시계 오브젝트 위치 조정
             ]}
           >
             <TouchableOpacity
@@ -389,42 +452,48 @@ const HomeScreen = () => {
                 style={[styles.clockButtonIcon, { width: clockIconSize, height: clockIconSize }]}
               />
             </TouchableOpacity>
+            <Text style={styles.objectLabel}>타이머</Text>
           </View>
 
+
+          {/* 달력 오브젝트 컨테이너 */}
           <View
             style={[
               styles.recordsButtonContainer,
-              { transform: [{ translateX: 30 * scale }, { translateY: 20 * scale }] },
+              { transform: [{ translateX: 60 * scale }, { translateY: 40 * scale }] }, //달력 오브젝트 위치 조정
             ]}
           >
             <TouchableOpacity
-              style={[styles.recordsButton, { width: buttonSize * 1.3, height: cardHeight * 1.2 }]}
+              style={[styles.recordsButton, { width: calendarWidth, height: calendarHeight }]}
               onPress={navigateToRecords}
               activeOpacity={0.8}
             >
               <Image
                 source={require("../../assets/images/calendar.png")}
-                style={[styles.recordsButtonIcon, { width: buttonSize * 1.3, height: cardHeight * 1.2 }]}
+                style={[styles.recordsButtonIcon, { width: calendarWidth, height: calendarHeight }]}
               />
             </TouchableOpacity>
+            <Text style={styles.objectLabel}>운동 기록</Text>
           </View>
 
+          {/* 트로피 오브젝트 컨테이너 */}
           <View
             style={[
               styles.trophyButtonContainer,
-              { transform: [{ translateX: -180 * scale }, { translateY: 20 * scale }] },
+              { transform: [{ translateX: -60 * scale }, { translateY: 30 * scale }] }, //트로피 오브젝트 위치 조정
             ]}
           >
             <TouchableOpacity
-              style={[styles.trophyButton, { width: buttonSize * 1.1, height: cardHeight }]}
+              style={[styles.trophyButton, { width: trophyWidth, height: trophyHeight }]}
               onPress={navigateToAchievement}
               activeOpacity={0.8}
             >
               <Image
                 source={require("../../assets/images/trophy.png")}
-                style={[styles.trophyButtonIcon, { width: buttonSize * 1.1, height: cardHeight }]}
+                style={[styles.trophyButtonIcon, { width: trophyWidth, height: trophyHeight }]}
               />
             </TouchableOpacity>
+            <Text style={styles.objectLabel}>업적</Text>
           </View>
         </View>
 
@@ -565,6 +634,66 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 20,
   },
+  hamburgerButton: {
+    position: "absolute",
+    right: 8, //햄버거 메뉴 좌우 위치 조절
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 15,
+    borderWidth: 2,
+    borderColor: "#e0e0e0",
+  },
+  hamburgerIcon: {
+    fontSize: 24,
+    color: "#333",
+    fontWeight: "600",
+  },
+  hamburgerMenu: {
+    position: "absolute",
+    right: 16,
+    width: 140,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    zIndex: 14,
+    borderWidth: 2,
+    borderColor: "#e0e0e0",
+    overflow: "hidden",
+  },
+  hamburgerMenuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  hamburgerMenuIcon: {
+    fontSize: 20,
+  },
+  hamburgerMenuText: {
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "500",
+    fontFamily: 'KotraHope',
+  },
+  hamburgerMenuDivider: {
+    height: 1,
+    backgroundColor: "#e0e0e0",
+    marginHorizontal: 12,
+  },
   statusBarContainer: {
     alignSelf: "center",
     width: "100%",    
@@ -574,10 +703,10 @@ const styles = StyleSheet.create({
   statusBar: {
     width: "100%",
     backgroundColor: "#ffffff",
-    borderRadius: 60,
+    borderRadius: 20,
     borderWidth: 2,
     borderColor: "#e0e0e0",
-    paddingVertical: 16,
+    paddingVertical: 10,
     paddingHorizontal: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -602,7 +731,8 @@ const styles = StyleSheet.create({
   },
   expBarContainer: {
     width: "100%",
-    marginBottom: 12,
+    marginBottom: 8,
+    marginTop: 4,
   },
   expBarBackground: {
     width: "100%",
@@ -624,18 +754,19 @@ const styles = StyleSheet.create({
     fontFamily: 'KotraHope',
   },
   editProfileButton: {
-    alignSelf: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 12,
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "#F0F4FF",
-    marginBottom: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
   },
-  editProfileText: {
-    color: "#007AFF",
-    fontSize: 18,
-    fontWeight: "600",
-    fontFamily: 'KotraHope',
+  editProfileIcon: {
+    fontSize: 20,
   },
   statsContainer: {
     width: "100%",
@@ -650,7 +781,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#F8F9FA",
     borderRadius: 40,
-    paddingVertical: 12,
+    paddingVertical: 8,
     paddingHorizontal: 8,
     borderWidth: 1,
     borderColor: "#E9ECEF",
@@ -717,6 +848,18 @@ const styles = StyleSheet.create({
   },
   trophyButtonIcon: {
     resizeMode: "contain",
+  },
+  objectLabel: {
+    fontSize: 24,
+    color: "#333",
+    fontWeight: "600",
+    fontFamily: 'KotraHope',
+    textAlign: "center",
+    marginTop: 5,
+    backgroundColor: "rgba(255, 255, 255, 0.85)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   modalOverlay: {
     flex: 1,
