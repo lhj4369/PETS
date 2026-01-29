@@ -308,7 +308,7 @@ const HomeScreen = () => {
 
         {/* 햄버거 메뉴 버튼 */}
         <TouchableOpacity 
-          style={[styles.hamburgerButton, { top: insets.top + 30 }]} //햄버거 메뉴 상하 위치 조절
+          style={[styles.hamburgerButton, { top: insets.top + 28 }]} //햄버거 메뉴 상하 위치 조절
           onPress={() => setShowHamburgerMenu(!showHamburgerMenu)}
           activeOpacity={0.7}
         >
@@ -363,7 +363,7 @@ const HomeScreen = () => {
         <View
           style={[
             styles.statusBarContainer,
-            { paddingTop: insets.top + 90, maxWidth: Math.min(280, screenWidth - 80) }, //상태창 상하 위치 조절
+            { paddingTop: insets.top + 80, maxWidth: Math.min(280, screenWidth - 80) }, //상태창 상하 위치 조절
           ]}
         >
           <TouchableOpacity
