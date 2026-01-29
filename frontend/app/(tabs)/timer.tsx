@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Asset } from "expo-asset";
 import HomeButton from "../../components/HomeButton";
 import styles from "../../features/timer/styles";
 import {
@@ -622,7 +623,6 @@ export default function TimerScreen() {
             });
           }}
           onResetWorkoutDuration={() => setWorkoutDurationMs(DEFAULT_WORKOUT_DURATION_MS)}
-          animalType={animalType}
         />
       )}
 
@@ -685,7 +685,6 @@ function TimerLanding({
   workoutDurationMs,
   onAdjustWorkoutDuration,
   onResetWorkoutDuration,
-  animalType,
 }: {
   mode: Mode;
   onModeChange: (next: Mode) => void;
@@ -699,33 +698,12 @@ function TimerLanding({
   workoutDurationMs: number;
   onAdjustWorkoutDuration: (deltaMs: number) => void;
   onResetWorkoutDuration: () => void;
-  animalType: string | null;
 }) {
   const isWeight = mode === "weight";
   const isInterval = mode === "interval";
 
   const { selectedClock } = useCustomization();
   const insets = useSafeAreaInsets();
-
-  // 동물 타입에 따라 애니메이션 이미지 경로 결정
-  const getAnimationImage = () => {
-    const type = animalType || "dog";
-    
-    switch (type) {
-      case "dog":
-        return require("../../assets/images/animation/dog/dog1.png");
-      case "capybara":
-        return require("../../assets/images/animation/capibara/capibara1.png");
-      case "fox":
-        return require("../../assets/images/animation/fox/fox1.png");
-      case "guinea_pig":
-        return require("../../assets/images/animation/ginipig/ginipig1.png");
-      case "red_panda":
-        return require("../../assets/images/animation/red_panda/red_panda1.png");
-      default:
-        return require("../../assets/images/animation/dog/dog1.png");
-    }
-  };
 
   return (
     <View style={[styles.landingContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
@@ -741,15 +719,6 @@ function TimerLanding({
       
       {/* 메인 콘텐츠 영역 */}
       <View style={styles.landingMainContent}>
-        <View style={styles.clockContainer}>
-          <Image
-            source={getAnimationImage()}
-            style={styles.animationImage}
-            accessibilityRole="image"
-            accessibilityLabel="애니메이션"
-          />
-        </View>
-
         <View style={styles.modeSwitcher}>
           <ModeToggle
             isActive={mode === "aerobic"}
@@ -1028,25 +997,159 @@ function TimerRunning({
   workoutRemainingMs?: number;
   animalType?: string | null;
 }) {
-  // 동물 타입에 따라 애니메이션 이미지 경로 결정
-  const getAnimationImage = () => {
+  const foxRunningFrames = useMemo(
+    () => [
+      require("../../assets/images/animation/fox/fox_running/0.png"),
+      require("../../assets/images/animation/fox/fox_running/1.png"),
+      require("../../assets/images/animation/fox/fox_running/2.png"),
+      require("../../assets/images/animation/fox/fox_running/3.png"),
+      require("../../assets/images/animation/fox/fox_running/4.png"),
+      require("../../assets/images/animation/fox/fox_running/5.png"),
+      require("../../assets/images/animation/fox/fox_running/6.png"),
+      require("../../assets/images/animation/fox/fox_running/7.png"),
+    ],
+    []
+  );
+  const dogRunningFrames = useMemo(
+    () => [
+      require("../../assets/images/animation/dog/dog_running/0.png"),
+      require("../../assets/images/animation/dog/dog_running/1.png"),
+      require("../../assets/images/animation/dog/dog_running/2.png"),
+      require("../../assets/images/animation/dog/dog_running/3.png"),
+      require("../../assets/images/animation/dog/dog_running/4.png"),
+      require("../../assets/images/animation/dog/dog_running/5.png"),
+      require("../../assets/images/animation/dog/dog_running/6.png"),
+      require("../../assets/images/animation/dog/dog_running/7.png"),
+    ],
+    []
+  );
+  const capybaraRunningFrames = useMemo(
+    () => [
+      require("../../assets/images/animation/capibara/capibara_running/0.png"),
+      require("../../assets/images/animation/capibara/capibara_running/1.png"),
+      require("../../assets/images/animation/capibara/capibara_running/2.png"),
+      require("../../assets/images/animation/capibara/capibara_running/3.png"),
+      require("../../assets/images/animation/capibara/capibara_running/4.png"),
+      require("../../assets/images/animation/capibara/capibara_running/5.png"),
+      require("../../assets/images/animation/capibara/capibara_running/6.png"),
+      require("../../assets/images/animation/capibara/capibara_running/7.png"),
+    ],
+    []
+  );
+  const redPandaRunningFrames = useMemo(
+    () => [
+      require("../../assets/images/animation/red_panda/red_panda_running/0.png"),
+      require("../../assets/images/animation/red_panda/red_panda_running/1.png"),
+      require("../../assets/images/animation/red_panda/red_panda_running/2.png"),
+      require("../../assets/images/animation/red_panda/red_panda_running/3.png"),
+      require("../../assets/images/animation/red_panda/red_panda_running/4.png"),
+      require("../../assets/images/animation/red_panda/red_panda_running/5.png"),
+      require("../../assets/images/animation/red_panda/red_panda_running/6.png"),
+      require("../../assets/images/animation/red_panda/red_panda_running/7.png"),
+    ],
+    []
+  );
+  const guineaPigRunningFrames = useMemo(
+    () => [
+      require("../../assets/images/animation/ginipig/ginipig_running/0.png"),
+      require("../../assets/images/animation/ginipig/ginipig_running/1.png"),
+      require("../../assets/images/animation/ginipig/ginipig_running/2.png"),
+      require("../../assets/images/animation/ginipig/ginipig_running/3.png"),
+      require("../../assets/images/animation/ginipig/ginipig_running/4.png"),
+      require("../../assets/images/animation/ginipig/ginipig_running/5.png"),
+      require("../../assets/images/animation/ginipig/ginipig_running/6.png"),
+      require("../../assets/images/animation/ginipig/ginipig_running/7.png"),
+    ],
+    []
+  );
+
+  const getAnimationFrames = useCallback(() => {
     const type = animalType || "dog";
-    
     switch (type) {
       case "dog":
-        return require("../../assets/images/animation/dog/dog1.png");
+        return dogRunningFrames;
       case "capybara":
-        return require("../../assets/images/animation/capibara/capibara1.png");
+        return capybaraRunningFrames;
       case "fox":
-        return require("../../assets/images/animation/fox/fox1.png");
+        return foxRunningFrames;
       case "guinea_pig":
-        return require("../../assets/images/animation/ginipig/ginipig1.png");
+        return guineaPigRunningFrames;
       case "red_panda":
-        return require("../../assets/images/animation/red_panda/red_panda1.png");
+        return redPandaRunningFrames;
       default:
-        return require("../../assets/images/animation/dog/dog1.png");
+        return [require("../../assets/images/animation/dog/dog_running/0.png")];
     }
-  };
+  }, [
+    animalType,
+    foxRunningFrames,
+    capybaraRunningFrames,
+    dogRunningFrames,
+    redPandaRunningFrames,
+    guineaPigRunningFrames,
+  ]);
+
+  const animationFrames = useMemo(() => getAnimationFrames(), [getAnimationFrames]);
+  const [frameIndex, setFrameIndex] = useState(0);
+  const [framesReady, setFramesReady] = useState(false);
+  const frameTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isNewInterval = mode === "interval";
+  const animationActive =
+    !isResting && !isPaused && (!isNewInterval || isWorking);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const preloadFrames = async () => {
+      try {
+        const assets = animationFrames.map((frame) => Asset.fromModule(frame));
+        await Promise.all(assets.map((asset) => asset.downloadAsync()));
+      } catch (error) {
+        console.warn("애니메이션 프레임 로드 실패:", error);
+      } finally {
+        if (!cancelled) {
+          setFramesReady(true);
+        }
+      }
+    };
+
+    setFramesReady(false);
+    preloadFrames();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [animationFrames]);
+
+  useEffect(() => {
+    if (!framesReady || !animationActive || animationFrames.length <= 1) {
+      if (frameTimerRef.current) {
+        clearInterval(frameTimerRef.current);
+        frameTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (frameTimerRef.current) {
+      clearInterval(frameTimerRef.current);
+    }
+
+    frameTimerRef.current = setInterval(() => {
+      setFrameIndex((prev) => (prev + 1) % animationFrames.length);
+    }, 80);
+
+    return () => {
+      if (frameTimerRef.current) {
+        clearInterval(frameTimerRef.current);
+        frameTimerRef.current = null;
+      }
+    };
+  }, [animationActive, animationFrames, framesReady]);
+
+  useEffect(() => {
+    setFrameIndex(0);
+  }, [animalType]);
+  const safeFrameIndex =
+    animationFrames.length > 0 ? frameIndex % animationFrames.length : 0;
 
   const lapEntries = useMemo(() => {
     if (mode !== "aerobic") {
@@ -1063,7 +1166,6 @@ function TimerRunning({
     });
   }, [laps, mode]);
 
-  const isNewInterval = mode === "interval";
   const timerStateLabel = isNewInterval
     ? isWorking
       ? "운동 중"
@@ -1083,16 +1185,24 @@ function TimerRunning({
   return (
     <View style={styles.runningContainer}>
       {/* 애니메이션 이미지 (시간 위에 표시) */}
-      {!isResting && (
-        <View style={styles.animationContainer}>
+      <View style={[styles.animationContainer, { position: "relative" }]}>
+        {animationFrames.map((frame, index) => (
           <Image
-            source={getAnimationImage()}
-            style={styles.runningAnimationImage}
+            key={index}
+            source={frame}
+            style={[
+              styles.runningAnimationImage,
+              {
+                position: "absolute",
+                opacity: framesReady && index === safeFrameIndex ? 1 : 0,
+              },
+            ]}
             accessibilityRole="image"
             accessibilityLabel="애니메이션"
+            fadeDuration={0}
           />
-        </View>
-      )}
+        ))}
+      </View>
       <View style={styles.timerDisplay}>
         <Text style={styles.timerDigits}>{formatDuration(elapsedMs)}</Text>
         <Text style={styles.timerStateLabel}>{timerStateLabel}</Text>

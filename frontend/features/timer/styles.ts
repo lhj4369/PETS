@@ -253,7 +253,10 @@ const styles = StyleSheet.create({
   animationContainer: {
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: -20,
+    width: 200,
+    height: 200,
+    alignSelf: "center",
+    marginBottom: 16,
   },
   runningAnimationImage: {
     width: 200,
