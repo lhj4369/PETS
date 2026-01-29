@@ -404,15 +404,17 @@ export default function TimerScreen() {
   const handleConfirmSummary = async () => {
     if (!summary) return;
     
-    // 이미 저장했으면 다시 저장하지 않음
+    // 이미 저장했으면 바로 초기 화면으로 이동
     if (hasSavedRecord) {
+      handleReturnToLanding();
       return;
     }
     
     try {
       await saveWorkoutRecord(summary, false);
       setHasSavedRecord(true);
-      Alert.alert("완료", "운동 기록이 저장되었습니다.");
+      // 저장 후 초기 화면으로 이동
+      handleReturnToLanding();
     } catch (error: any) {
       Alert.alert("오류", error?.message ?? "운동 기록 저장 중 문제가 발생했습니다.");
     }
