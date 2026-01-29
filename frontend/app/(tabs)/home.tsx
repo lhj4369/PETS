@@ -322,7 +322,7 @@ const HomeScreen = () => {
               style={styles.hamburgerMenuItem}
               onPress={() => {
                 setShowHamburgerMenu(false);
-                router.push("/(tabs)/chat" as any);
+                router.push("/(tabs)/chatting" as any);
               }}
               activeOpacity={0.7}
             >
