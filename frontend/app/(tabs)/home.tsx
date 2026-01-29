@@ -295,7 +295,7 @@ const HomeScreen = () => {
 
   return (
     <ImageBackground
-      source={require("../../assets/images/background_test3.png")}
+      source={selectedBackground ?? DEFAULT_BACKGROUND_IMAGE}
       style={styles.background}
       resizeMode="contain"
     >
