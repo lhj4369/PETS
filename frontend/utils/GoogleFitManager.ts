@@ -561,7 +561,7 @@ class GoogleFitManager {
           ...session,
           application: {
             name: 'PETS',
-            packageName: 'com.pets.app',
+            packageName: 'com.petshealth.app',
           },
         }),
       }

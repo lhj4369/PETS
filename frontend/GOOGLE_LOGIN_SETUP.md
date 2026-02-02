@@ -17,7 +17,7 @@
 
 5. **정보 입력**
    - **이름**: 예) "PETS iOS" (원하는 이름)
-   - **번들 ID**: `com.pets.app`
+   - **번들 ID**: `com.petshealth.app`
      - Android 패키지 이름과 동일하게 설정되어 있습니다
      - 다른 번들 ID를 사용하려면 `app.json`의 `ios.bundleIdentifier`도 변경해야 합니다
 
@@ -78,8 +78,8 @@ npx eas build --platform ios
 
 ### 필요한 클라이언트 ID 3개:
 1. ✅ **웹 클라이언트 ID** - Web 애플리케이션 타입
-2. ✅ **안드로이드 클라이언트 ID** - Android 타입 (패키지: `com.pets.app`)
-3. ✅ **iOS 클라이언트 ID** - iOS 타입 (번들 ID: `com.pets.app`)
+2. ✅ **안드로이드 클라이언트 ID** - Android 타입 (패키지: `com.petshealth.app`)
+3. ✅ **iOS 클라이언트 ID** - iOS 타입 (번들 ID: `com.petshealth.app`)
 
 ### .env 파일 예시:
 ```bash
@@ -88,7 +88,7 @@ EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=your_android_client_id.apps.googleuserconte
 EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=your_ios_client_id.apps.googleusercontent.com
 ```
 
-**참고**: Android와 iOS가 동일한 패키지/번들 ID (`com.pets.app`)를 사용하므로 일관성이 유지됩니다.
+**참고**: Android와 iOS가 동일한 패키지/번들 ID (`com.petshealth.app`)를 사용하므로 일관성이 유지됩니다.
 
 ## 문제 해결
 

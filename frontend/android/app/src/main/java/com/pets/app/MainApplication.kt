@@ -1,4 +1,4 @@
-package com.pets.app
+package com.petshealth.app
 
 import android.app.Application
 import android.content.res.Configuration

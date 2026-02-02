@@ -1,4 +1,4 @@
-package com.pets.app
+package com.petshealth.app
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
