@@ -44,13 +44,15 @@ export default function LoginScreen() {
 
   // Google 인증 요청을 위한 훅 초기화
   // Android에서는 useAuthRequest가 커스텀 URI 스킴을 사용하려고 해서 오류가 발생할 수 있습니다
-  // Android에서는 androidClientId만 제공하고, expo-auth-session이 자동으로 처리하도록 합니다
+  // Android에서는 androidClientId만 제공하고, webClientId를 전혀 전달하지 않아야 합니다
+  // expo-auth-session이 Android에서 자동으로 올바른 플로우를 사용하도록 합니다
   const [request, response, promptAsync] = Google.useAuthRequest(
     Platform.OS === 'android'
       ? {
           // Android에서는 androidClientId만 사용
           androidClientId: androidClientId,
-          // webClientId는 Android에서 사용하지 않음 (커스텀 URI 스킴 오류 방지)
+          // webClientId는 전혀 전달하지 않음 (커스텀 URI 스킴 오류 방지)
+          // expo-auth-session이 Android에서 자동으로 올바른 플로우를 사용하도록 함
         }
       : {
           // iOS와 Web에서는 기존 설정 사용

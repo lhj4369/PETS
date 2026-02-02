@@ -93,7 +93,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0.0"
+        versionName "1.0.4"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
@@ -179,8 +179,4 @@ dependencies {
     } else {
         implementation jscFlavor
     }
-
-    // Google Fit API
-    implementation("com.google.android.gms:play-services-fitness:21.2.0")
-    implementation("com.google.android.gms:play-services-auth:21.2.0")
 }
