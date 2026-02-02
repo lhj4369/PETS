@@ -37,7 +37,7 @@ export default function LoginScreen() {
       console.log("Android Client ID:", androidClientId ? `${androidClientId.substring(0, 20)}...` : "❌ 없음");
       console.log("iOS Client ID:", iosClientId ? `${iosClientId.substring(0, 20)}...` : "❌ 없음");
       console.log("현재 플랫폼 Client ID:", getCurrentPlatformClientId() ? `${getCurrentPlatformClientId().substring(0, 20)}...` : "❌ 없음");
-      console.log("패키지 이름 (app.json):", Platform.OS === "android" ? "com.idog.googlelogin" : "com.idog.googlelogin");
+      console.log("패키지 이름 (app.json):", Platform.OS === "android" ? "com.pets.app" : "com.pets.app");
       console.log("=====================================");
     }
   }, []);
@@ -207,10 +207,10 @@ export default function LoginScreen() {
         errorMessage = 
           `구글 OAuth 클라이언트를 찾을 수 없습니다.\n\n` +
           `현재 플랫폼: ${platformName}\n` +
-          `패키지/번들 ID: com.idog.googlelogin\n\n` +
+          `패키지/번들 ID: com.pets.app\n\n` +
           `확인 사항:\n` +
           `1. Google Cloud Console에서 ${platformName} OAuth 클라이언트 ID 확인\n` +
-          `2. 패키지 이름이 정확히 "com.idog.googlelogin"인지 확인\n` +
+          `2. 패키지 이름이 정확히 "com.pets.app"인지 확인\n` +
           `3. EAS Secrets에 저장된 클라이언트 ID가 올바른지 확인\n` +
           `4. 최신 빌드를 다시 생성했는지 확인\n\n` +
           `디버깅: 개발자 콘솔에서 클라이언트 ID를 확인하세요.`;

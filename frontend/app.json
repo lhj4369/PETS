@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.idog.googlelogin"
+      "bundleIdentifier": "com.pets.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +19,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.idog.googlelogin"
+      "package": "com.pets.app"
     },
     "web": {
       "output": "static",
