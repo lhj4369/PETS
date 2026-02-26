@@ -6,7 +6,10 @@ import { db } from './db.js';
 import authRouter from './routes/auth.js';
 import workoutRouter from './routes/workout.js';
 import achievementsRouter from './routes/achievements.js';
+import questsRouter from './routes/quests.js';
+import challengesRouter from './routes/challenges.js';
 import chatRouter from './routes/chat.js';
+import itemsRouter from './routes/items.js';
 
 dotenv.config();
 const app = express();
@@ -17,7 +20,10 @@ app.use(express.json());
 app.use('/api/auth', authRouter);
 app.use('/api/workout', workoutRouter);
 app.use('/api/achievements', achievementsRouter);
+app.use('/api/quests', questsRouter);
+app.use('/api/challenges', challengesRouter);
 app.use('/api/chat', chatRouter);
+app.use('/api/items', itemsRouter);
 
 app.get('/', (req, res) => {
   res.send('PETS Backend is running!');

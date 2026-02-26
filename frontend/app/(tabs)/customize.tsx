@@ -13,6 +13,8 @@ import summer from "../../assets/images/background/summer.png";
 import fall from "../../assets/images/background/fall.png";
 import winter from "../../assets/images/background/winter.png";
 import city from "../../assets/images/background/city.png";
+import city1 from "../../assets/images/background/city-1.png";
+import healthclub from "../../assets/images/background/healthclub.png";
 import home from "../../assets/images/background/home.png";
 import cute from "../../assets/images/clocks/cute.png";
 import alarm from "../../assets/images/clocks/alarm.png";
@@ -39,8 +41,10 @@ const backgrounds = [
   { name: '봄', src: spring },
   { name: '여름', src: summer },
   { name: '도시', src: city },
+  { name: '도시2', src: city1 },
   { name: '가을', src: fall },
   { name: '겨울', src: winter },
+  { name: '헬스장', src: healthclub },
 ];
 
 const clocks = [
