@@ -6,13 +6,8 @@ import { useWindowDimensions } from "react-native";
 
 export default function Navigator() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const showButton = true; // 버튼 표시 여부: true = 보임, false = 숨김
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
-
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
 
   const closeMenu = () => {
     setIsMenuOpen(false);
@@ -43,17 +38,15 @@ export default function Navigator() {
   return (
     <>
       {/* 우측 중단 메뉴 버튼 */}
-      {showButton && (
-        <TouchableOpacity 
+      <TouchableOpacity 
           style={[
             styles.floatingButton,
             { top: buttonTop }
           ]} 
-          onPress={() => setIsMenuOpen(!isMenuOpen)}
+          onPress={() => setIsMenuOpen((prev) => !prev)}
         >
           <Text style={styles.buttonText}>☰</Text>
         </TouchableOpacity>
-      )}
 
       {/* 플로팅 메뉴 */}
       <Modal

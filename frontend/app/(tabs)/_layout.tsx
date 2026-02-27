@@ -20,7 +20,6 @@ export default function TabsLayout() {
         <Tabs.Screen name="settings" options={{ title: "설정" }} />
         <Tabs.Screen name="chatting" options={{ title: "채팅" }} />
         <Tabs.Screen name="quest" options={{ title: "퀘스트" }} />
-        <Tabs.Screen name="item" options={{ title: "아이템" }} />
         <Tabs.Screen name="customize" options={{ title: "커스터마이징" }} />
       </Tabs>
       {/* Navigator는 모든 tabs 화면에 전역으로 표시됩니다 */}
