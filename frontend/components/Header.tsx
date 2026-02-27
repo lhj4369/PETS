@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 interface HeaderProps {
   showBackButton?: boolean;
   showMenuButton?: boolean;
-  menuType?: 'home' | 'timer' | 'records' | 'ranking' | 'challenges' | 'settings' | 'customize' | 'chatting' | 'achievement';
+  menuType?: 'home' | 'timer' | 'records' | 'ranking' | 'challenges' | 'settings' | 'customize' | 'chatting' | 'quest';
 }
 
 export default function Header({ showBackButton = false, showMenuButton = true, menuType = 'home' }: HeaderProps) {
@@ -39,7 +39,7 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
           { label: '랭킹', screen: 'ranking' },      
           { label: '기록 도전', screen: 'challenges' },            
           { label: '채팅', screen: 'chatting' },
-          { label: '업적', screen: 'achievement' },
+          { label: '퀘스트', screen: 'quest' },
           { label: '커스터마이징', screen: 'customize' },
           { label: '설정', screen: 'settings' }, 
       ];
@@ -50,7 +50,7 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
           { label: '랭킹', screen: 'ranking' },      
           { label: '기록 도전', screen: 'challenges' },            
           { label: '채팅', screen: 'chatting' },
-          { label: '업적', screen: 'achievement' },
+          { label: '퀘스트', screen: 'quest' },
           { label: '커스터마이징', screen: 'customize' },
           { label: '설정', screen: 'settings' }, 
       ];
@@ -61,7 +61,7 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
           { label: '운동 기록', screen: 'records' },
           { label: '기록 도전', screen: 'challenges' },            
           { label: '채팅', screen: 'chatting' },
-          { label: '업적', screen: 'achievement' },
+          { label: '퀘스트', screen: 'quest' },
           { label: '커스터마이징', screen: 'customize' },
           { label: '설정', screen: 'settings' }, 
       ];
@@ -72,7 +72,7 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
             { label: '운동 기록', screen: 'records' },
             { label: '랭킹', screen: 'ranking' },            
             { label: '채팅', screen: 'chatting' },
-            { label: '업적', screen: 'achievement' },
+            { label: '퀘스트', screen: 'quest' },
             { label: '커스터마이징', screen: 'customize' },
             { label: '설정', screen: 'settings' }, 
         ];
@@ -84,7 +84,7 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
             { label: '랭킹', screen: 'ranking' },
             { label: '기록 도전', screen: 'challenges' },
             { label: '채팅', screen: 'chatting' },
-            { label: '업적', screen: 'achievement' },
+            { label: '퀘스트', screen: 'quest' },
             { label: '커스터마이징', screen: 'customize' },
           ];
       case 'customize':
@@ -95,7 +95,7 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
             { label: '랭킹', screen: 'ranking' },
             { label: '기록 도전', screen: 'challenges' },
             { label: '채팅', screen: 'chatting' },
-            { label: '업적', screen: 'achievement' },
+            { label: '퀘스트', screen: 'quest' },
             { label: '설정', screen: 'settings' }, 
         ];
       case 'chatting':
@@ -105,11 +105,11 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
             { label: '운동 기록', screen: 'records' },
             { label: '랭킹', screen: 'ranking' },
             { label: '기록 도전', screen: 'challenges' },
-            { label: '업적', screen: 'achievement' },
+            { label: '퀘스트', screen: 'quest' },
             { label: '커스터마이징', screen: 'customize' },
             { label: '설정', screen: 'settings' },
         ];
-      case 'achievement':
+      case 'quest':
         return [
             { label: '홈', screen: 'home' },
             { label: '타이머', screen: 'timer' },
@@ -127,7 +127,7 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
           { label: '랭킹', screen: 'ranking' },
           { label: '기록 도전', screen: 'challenges' },
           { label: '채팅', screen: 'chatting' },
-          { label: '업적', screen: 'achievement' },
+          { label: '퀘스트', screen: 'quest' },
           { label: '커스터마이징', screen: 'customize' },
           { label: '설정', screen: 'settings' },          
         ];

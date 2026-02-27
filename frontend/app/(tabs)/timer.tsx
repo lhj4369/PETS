@@ -7,6 +7,7 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
+  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -739,6 +740,15 @@ function TimerLanding({
           />
         </View>
 
+        {/* Track 배경 이미지 - 타이머 메뉴 선택 시 표시 */}
+        <View style={styles.trackImageContainer}>
+          <Image
+            source={require("../../assets/images/background/Track.png")}
+            style={styles.trackImage}
+            resizeMode="cover"
+          />
+        </View>
+
         <TouchableOpacity
           style={styles.startWorkoutButton}
           onPress={onStart}
@@ -1186,24 +1196,33 @@ function TimerRunning({
 
   return (
     <View style={styles.runningContainer}>
-      {/* 애니메이션 이미지 (시간 위에 표시) */}
-      <View style={[styles.animationContainer, { position: "relative" }]}>
-        {animationFrames.map((frame, index) => (
-          <Image
-            key={index}
-            source={frame}
-            style={[
-              styles.runningAnimationImage,
-              {
-                position: "absolute",
-                opacity: framesReady && index === safeFrameIndex ? 1 : 0,
-              },
-            ]}
-            accessibilityRole="image"
-            accessibilityLabel="애니메이션"
-            fadeDuration={0}
-          />
-        ))}
+      {/* Track 배경 + 애니메이션 오버레이 */}
+      <View style={styles.trackWithAnimationWrapper}>
+        <Image
+          source={require("../../assets/images/background/Track.png")}
+          style={[StyleSheet.absoluteFillObject, styles.trackImage]}
+          resizeMode="cover"
+        />
+        <View style={styles.trackAnimationOverlay}>
+          <View style={[styles.animationContainer, { marginBottom: 0, position: "relative" }]}>
+            {animationFrames.map((frame, index) => (
+            <Image
+              key={index}
+              source={frame}
+              style={[
+                styles.runningAnimationImage,
+                {
+                  position: "absolute",
+                  opacity: framesReady && index === safeFrameIndex ? 1 : 0,
+                },
+              ]}
+              accessibilityRole="image"
+              accessibilityLabel="애니메이션"
+              fadeDuration={0}
+            />
+          ))}
+          </View>
+        </View>
       </View>
       <View style={styles.timerDisplay}>
         <Text style={styles.timerDigits}>{formatDuration(elapsedMs)}</Text>

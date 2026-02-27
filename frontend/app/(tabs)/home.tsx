@@ -23,6 +23,8 @@ import API_BASE_URL from "../../config/api";
 import ChatBubbleButton from "../../components/ChatBubbleButton";
 import SettingsButton from "../../components/SettingsButton";
 import RankingButton from "../../components/RankingButton";
+import QuestModal from "../../components/QuestModal";
+import ItemModal from "../../components/ItemModal";
 import { useCustomization, DEFAULT_ANIMAL_IMAGE, DEFAULT_BACKGROUND_IMAGE } from "../../context/CustomizationContext";
 import { getBackgroundTypeFromImage, getClockTypeFromImage, getBackgroundImageFromType, getClockImageFromType } from "../../utils/customizationUtils";
 
@@ -72,6 +74,8 @@ const HomeScreen = () => {
   const [pendingAnimal, setPendingAnimal] = useState<AnimalId | null>(null);
   const [showAnimalConfirm, setShowAnimalConfirm] = useState(false);
   const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
+  const [showQuestModal, setShowQuestModal] = useState(false);
+  const [showItemModal, setShowItemModal] = useState(false);
 
   const [selectedAnimalId, setSelectedAnimalId] = useState<AnimalId | null>(null);
   const [nickname, setNickname] = useState("");
@@ -206,7 +210,6 @@ const HomeScreen = () => {
   const navigateToTimer = () => router.push("/(tabs)/timer" as any);
   const navigateToRecords = () => router.push("/(tabs)/records" as any);
   const navigateToRanking = () => router.push("/(tabs)/ranking" as any);
-  const navigateToAchievement = () => router.push("/(tabs)/achievement" as any);
   const navigateToCustomize = () => router.push("/(tabs)/customize" as any);
 
   const handleSaveProfile = async () => {
@@ -328,6 +331,48 @@ const HomeScreen = () => {
             >
               <Text style={styles.hamburgerMenuIcon}>💬</Text>
               <Text style={styles.hamburgerMenuText}>채팅</Text>
+            </TouchableOpacity>
+
+            <View style={styles.hamburgerMenuDivider} />
+
+            <TouchableOpacity 
+              style={styles.hamburgerMenuItem}
+              onPress={() => {
+                setShowHamburgerMenu(false);
+                setShowQuestModal(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.hamburgerMenuIcon}>📋</Text>
+              <Text style={styles.hamburgerMenuText}>퀘스트</Text>
+            </TouchableOpacity>
+
+            <View style={styles.hamburgerMenuDivider} />
+
+            <TouchableOpacity 
+              style={styles.hamburgerMenuItem}
+              onPress={() => {
+                setShowHamburgerMenu(false);
+                setShowItemModal(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.hamburgerMenuIcon}>🎒</Text>
+              <Text style={styles.hamburgerMenuText}>아이템</Text>
+            </TouchableOpacity>
+
+            <View style={styles.hamburgerMenuDivider} />
+
+            <TouchableOpacity 
+              style={styles.hamburgerMenuItem}
+              onPress={() => {
+                setShowHamburgerMenu(false);
+                router.push("/(tabs)/challenges" as any);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.hamburgerMenuIcon}>🔥</Text>
+              <Text style={styles.hamburgerMenuText}>기록도전</Text>
             </TouchableOpacity>
 
             <View style={styles.hamburgerMenuDivider} />
@@ -485,7 +530,7 @@ const HomeScreen = () => {
           >
             <TouchableOpacity
               style={[styles.trophyButton, { width: trophyWidth, height: trophyHeight }]}
-              onPress={navigateToAchievement}
+              onPress={() => setShowQuestModal(true)}
               activeOpacity={0.8}
             >
               <Image
@@ -493,7 +538,7 @@ const HomeScreen = () => {
                 style={[styles.trophyButtonIcon, { width: trophyWidth, height: trophyHeight }]}
               />
             </TouchableOpacity>
-            <Text style={styles.objectLabel}>업적</Text>
+            <Text style={styles.objectLabel}>퀘스트</Text>
           </View>
         </View>
 
@@ -610,6 +655,16 @@ const HomeScreen = () => {
             </ScrollView>
           </View>
         </Modal>
+
+        <QuestModal
+          visible={showQuestModal}
+          onClose={() => setShowQuestModal(false)}
+          onProfileRefresh={fetchProfile}
+        />
+        <ItemModal
+          visible={showItemModal}
+          onClose={() => setShowItemModal(false)}
+        />
       </SafeAreaView>
     </ImageBackground>
   );

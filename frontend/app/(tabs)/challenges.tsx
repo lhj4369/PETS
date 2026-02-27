@@ -1,88 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, SafeAreaView, Modal, Alert, Image, Platform } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  Modal,
+  Alert,
+  ImageBackground,
+  Platform,
+} from "react-native";
 import HomeButton from "../../components/HomeButton";
+import AuthManager from "../../utils/AuthManager";
+import API_BASE_URL from "../../config/api";
 
-type ChallengeStage = {
-  stage: number;
-  distanceKm: number;
-  timeMinutes: number;
-  reward: string;
-  note: string;
-};
-
-type ChallengeTheme = {
-  id: string;
-  title: string;
-  subtitle: string;
-  accent: string;
-  background: string;
-  description: string;
-  stages: ChallengeStage[];
-};
-
-type ResultPayload = {
-  success: boolean;
-  title: string;
-  subtitle: string;
-};
-
-const RUN_STAGES: ChallengeStage[] = [
-  {
-    stage: 1,
-    distanceKm: 2,
-    timeMinutes: 15,
-    reward: "미정",
-    note: "워밍업 단계, 평균 페이스 7'30\"/km",
-  },
-  {
-    stage: 2,
-    distanceKm: 2.5,
-    timeMinutes: 15,
-    reward: "미정",
-    note: "지속 페이스 6'00\"/km 유지",
-  },
-  {
-    stage: 3,
-    distanceKm: 3,
-    timeMinutes: 16,
-    reward: "미정",
-    note: "템포 러닝, 페이스 5'20\"/km",
-  },
-  {
-    stage: 4,
-    distanceKm: 3.5,
-    timeMinutes: 17,
-    reward: "미정",
-    note: "지속주와 스퍼트 혼합",
-  },
-  {
-    stage: 5,
-    distanceKm: 4,
-    timeMinutes: 18,
-    reward: "미정",
-    note: "레이스 시뮬레이션 단계",
-  },
-];
-
-const THEMES: ChallengeTheme[] = [
-  {
-    id: "time-attack-run",
-    title: "타임어택 러닝",
-    subtitle: "주어진 시간 안에 완주하세요",
-    accent: "#FF6B6B",
-    background: "#FFF3F3",
-    description: "외부 러닝 데이터, GPS, 러닝 플랫폼 API를 연동해 기록을 검증하는 모드입니다.",
-    stages: RUN_STAGES,
-  },
-  {
-    id: "distance-control",
-    title: "페이스 조절",
-    subtitle: "목표 페이스 유지 훈련",
-    accent: "#4ECDC4",
-    background: "#EEFFFD",
-    description: "향후 페이스 메이커 기능, 실시간 오디오 코칭을 연동할 예정입니다.",
-    stages: RUN_STAGES,
-  },
+const STAGES = [
+  { stage: 1, distanceKm: 3, timeMinutes: 15 },
+  { stage: 2, distanceKm: 3, timeMinutes: 14 },
+  { stage: 3, distanceKm: 3, timeMinutes: 13 },
+  { stage: 4, distanceKm: 3, timeMinutes: 12 },
+  { stage: 5, distanceKm: 3, timeMinutes: 11 },
+  { stage: 6, distanceKm: 3, timeMinutes: 10 },
 ];
 
 const formatSeconds = (value: number) => {
@@ -95,28 +34,48 @@ const formatSeconds = (value: number) => {
   return `${minutes}:${seconds}`;
 };
 
+const GLOW_COLOR = "#38BDF8";
+const GLOW_INTENSE = "#7DD3FC";
+
 export default function ChallengesScreen() {
-  const [selectedThemeId, setSelectedThemeId] = useState(THEMES[0].id);
+  const [highestStage, setHighestStage] = useState(0);
   const [selectedStage, setSelectedStage] = useState<number | null>(null);
   const [mode, setMode] = useState<"setup" | "running" | "result">("setup");
   const [timeLeft, setTimeLeft] = useState(0);
   const [distanceTracked, setDistanceTracked] = useState(0);
-  const [result, setResult] = useState<ResultPayload | null>(null);
-  const [isThemeModalVisible, setThemeModalVisible] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; title: string; subtitle: string } | null>(null);
   const [isStageModalVisible, setStageModalVisible] = useState(false);
-  const [tempStage, setTempStage] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const selectedTheme = useMemo(
-    () => THEMES.find((theme) => theme.id === selectedThemeId),
-    [selectedThemeId]
-  );
+  const nextUnlockedStage = highestStage + 1;
   const activeStage = useMemo(
-    () => selectedTheme?.stages.find((stage) => stage.stage === selectedStage) ?? null,
-    [selectedTheme, selectedStage]
+    () => STAGES.find((s) => s.stage === selectedStage) ?? null,
+    [selectedStage]
   );
   const totalSeconds = activeStage ? activeStage.timeMinutes * 60 : 0;
   const distanceProgress = activeStage ? distanceTracked / activeStage.distanceKm : 0;
   const timeProgress = totalSeconds ? (totalSeconds - timeLeft) / totalSeconds : 0;
+
+  const fetchProgress = async () => {
+    try {
+      const headers = await AuthManager.getAuthHeader();
+      if (!headers.Authorization) return;
+      const res = await fetch(`${API_BASE_URL}/api/challenges`, { headers });
+      if (!res.ok) throw new Error("조회 실패");
+      const data = await res.json();
+      const highest = data.highestStage ?? 0;
+      setHighestStage(highest);
+      setSelectedStage((prev) => prev ?? data.nextStage ?? 1);
+    } catch (e) {
+      console.error("기록도전 조회 실패:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProgress();
+  }, []);
 
   const resetToSetup = () => {
     setMode("setup");
@@ -126,22 +85,32 @@ export default function ChallengesScreen() {
   };
 
   const handleStart = () => {
-    if (!activeStage) {
-      return;
-    }
+    if (!activeStage) return;
     setDistanceTracked(0);
     setTimeLeft(activeStage.timeMinutes * 60);
     setResult(null);
     setMode("running");
   };
 
-  useEffect(() => {
-    if (mode !== "running" || !activeStage) {
-      return;
+  const recordCompletion = async () => {
+    if (!activeStage) return;
+    try {
+      const headers = await AuthManager.getAuthHeader();
+      if (!headers.Authorization) return;
+      await fetch(`${API_BASE_URL}/api/challenges/complete`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ stage: activeStage.stage }),
+      });
+      setHighestStage((prev) => Math.max(prev, activeStage.stage));
+    } catch (e) {
+      console.error("완료 기록 실패:", e);
     }
-    const total = activeStage.timeMinutes * 60;
-    const distancePerSecond = activeStage.distanceKm / total;
+  };
 
+  useEffect(() => {
+    if (mode !== "running" || !activeStage) return;
+    const distancePerSecond = activeStage.distanceKm / (activeStage.timeMinutes * 60);
     const timer = setInterval(() => {
       setTimeLeft((prev) => Math.max(prev - 1, 0));
       setDistanceTracked((prev) => {
@@ -149,15 +118,11 @@ export default function ChallengesScreen() {
         return Number(next.toFixed(3));
       });
     }, 1000);
-
     return () => clearInterval(timer);
   }, [mode, activeStage]);
 
   useEffect(() => {
-    if (mode !== "running" || !activeStage) {
-      return;
-    }
-
+    if (mode !== "running" || !activeStage) return;
     const total = activeStage.timeMinutes * 60;
     const elapsed = total - timeLeft;
 
@@ -168,6 +133,7 @@ export default function ChallengesScreen() {
         title: "기록 달성!",
         subtitle: `${activeStage.distanceKm}km 목표를 ${formatSeconds(elapsed)} 안에 완주했어요.`,
       });
+      recordCompletion();
     } else if (timeLeft === 0) {
       setMode("result");
       setResult({
@@ -178,1026 +144,742 @@ export default function ChallengesScreen() {
     }
   }, [timeLeft, distanceTracked, mode, activeStage]);
 
-  const renderSectionTitle = (label: string) => (
-    <Text style={styles.sectionTitle}>{label}</Text>
-  );
+  const isStageUnlocked = (stageNum: number) => stageNum <= nextUnlockedStage;
+  const isStageCompleted = (stageNum: number) => stageNum <= highestStage;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <HomeButton />
-      <View style={styles.headerBar} pointerEvents="none">
-          <Image
-            source={require("../../assets/images/running_icon.png")}
-            style={styles.headerIcon}
-            resizeMode="contain"
-          />
-      </View>
-      <ScrollView contentContainerStyle={styles.container}>
-
-        {mode === "setup" && (
-          <>
-            <View style={styles.selectorRow}>
-              <TouchableOpacity
-                style={styles.selectorCard}
-                onPress={() => setThemeModalVisible(true)}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.selectorLabel}>도전 테마</Text>
-                <Text style={styles.selectorValue}>{selectedTheme?.title}</Text>
-                <Text style={styles.selectorDesc}>{selectedTheme?.subtitle}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.selectorCard, !selectedTheme && styles.selectorDisabled]}
-                onPress={() => {
-                  if (selectedTheme) {
-                    const defaultStage = selectedStage ?? (selectedTheme.stages[0]?.stage ?? 1);
-                    setTempStage(defaultStage);
-                    setStageModalVisible(true);
-                  }
-                }}
-                activeOpacity={selectedTheme ? 0.85 : 1}
-                disabled={!selectedTheme}
-              >
-                <Text style={styles.selectorLabel}>도전 단계</Text>
-                <Text style={styles.selectorValue}>
-                  {activeStage ? `Level ${activeStage.stage}` : "선택하세요"}
-                </Text>
-                <Text style={styles.selectorDesc}>
-                  {activeStage
-                    ? `${activeStage.distanceKm}km · ${activeStage.timeMinutes}분`
-                    : "1~5단계 중 선택"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <ChallengeSummary
-              activeStage={activeStage}
-              mode={mode}
-              timeLeft={timeLeft}
-              onPressStart={handleStart}
-            />
-          </>
-        )}
-
-        {mode === "running" && activeStage && (
-          <View style={styles.runningSection}>
-            <View style={styles.runningTimerCard}>
-              <Text style={styles.digiTimer}>{formatSeconds(timeLeft)}</Text>
-            </View>
-
-            <View style={styles.runningMetricsCard}>
-              <View style={styles.progressBlock}>
-                <Text style={styles.progressLabel}>경과 시간</Text>
-                <View style={styles.progressBar}>
-                  <View style={[styles.progressFill, { width: `${Math.min(timeProgress * 100, 100)}%` }]} />
-                </View>
-                <Text style={styles.progressValue}>
-                  {(timeProgress * 100).toFixed(0)}% 진행 · 제한 {activeStage.timeMinutes}분
-                </Text>
-              </View>
-
-              <View style={styles.progressBlock}>
-                <Text style={styles.progressLabel}>진행 거리</Text>
-                <View style={styles.progressBar}>
-                  <View style={[styles.progressFillDistance, { width: `${Math.min(distanceProgress * 100, 100)}%` }]} />
-                </View>
-                <Text style={styles.progressValue}>
-                  {distanceTracked.toFixed(2)}km / {activeStage.distanceKm}km
-                </Text>
-              </View>
-
-              <View style={styles.devButtonRow}>
-                <TouchableOpacity
-                  style={[styles.devButton, styles.devFailButton]}
-                  onPress={() => setTimeLeft(0)}
-                >
-                  <Text style={styles.devButtonText}>시간 종료 테스트</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.devButton, styles.devSuccessButton]}
-                  onPress={() => setDistanceTracked(activeStage.distanceKm)}
-                >
-                  <Text style={[styles.devButtonText, { fontFamily: 'KotraHope' }]}>거리 달성 테스트</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.runningDetailsCard}>
-              <Text style={styles.runningExitLabel}>세션 중단이 필요한가요?</Text>
-              <TouchableOpacity style={styles.abortButton} onPress={resetToSetup}>
-                <Text style={styles.abortButtonText}>긴급 종료</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {mode === "result" && activeStage && result && (
-          <>
-            <View style={[styles.resultCard, result.success ? styles.resultSuccess : styles.resultFail]}>
-              <Text style={styles.resultTitle}>{result.title}</Text>
-              <Text style={styles.resultSubtitle}>{result.subtitle}</Text>
-              <View style={styles.resultRow}>
-                <View style={styles.resultColumn}>
-                  <Text style={styles.resultLabel}>누적 거리</Text>
-                  <Text style={styles.resultValue}>{distanceTracked.toFixed(2)}km</Text>
-                </View>
-                <View style={styles.resultColumn}>
-                  <Text style={styles.resultLabel}>제한 시간</Text>
-                  <Text style={styles.resultValue}>{activeStage.timeMinutes}분</Text>
-                </View>
-                <View style={styles.resultColumn}>
-                  <Text style={styles.resultLabel}>보상</Text>
-                  <Text style={styles.resultValue}>{activeStage.reward}</Text>
-                </View>
-              </View>
-            </View>
-            <View style={styles.resultButtons}>
-              <TouchableOpacity style={styles.retryButton} onPress={handleStart}>
-                <Text style={styles.retryText}>같은 단계 재도전</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.backButton} onPress={resetToSetup}>
-                <Text style={styles.backText}>다른 단계 선택</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-      </ScrollView>
-
-      <Modal visible={isThemeModalVisible} animationType="slide" transparent>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>도전 테마 선택</Text>
-            <ScrollView contentContainerStyle={styles.modalContent}>
-              {THEMES.map((theme) => {
-                const isActive = theme.id === selectedThemeId;
-                const isPlannedOnly = theme.id === "distance-control";
-                return (
-                  <TouchableOpacity
-                    key={theme.id}
-                    style={[
-                      styles.modalThemeCard,
-                      { borderColor: theme.accent },
-                      isActive && styles.modalThemeCardActive,
-                      isPlannedOnly && styles.modalThemeCardDisabled,
-                    ]}
-                    onPress={() => {
-                      if (isPlannedOnly) {
-                        Alert.alert("추가 예정", "추후 추가될 예정입니다.");
-                        return;
-                      }
-                      setSelectedThemeId(theme.id);
-                      setSelectedStage(null);
-                      setThemeModalVisible(false);
-                    }}
-                    activeOpacity={0.9}
-                  >
-                    <Text style={[styles.modalThemeTitle, { fontFamily: 'KotraHope' }]}>{theme.title}</Text>
-                    <Text style={styles.modalThemeSubtitle}>
-                      {isPlannedOnly ? "추가 예정" : theme.subtitle}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-            <TouchableOpacity style={styles.modalCloseButton} onPress={() => setThemeModalVisible(false)}>
-              <Text style={styles.modalCloseText}>닫기</Text>
-            </TouchableOpacity>
-          </View>
+    <ImageBackground
+      source={require("../../assets/images/background/Dark.png")}
+      style={styles.background}
+      resizeMode="cover"
+      imageStyle={styles.backgroundImage}
+    >
+      <SafeAreaView style={styles.safeArea}>
+        <HomeButton />
+        <View style={styles.glowOverlay} pointerEvents="none" />
+        <View style={styles.headerBar}>
+          <Text style={styles.headerTitle}>기록 도전</Text>
+          <Text style={styles.headerSubtitle}>3km를 주어진 시간 안에 돌파하세요</Text>
         </View>
-      </Modal>
 
-      <Modal visible={isStageModalVisible} animationType="fade" transparent>
-        <View style={styles.stageModalBackdrop}>
-          <View style={styles.stageModalSheet}>
-            <Text style={styles.modalTitle}>도전 단계 선택</Text>
-            <View style={styles.stagePickerHeader}>
-              {(selectedTheme?.stages ?? []).map((stage) => {
-                const isActive = tempStage === stage.stage;
-                return (
-                  <TouchableOpacity
-                    key={stage.stage}
-                    style={[styles.stageNumButton, isActive && styles.stageNumButtonActive]}
-                    onPress={() => setTempStage(stage.stage)}
-                    activeOpacity={0.9}
-                  >
-                    <Text style={[styles.stageNumText, isActive && styles.stageNumTextActive]}>
-                      {stage.stage}
+        {isLoading ? (
+          <View style={styles.loadingBox}>
+            <Text style={styles.loadingText}>불러오는 중...</Text>
+          </View>
+        ) : (
+          <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+            {mode === "setup" && (
+              <>
+                <TouchableOpacity
+                  style={styles.stageSelectorCard}
+                  onPress={() => setStageModalVisible(true)}
+                  activeOpacity={0.9}
+                >
+                  <View style={styles.stageSelectorGlow} />
+                  <Text style={styles.selectorLabel}>도전 단계</Text>
+                  <Text style={styles.selectorValue}>
+                    {activeStage ? `${activeStage.stage}단계` : `${nextUnlockedStage}단계 선택`}
+                  </Text>
+                  <Text style={styles.selectorDesc}>
+                    {activeStage
+                      ? `${activeStage.distanceKm}km · ${activeStage.timeMinutes}분`
+                      : "1단계부터 순차 도전"}
+                  </Text>
+                </TouchableOpacity>
+
+                <View style={[styles.summaryCard, styles.glowCard]}>
+                  <Text style={styles.summaryTitle}>도전 준비</Text>
+                  {activeStage && (
+                    <View style={styles.summaryLevelBadge}>
+                      <Text style={styles.summaryLevelText}>{activeStage.stage}단계</Text>
+                    </View>
+                  )}
+                  <View style={styles.summaryTimerBlock}>
+                    <Text style={styles.summaryTimer}>
+                      {activeStage ? formatSeconds(activeStage.timeMinutes * 60) : "--:--"}
                     </Text>
+                  </View>
+                  <View style={styles.summaryRow}>
+                    <View style={styles.summaryColumn}>
+                      <Text style={styles.summaryLabel}>목표 거리</Text>
+                      <Text style={styles.summaryValue}>{activeStage ? `${activeStage.distanceKm}km` : "--"}</Text>
+                    </View>
+                    <View style={styles.summaryColumn}>
+                      <Text style={styles.summaryLabel}>제한 시간</Text>
+                      <Text style={styles.summaryValue}>{activeStage ? `${activeStage.timeMinutes}분` : "--"}</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.startButton, !activeStage && styles.startButtonDisabled]}
+                    onPress={handleStart}
+                    disabled={!activeStage}
+                  >
+                    <View style={styles.startButtonGlow} />
+                    <Text style={styles.startButtonText}>도전 시작</Text>
                   </TouchableOpacity>
-                );
-              })}
-            </View>
-            <View style={styles.stageDetailCard}>
-              {(() => {
-                const stage =
-                  (selectedTheme?.stages ?? []).find((s) => s.stage === tempStage) ??
-                  (selectedTheme?.stages[0] ?? null);
-                if (!stage) {
-                  return null;
-                }
-                return (
+                </View>
+              </>
+            )}
+
+            {mode === "running" && activeStage && (
+              <View style={styles.runningSection}>
+                <View style={[styles.runningTimerCard, styles.glowCard]}>
+                  <View style={styles.timerGlow} />
+                  <Text style={styles.digiTimer}>{formatSeconds(timeLeft)}</Text>
+                </View>
+                <View style={[styles.runningMetricsCard, styles.glowCard]}>
+                  <View style={styles.metricsGlow} />
+                  <View style={styles.progressBlock}>
+                    <Text style={styles.progressLabel}>경과 시간</Text>
+                    <View style={styles.progressBar}>
+                      <View style={[styles.progressFill, { width: `${Math.min(timeProgress * 100, 100)}%` }]} />
+                    </View>
+                    <Text style={styles.progressValue}>
+                      {(timeProgress * 100).toFixed(0)}% · 제한 {activeStage.timeMinutes}분
+                    </Text>
+                  </View>
+                  <View style={styles.progressBlock}>
+                    <Text style={styles.progressLabel}>진행 거리</Text>
+                    <View style={styles.progressBar}>
+                      <View style={[styles.progressFillDistance, { width: `${Math.min(distanceProgress * 100, 100)}%` }]} />
+                    </View>
+                    <Text style={styles.progressValue}>
+                      {distanceTracked.toFixed(2)}km / {activeStage.distanceKm}km
+                    </Text>
+                  </View>
+                  <TouchableOpacity style={styles.abortButton} onPress={resetToSetup}>
+                    <Text style={styles.abortButtonText}>긴급 종료</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {mode === "result" && activeStage && result && (
+              <>
+                <View style={[styles.resultCard, result.success ? styles.resultSuccess : styles.resultFail, styles.glowCard]}>
+                  <View style={styles.resultGlow} />
+                  <Text style={styles.resultTitle}>{result.title}</Text>
+                  <Text style={styles.resultSubtitle}>{result.subtitle}</Text>
+                  <View style={styles.resultRow}>
+                    <View style={styles.resultColumn}>
+                      <Text style={styles.resultLabel}>누적 거리</Text>
+                      <Text style={styles.resultValue}>{distanceTracked.toFixed(2)}km</Text>
+                    </View>
+                    <View style={styles.resultColumn}>
+                      <Text style={styles.resultLabel}>제한 시간</Text>
+                      <Text style={styles.resultValue}>{activeStage.timeMinutes}분</Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.resultButtons}>
+                  <TouchableOpacity style={[styles.retryButton, styles.glowCard]} onPress={handleStart}>
+                    <View style={styles.buttonGlow} />
+                    <Text style={styles.retryText}>같은 단계 재도전</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.backButton} onPress={resetToSetup}>
+                    <Text style={styles.backText}>다른 단계 선택</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </ScrollView>
+        )}
+
+        <Modal visible={isStageModalVisible} animationType="fade" transparent>
+          <View style={styles.stageModalBackdrop}>
+            <View style={[styles.stageModalSheet, styles.glowCard]}>
+              <View style={styles.modalGlow} />
+              <Text style={styles.modalTitle}>도전 단계 선택</Text>
+              <Text style={styles.modalSubtitle}>이전 단계를 완료해야 다음 단계에 도전할 수 있어요</Text>
+              <View style={styles.stagePickerHeader}>
+                {STAGES.map((s) => {
+                  const unlocked = isStageUnlocked(s.stage);
+                  const completed = isStageCompleted(s.stage);
+                  const active = selectedStage === s.stage;
+                  return (
+                    <TouchableOpacity
+                      key={s.stage}
+                      style={[
+                        styles.stageNumButton,
+                        !unlocked && styles.stageNumButtonLocked,
+                        completed && styles.stageNumButtonCompleted,
+                        active && styles.stageNumButtonActive,
+                      ]}
+                      onPress={() => unlocked && setSelectedStage(s.stage)}
+                      activeOpacity={unlocked ? 0.9 : 1}
+                      disabled={!unlocked}
+                    >
+                      <Text
+                        style={[
+                          styles.stageNumText,
+                          !unlocked && styles.stageNumTextLocked,
+                          completed && styles.stageNumTextCompleted,
+                          active && styles.stageNumTextActive,
+                        ]}
+                      >
+                        {s.stage}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <View style={styles.stageDetailCard}>
+                {activeStage && (
                   <>
-                    <Text style={styles.stageDetailTitle}>Level {stage.stage}</Text>
+                    <Text style={styles.stageDetailTitle}>{activeStage.stage}단계</Text>
                     <Text style={styles.stageDetailMain}>
-                      {stage.distanceKm} KM, {stage.timeMinutes}분 내에 완주
+                      {activeStage.distanceKm}km, {activeStage.timeMinutes}분 내에 완주
                     </Text>
-                    <Text style={styles.stageDetailReward}>보상 : ???</Text>
                   </>
-                );
-              })()}
-            </View>
-            <View style={styles.modalActionRow}>
-              <TouchableOpacity
-                style={[styles.modalActionButton, styles.modalPrimaryButton]}
-                onPress={() => {
-                  if (tempStage != null) {
-                    setSelectedStage(tempStage);
-                  }
-                  setStageModalVisible(false);
-                }}
-                activeOpacity={0.9}
-              >
-                <Text style={styles.modalPrimaryText}>선택</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalActionButton, styles.modalSecondaryButton]}
-                onPress={() => setStageModalVisible(false)}
-                activeOpacity={0.9}
-              >
-                <Text style={styles.modalSecondaryText}>닫기</Text>
-              </TouchableOpacity>
+                )}
+              </View>
+              <View style={styles.modalActionRow}>
+                <TouchableOpacity
+                  style={[styles.modalActionButton, styles.modalPrimaryButton]}
+                  onPress={() => setStageModalVisible(false)}
+                  activeOpacity={0.9}
+                >
+                  <Text style={styles.modalPrimaryText}>선택</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalActionButton, styles.modalSecondaryButton]}
+                  onPress={() => setStageModalVisible(false)}
+                  activeOpacity={0.9}
+                >
+                  <Text style={styles.modalSecondaryText}>닫기</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
+        </Modal>
+      </SafeAreaView>
+    </ImageBackground>
   );
 }
 
-type ChallengeSummaryProps = {
-  activeStage: ChallengeStage | null;
-  mode: "setup" | "running" | "result";
-  timeLeft: number;
-  onPressStart: () => void;
-};
-
-const ChallengeSummary = ({ activeStage, mode, timeLeft, onPressStart }: ChallengeSummaryProps) => {
-  const displaySeconds =
-    mode === "running"
-      ? timeLeft
-      : activeStage
-      ? activeStage.timeMinutes * 60
-      : 0;
-
-  return (
-    <View style={styles.summaryCard}>
-      <Text style={styles.summaryTitle}>도전 준비</Text>
-      {activeStage && (
-        <View style={styles.summaryLevelBadge}>
-          <Text style={styles.summaryLevelText}>Level {activeStage.stage}</Text>
-        </View>
-      )}
-      <View style={styles.summaryTimerBlock}>
-        <Text style={styles.summaryTimer}>{formatSeconds(displaySeconds)}</Text>
-      </View>
-      <View style={styles.summaryRow}>
-        <View style={styles.summaryColumn}>
-          <Text style={styles.summaryLabel}>목표 거리</Text>
-          <Text style={styles.summaryValue}>
-            {activeStage ? `${activeStage.distanceKm}km` : "--"}
-          </Text>
-        </View>
-        <View style={styles.summaryColumn}>
-          <Text style={styles.summaryLabel}>제한 시간</Text>
-          <Text style={styles.summaryValue}>
-            {activeStage ? `${activeStage.timeMinutes}분` : "--"}
-          </Text>
-        </View>
-        <View style={styles.summaryColumn}>
-          <Text style={styles.summaryLabel}>보상</Text>
-          <Text style={styles.summaryValue}>
-            {activeStage ? activeStage.reward : "미정"}
-          </Text>
-        </View>
-      </View>
-      <TouchableOpacity
-        style={[styles.startButton, !activeStage && styles.startButtonDisabled]}
-        onPress={onPressStart}
-        disabled={!activeStage}
-      >
-        <Text style={styles.startButtonText}>도전 시작</Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
-
 const styles = StyleSheet.create({
+  background: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#0f172a",
+  },
+  backgroundImage: {
+    width: "100%",
+    height: "100%",
+    ...(Platform.OS === "web" && { objectPosition: "center center" } as object),
+  },
   safeArea: {
     flex: 1,
-    backgroundColor: "#F5F6FA",
-    paddingTop: 96,
+    backgroundColor: "transparent",
+  },
+  glowOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    shadowColor: GLOW_COLOR,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 40,
+    elevation: 0,
+  },
+  headerBar: {
+    paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#fff",
+    fontFamily: "KotraHope",
+    textShadowColor: GLOW_COLOR,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 4,
+    fontFamily: "KotraHope",
+  },
+  loadingBox: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    color: "#fff",
+    fontSize: 16,
+    fontFamily: "KotraHope",
   },
   container: {
     paddingHorizontal: 20,
     paddingBottom: 80,
-    paddingTop: 84,
   },
-  headerBar: {
-    position: "absolute",
-    top: 35,
-    left: 20,
-    zIndex: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    overflow: "visible",
-  },
-  headerIcon: {
-    width: 64,
-    height: 64,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: "700",
-    marginTop: 16,
-    marginBottom: 12,
-  
-
-    fontFamily: 'KotraHope',},
-  subtitle: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginBottom: 24,
-  
-
-    fontFamily: 'KotraHope',},
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 12,
-    marginTop: 24,
-  
-
-    fontFamily: 'KotraHope',},
-  themeRow: {
-    paddingBottom: 12,
-    gap: 12,
-  },
-  themeCard: {
-    width: 260,
+  stageSelectorCard: {
+    backgroundColor: "rgba(15, 23, 42, 0.85)",
     borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-  },
-  themeCardActive: {
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
-  },
-  themeTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 4,
-  
-
-    fontFamily: 'KotraHope',},
-  themeSubtitle: {
-    fontSize: 13,
-    color: "#1F2933",
-    marginBottom: 8,
-  
-
-    fontFamily: 'KotraHope',},
-  themeDesc: {
-    fontSize: 12,
-    color: "#6B7280",
-    lineHeight: 18,
-  
-
-    fontFamily: 'KotraHope',},
-  stageGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  stageCard: {
-    flexBasis: "48%",
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  stageCardActive: {
-    borderColor: "#3B82F6",
-    backgroundColor: "#EFF6FF",
-  },
-  stageBadge: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#6B7280",
-  
-
-    fontFamily: 'KotraHope',},
-  stageDistance: {
-    fontSize: 22,
-    fontWeight: "700",
-    marginTop: 6,
-  
-
-    fontFamily: 'KotraHope',},
-  stageTime: {
-    fontSize: 14,
-    color: "#374151",
-    marginBottom: 6,
-  
-
-    fontFamily: 'KotraHope',},
-  stageReward: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#059669",
-  
-
-    fontFamily: 'KotraHope',},
-  stageNote: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: 4,
-  
-
-    fontFamily: 'KotraHope',},
-  summaryCard: {
-    backgroundColor: "#fff",
-    borderRadius: 18,
     padding: 20,
-    marginTop: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.4)",
+    overflow: "hidden",
+    position: "relative",
+  },
+  stageSelectorGlow: {
+    position: "absolute",
+    top: -20,
+    left: -20,
+    right: -20,
+    height: 60,
+    backgroundColor: GLOW_COLOR,
+    opacity: 0.08,
+    borderRadius: 40,
+  },
+  selectorLabel: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.6)",
+    marginBottom: 6,
+    fontFamily: "KotraHope",
+  },
+  selectorValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#fff",
+    fontFamily: "KotraHope",
+  },
+  selectorDesc: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.7)",
+    marginTop: 6,
+    fontFamily: "KotraHope",
+  },
+  glowCard: {
+    position: "relative",
+    overflow: "hidden",
+  },
+  summaryCard: {
+    backgroundColor: "rgba(15, 23, 42, 0.9)",
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.35)",
   },
   summaryTitle: {
     fontSize: 18,
     fontWeight: "700",
+    color: "#fff",
     marginBottom: 12,
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
+  summaryLevelBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(56, 189, 248, 0.2)",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.4)",
+  },
+  summaryLevelText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: GLOW_INTENSE,
+    fontFamily: "KotraHope",
+  },
+  summaryTimerBlock: {
+    marginBottom: 20,
+  },
+  summaryTimer: {
+    fontSize: 48,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: 4,
+    fontFamily: Platform.select({ android: "monospace", ios: undefined, default: undefined }),
+    textShadowColor: GLOW_COLOR,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 16,
+  },
   summaryRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
+    justifyContent: "space-around",
+    marginBottom: 24,
   },
   summaryColumn: {
-    flex: 1,
+    alignItems: "center",
   },
   summaryLabel: {
     fontSize: 12,
-    color: "#9CA3AF",
-  
-
-    fontFamily: 'KotraHope',},
+    color: "rgba(255,255,255,0.6)",
+    marginBottom: 4,
+    fontFamily: "KotraHope",
+  },
   summaryValue: {
-    fontSize: 16,
-    fontWeight: "600",
-  
-
-    fontFamily: 'KotraHope',},
-  summaryNote: {
-    fontSize: 12,
-    color: "#6B7280",
-    lineHeight: 18,
-    marginBottom: 16,
-  
-
-    fontFamily: 'KotraHope',},
-  summaryGuide: {
-    fontSize: 12,
-    color: "#9CA3AF",
-    marginBottom: 12,
-  
-
-    fontFamily: 'KotraHope',},
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#fff",
+    fontFamily: "KotraHope",
+  },
   startButton: {
-    backgroundColor: "#2563EB",
-    borderRadius: 14,
-    paddingVertical: 14,
+    backgroundColor: "rgba(56, 189, 248, 0.3)",
+    borderRadius: 16,
+    paddingVertical: 16,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.6)",
+    position: "relative",
+  },
+  startButtonGlow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: GLOW_COLOR,
+    opacity: 0.1,
+    borderRadius: 16,
   },
   startButtonDisabled: {
-    backgroundColor: "#93C5FD",
+    opacity: 0.5,
   },
   startButtonText: {
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  
-
-    fontFamily: 'KotraHope',},
-  runningSection: {
-    gap: 16,
-    marginTop: 40,
+    fontSize: 18,
+    fontWeight: "700",
+    fontFamily: "KotraHope",
   },
-  runningCoreCard: {
-    backgroundColor: "#0F172A",
-    borderRadius: 24,
-    padding: 24,
-    gap: 16,
+  runningSection: {
+    gap: 20,
+    marginTop: 20,
   },
   runningTimerCard: {
-    backgroundColor: "#0F172A",
+    backgroundColor: "rgba(15, 23, 42, 0.95)",
     borderRadius: 24,
-    paddingVertical: 28,
-    paddingHorizontal: 24,
+    paddingVertical: 32,
     alignItems: "center",
-    justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#1E293B",
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 10,
+    borderColor: "rgba(56, 189, 248, 0.4)",
+  },
+  timerGlow: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    marginLeft: -100,
+    marginTop: -50,
+    width: 200,
+    height: 100,
+    backgroundColor: GLOW_COLOR,
+    opacity: 0.08,
+    borderRadius: 100,
   },
   digiTimer: {
     color: "#fff",
-    fontSize: 88,
+    fontSize: 72,
     fontWeight: "800",
-    letterSpacing: 4,
-    lineHeight: 96,
-    fontVariant: ["tabular-nums"],
+    letterSpacing: 6,
     fontFamily: Platform.select({ android: "monospace", ios: undefined, default: undefined }),
-    textShadowColor: "rgba(56, 189, 248, 0.35)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
+    textShadowColor: GLOW_COLOR,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 20,
   },
   runningMetricsCard: {
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(15, 23, 42, 0.9)",
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    borderColor: "rgba(56, 189, 248, 0.35)",
   },
-  runningDetailsCard: {
-    backgroundColor: "#fff",
-    borderRadius: 24,
-    padding: 20,
-    gap: 8,
-    alignItems: "flex-start",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+  metricsGlow: {
+    position: "absolute",
+    top: -30,
+    left: "50%",
+    marginLeft: -60,
+    width: 120,
+    height: 60,
+    backgroundColor: GLOW_COLOR,
+    opacity: 0.05,
+    borderRadius: 60,
   },
-  runningTitle: {
-    color: "#9CA3AF",
-    fontSize: 14,
-    letterSpacing: 1,
-  
-
-    fontFamily: 'KotraHope',},
-  runningTimer: {
-    color: "#fff",
-    fontSize: 48,
-    fontWeight: "700",
-  
-
-    fontFamily: 'KotraHope',},
   progressBlock: {
-    marginTop: 4,
+    marginTop: 16,
   },
   progressLabel: {
-    color: "#6B7280",
+    color: "rgba(255,255,255,0.7)",
     fontSize: 12,
-    marginBottom: 6,
-  
-
-    fontFamily: 'KotraHope',},
+    marginBottom: 8,
+    fontFamily: "KotraHope",
+  },
   progressBar: {
     width: "100%",
-    height: 10,
-    borderRadius: 10,
-    backgroundColor: "#E5E7EB",
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "rgba(255,255,255,0.1)",
     overflow: "hidden",
   },
   progressFill: {
     height: "100%",
-    backgroundColor: "#38BDF8",
+    backgroundColor: GLOW_COLOR,
+    borderRadius: 6,
   },
   progressFillDistance: {
     height: "100%",
     backgroundColor: "#34D399",
+    borderRadius: 6,
   },
   progressValue: {
-    color: "#374151",
+    color: "rgba(255,255,255,0.8)",
     fontSize: 12,
     marginTop: 6,
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
   abortButton: {
+    marginTop: 20,
     borderWidth: 1,
-    borderColor: "#F87171",
+    borderColor: "rgba(248, 113, 113, 0.6)",
     borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
+    paddingVertical: 12,
     alignItems: "center",
-    alignSelf: "stretch",
-    marginTop: 4,
   },
   abortButtonText: {
     color: "#F87171",
     fontWeight: "600",
-  
-
-    fontFamily: 'KotraHope',},
-  runningExitLabel: {
-    color: "#374151",
-    fontSize: 13,
-  
-
-    fontFamily: 'KotraHope',},
-  devButtonRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 12,
+    fontFamily: "KotraHope",
   },
-  devButton: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: "center",
-    borderWidth: 1,
-  },
-  devFailButton: {
-    borderColor: "#FECACA",
-    backgroundColor: "#FEF2F2",
-  },
-  devSuccessButton: {
-    borderColor: "#A7F3D0",
-    backgroundColor: "#ECFDF5",
-  },
-  devButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#7F1D1D",
-  
-
-    fontFamily: 'KotraHope',},
   resultCard: {
-    borderRadius: 20,
-    padding: 22,
+    borderRadius: 24,
+    padding: 24,
     marginTop: 20,
+    borderWidth: 1,
+    position: "relative",
+  },
+  resultGlow: {
+    position: "absolute",
+    top: -20,
+    left: "50%",
+    marginLeft: -60,
+    width: 120,
+    height: 60,
+    borderRadius: 60,
+    backgroundColor: GLOW_COLOR,
+    opacity: 0.06,
   },
   resultSuccess: {
-    backgroundColor: "#ECFDF5",
-    borderWidth: 1,
-    borderColor: "#A7F3D0",
+    backgroundColor: "rgba(34, 197, 94, 0.15)",
+    borderColor: "rgba(34, 197, 94, 0.5)",
   },
   resultFail: {
-    backgroundColor: "#FEF2F2",
-    borderWidth: 1,
-    borderColor: "#FECACA",
+    backgroundColor: "rgba(248, 113, 113, 0.15)",
+    borderColor: "rgba(248, 113, 113, 0.5)",
   },
   resultTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "700",
-  
-
-    fontFamily: 'KotraHope',},
+    color: "#fff",
+    fontFamily: "KotraHope",
+  },
   resultSubtitle: {
     fontSize: 14,
-    color: "#4B5563",
-    marginTop: 6,
-  
-
-    fontFamily: 'KotraHope',},
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 8,
+    fontFamily: "KotraHope",
+  },
   resultRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 18,
+    justifyContent: "space-around",
+    marginTop: 20,
   },
   resultColumn: {
-    flex: 1,
+    alignItems: "center",
   },
   resultLabel: {
     fontSize: 12,
-    color: "#6B7280",
-  
-
-    fontFamily: 'KotraHope',},
+    color: "rgba(255,255,255,0.6)",
+    fontFamily: "KotraHope",
+  },
   resultValue: {
     fontSize: 16,
     fontWeight: "600",
+    color: "#fff",
     marginTop: 4,
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
   resultButtons: {
     flexDirection: "row",
     gap: 12,
-    marginTop: 18,
+    marginTop: 20,
   },
   retryButton: {
     flex: 1,
-    backgroundColor: "#2563EB",
-    borderRadius: 12,
+    backgroundColor: "rgba(56, 189, 248, 0.3)",
+    borderRadius: 14,
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.5)",
+    position: "relative",
+  },
+  buttonGlow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: GLOW_COLOR,
+    opacity: 0.08,
+    borderRadius: 14,
   },
   retryText: {
     color: "#fff",
     fontWeight: "600",
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
   backButton: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "#CBD5F5",
-    borderRadius: 12,
+    borderColor: "rgba(255,255,255,0.3)",
+    borderRadius: 14,
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   backText: {
-    color: "#2563EB",
+    color: "rgba(255,255,255,0.9)",
     fontWeight: "600",
-  
-
-    fontFamily: 'KotraHope',},
-  summaryTimerBlock: {
-    marginTop: 8,
-    marginBottom: 16,
-    alignItems: "flex-start",
+    fontFamily: "KotraHope",
   },
-  summaryTimerLabel: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginBottom: 4,
-  
-
-    fontFamily: 'KotraHope',},
-  summaryTimer: {
-    fontSize: 42,
-    fontWeight: "800",
-    letterSpacing: 2,
-  
-
-    fontFamily: 'KotraHope',},
-  selectorRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 16,
-  },
-  selectorCard: {
-    flex: 1,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
-  selectorDisabled: {
-    opacity: 0.6,
-  },
-  selectorLabel: {
-    fontSize: 12,
-    color: "#9CA3AF",
-    marginBottom: 6,
-  
-
-    fontFamily: 'KotraHope',},
-  selectorValue: {
-    fontSize: 18,
-    fontWeight: "700",
-  
-
-    fontFamily: 'KotraHope',},
-  selectorDesc: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: 6,
-  
-
-    fontFamily: 'KotraHope',},
-  summaryLevelBadge: {
-    alignSelf: "flex-start",
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    backgroundColor: "#F1F5F9",
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginTop: 6,
-  },
-  summaryLevelText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#334155",
-  
-
-    fontFamily: 'KotraHope',},
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.55)",
-    justifyContent: "flex-end",
-  },
-  modalSheet: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 20,
-    paddingHorizontal: 20,
-    maxHeight: "85%",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 16,
-  
-
-    fontFamily: 'KotraHope',},
-  modalContent: {
-    paddingBottom: 20,
-    gap: 12,
-  },
-  modalThemeCard: {
-    borderWidth: 1.5,
-    borderRadius: 16,
-    padding: 16,
-    backgroundColor: "#F9FAFB",
-  },
-  modalThemeCardActive: {
-    borderColor: "#2563EB",
-    backgroundColor: "#EEF2FF",
-  },
-  modalThemeCardDisabled: {
-    opacity: 0.6,
-  },
-  modalThemeTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    marginBottom: 6,
-  
-
-    fontFamily: 'KotraHope',},
-  modalThemeSubtitle: {
-    fontSize: 13,
-    color: "#1F2933",
-    marginBottom: 6,
-  
-
-    fontFamily: 'KotraHope',},
-  modalThemeDesc: {
-    fontSize: 12,
-    color: "#6B7280",
-    lineHeight: 18,
-  
-
-    fontFamily: 'KotraHope',},
   stageModalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.55)",
+    backgroundColor: "rgba(0,0,0,0.7)",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
   stageModalSheet: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    paddingTop: 18,
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    width: "92%",
-    maxWidth: 520,
-    maxHeight: "80%",
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 12,
+    backgroundColor: "rgba(15, 23, 42, 0.98)",
+    borderRadius: 24,
+    padding: 24,
+    width: "100%",
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.4)",
+    position: "relative",
   },
-  modalCloseButton: {
-    paddingVertical: 16,
-    alignItems: "center",
-    borderTopWidth: 1,
-    borderColor: "#E5E7EB",
-    marginTop: 8,
+  modalGlow: {
+    position: "absolute",
+    top: -40,
+    left: "50%",
+    marginLeft: -80,
+    width: 160,
+    height: 80,
+    backgroundColor: GLOW_COLOR,
+    opacity: 0.1,
+    borderRadius: 80,
   },
-  modalCloseText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#2563EB",
-  
-
-    fontFamily: 'KotraHope',},
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#fff",
+    marginBottom: 8,
+    fontFamily: "KotraHope",
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.7)",
+    marginBottom: 20,
+    fontFamily: "KotraHope",
+  },
   stagePickerHeader: {
     flexDirection: "row",
-    gap: 8,
-    marginBottom: 14,
+    justifyContent: "space-between",
+    marginBottom: 20,
   },
   stageNumButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    borderWidth: 1.5,
-    borderColor: "#E5E7EB",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: "rgba(56, 189, 248, 0.5)",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(15, 23, 42, 0.8)",
+  },
+  stageNumButtonLocked: {
+    borderColor: "rgba(255,255,255,0.15)",
+    backgroundColor: "rgba(0,0,0,0.3)",
+    opacity: 0.6,
+  },
+  stageNumButtonCompleted: {
+    borderColor: "rgba(34, 197, 94, 0.6)",
+    backgroundColor: "rgba(34, 197, 94, 0.15)",
   },
   stageNumButtonActive: {
-    borderColor: "#2563EB",
-    backgroundColor: "#EEF2FF",
+    borderColor: GLOW_COLOR,
+    backgroundColor: "rgba(56, 189, 248, 0.2)",
   },
   stageNumText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
-  
-
-    fontFamily: 'KotraHope',},
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#fff",
+    fontFamily: "KotraHope",
+  },
+  stageNumTextLocked: {
+    color: "rgba(255,255,255,0.3)",
+  },
+  stageNumTextCompleted: {
+    color: "#22C55E",
+  },
   stageNumTextActive: {
-    color: "#1D4ED8",
-  
-
-    fontFamily: 'KotraHope',},
+    color: GLOW_INTENSE,
+  },
   stageDetailCard: {
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: "rgba(56, 189, 248, 0.3)",
     borderRadius: 16,
     padding: 16,
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(0,0,0,0.2)",
+    marginBottom: 20,
   },
   stageDetailTitle: {
     fontSize: 13,
-    fontWeight: "700",
-    color: "#6B7280",
-  
-
-    fontFamily: 'KotraHope',},
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.6)",
+    fontFamily: "KotraHope",
+  },
   stageDetailMain: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
-    marginTop: 6,
-  
-
-    fontFamily: 'KotraHope',},
-  stageDetailReward: {
-    fontSize: 13,
-    color: "#374151",
-    marginTop: 6,
-  
-
-    fontFamily: 'KotraHope',},
-  stageDetailNote: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: 10,
-  
-
-    fontFamily: 'KotraHope',},
+    color: "#fff",
+    marginTop: 8,
+    fontFamily: "KotraHope",
+  },
   modalActionRow: {
     flexDirection: "row",
     gap: 12,
-    marginTop: 14,
-    marginBottom: 8,
   },
   modalActionButton: {
     flex: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 14,
+    paddingVertical: 14,
     alignItems: "center",
     borderWidth: 1,
   },
   modalPrimaryButton: {
-    backgroundColor: "#2563EB",
-    borderColor: "#2563EB",
+    backgroundColor: "rgba(56, 189, 248, 0.3)",
+    borderColor: "rgba(56, 189, 248, 0.6)",
   },
   modalSecondaryButton: {
-    backgroundColor: "#fff",
-    borderColor: "#CBD5F5",
+    backgroundColor: "transparent",
+    borderColor: "rgba(255,255,255,0.3)",
   },
   modalPrimaryText: {
     color: "#fff",
     fontWeight: "600",
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
   modalSecondaryText: {
-    color: "#2563EB",
+    color: "rgba(255,255,255,0.8)",
     fontWeight: "600",
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
 });
