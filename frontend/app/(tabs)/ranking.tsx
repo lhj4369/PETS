@@ -1,8 +1,9 @@
 //랭킹 화면
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, SafeAreaView, ActivityIndicator, Alert, Image, ImageSourcePropType } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, SafeAreaView, ActivityIndicator, Alert, Image, ImageSourcePropType, Platform } from "react-native";
 import { useState, useEffect } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import HomeButton from "../../components/HomeButton";
-import AuthManager from "../../utils/AuthManager";
+import AuthManager, { StoredUser } from "../../utils/AuthManager";
 import API_BASE_URL from "../../config/api";
 import dog from "../../assets/images/animals/dog.png";
 import capibara from "../../assets/images/animals/capibara.png";
@@ -21,6 +22,11 @@ type RankingItem = {
   totalWorkouts: number;
   totalDurationMinutes: number;
   avgHeartRate: number;
+  /** 순위 변동: 양수=상승, 0=유지, 음수=하락, null=신규 진입 */
+  rankChange: number | null;
+  /** 현재 사용자 여부 판별용 (API에서 오는 id/accountId 등) */
+  userId?: string | number;
+  email?: string;
 };
 
 const ANIMAL_IMAGE_MAP: Record<string, ImageSourcePropType> = {
@@ -45,6 +51,9 @@ export default function RankingScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [rankings, setRankings] = useState<RankingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<StoredUser>(null);
+  const [seasonName, setSeasonName] = useState("Season 1");
+  const [seasonEndDate, setSeasonEndDate] = useState<Date | null>(null);
 
   useEffect(() => {
     fetchRankings();
@@ -77,19 +86,47 @@ export default function RankingScreen() {
 
       const data = await response.json();
       
-      const formattedRankings: RankingItem[] = data.rankings.map((item: any, index: number) => ({
-        rank: index + 1,
-        name: item.name || "익명",
-        animal: ANIMAL_IMAGE_MAP[item.animalType] || DEFAULT_ANIMAL_IMAGE,
-        score: item.experience || 0,
-        nickname: item.nickname || item.name || "익명",
-        level: item.level || 1,
-        totalWorkouts: item.totalWorkouts || 0,
-        totalDurationMinutes: item.totalDurationMinutes || 0,
-        avgHeartRate: Math.round(item.avgHeartRate || 0),
-      }));
+      const formattedRankings: RankingItem[] = data.rankings.map((item: any, index: number) => {
+        const rank = index + 1;
+        const prevRank = item.previousRank ?? item.previous_rank;
+        const rankChangeVal = item.rankChange ?? item.rank_change;
+        let rankChange: number | null =
+          typeof rankChangeVal === "number"
+            ? rankChangeVal
+            : prevRank != null
+              ? prevRank - rank
+              : 0;
+        if (item.isNewUser || item.is_new_user) rankChange = null;
+        return {
+          rank,
+          name: item.name || "익명",
+          animal: ANIMAL_IMAGE_MAP[item.animalType] || DEFAULT_ANIMAL_IMAGE,
+          score: item.experience || 0,
+          nickname: item.nickname || item.name || "익명",
+          level: item.level || 1,
+          totalWorkouts: item.totalWorkouts || 0,
+          totalDurationMinutes: item.totalDurationMinutes || 0,
+          avgHeartRate: Math.round(item.avgHeartRate || 0),
+          rankChange,
+          userId: item.id ?? item.accountId ?? item.account_id,
+          email: item.email,
+        };
+      });
 
       setRankings(formattedRankings);
+
+      const user = await AuthManager.getUser();
+      setCurrentUser(user);
+
+      if (data.seasonName != null) setSeasonName(data.seasonName);
+      const endDateRaw = data.seasonEndDate ?? data.endDate ?? data.season?.endDate;
+      if (endDateRaw != null) {
+        setSeasonEndDate(new Date(endDateRaw));
+      } else {
+        const end = new Date();
+        end.setDate(end.getDate() + 12);
+        setSeasonEndDate(end);
+      }
     } catch (error) {
       console.error("랭킹 불러오기 실패:", error);
       Alert.alert("오류", "랭킹 정보를 불러오지 못했습니다.");
@@ -112,6 +149,52 @@ export default function RankingScreen() {
     return "#e0e0e0";
   };
 
+  const isCurrentUser = (item: RankingItem): boolean => {
+    if (!currentUser) return false;
+    const u = currentUser as any;
+    const loginName = String(
+      u.account?.name ?? u.account?.nickname ?? u.name ?? u.nickname ?? u.displayName ?? ""
+    ).trim();
+    if (!loginName) return false;
+    const itemName = String(item.name ?? "").trim();
+    const itemNick = String(item.nickname ?? "").trim();
+    return itemName === loginName || itemNick === loginName;
+  };
+
+  /** 종료일 기준 남은 일수. 양수=남은일, 0=당일, 음수=지남. null=종료일 없음 */
+  const getDday = (): number | null => {
+    if (!seasonEndDate) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const end = new Date(seasonEndDate);
+    end.setHours(0, 0, 0, 0);
+    const diff = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return diff;
+  };
+
+  /** D-day 표시 문자열: D-N / D-Day / 종료 */
+  const getDdayLabel = (): string | null => {
+    const diff = getDday();
+    if (diff === null) return null;
+    if (diff > 0) return `D-${diff}`;
+    if (diff === 0) return "D-Day";
+    return "종료";
+  };
+
+  const getRankChangeLabel = (item: RankingItem): { text: string; color: string } => {
+    if (item.rankChange === null) return { text: "NEW", color: "#9b59b6" };
+    if (item.rankChange > 0) return { text: `▲${item.rankChange}`, color: "#27ae60" };
+    if (item.rankChange < 0) return { text: `▼${Math.abs(item.rankChange)}`, color: "#e74c3c" };
+    return { text: "-", color: "#95a5a6" };
+  };
+
+  const myRankItem = rankings.find((r) => isCurrentUser(r));
+  /** 로그인 유저 기준 하단 바는 항상 표시 (본인 순위가 리스트에 보여도 별도 UI로 노출) */
+  const showMyRankBar = !isLoading && currentUser != null;
+  const MAIN_COLOR = "#1E88E5";
+  const insets = useSafeAreaInsets();
+  const BOTTOM_BAR_HEIGHT = 52;
+
   const handleAnimalPress = (animal: RankingItem) => {
     setSelectedAnimal(animal);
     setModalVisible(true);
@@ -132,7 +215,20 @@ export default function RankingScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <HomeButton />
-      <ScrollView style={styles.scrollContainer}>
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={showMyRankBar ? [styles.scrollContentWithSticky, { paddingBottom: BOTTOM_BAR_HEIGHT + Math.max(14, insets.bottom) }] : undefined}
+      >
+        {/* 시즌 시스템 UI */}
+        <View style={styles.seasonHeader}>
+          <Text style={styles.seasonName}>{seasonName}</Text>
+          {(() => {
+            const ddayLabel = getDdayLabel();
+            return ddayLabel != null ? (
+              <Text style={styles.seasonDday}>{ddayLabel}</Text>
+            ) : null;
+          })()}
+        </View>
         <Text style={styles.title}>전체 랭킹</Text>
         
         {rankings.length === 0 ? (
@@ -150,10 +246,10 @@ export default function RankingScreen() {
                   onPress={() => handleAnimalPress(rankings[1])}
                 >
                   <View style={styles.animalContainer}>
-                    <Image source={rankings[1].animal} style={styles.animalImage} resizeMode="contain" />
                     <View style={[styles.crownSmall, { backgroundColor: getPodiumColor(2) }]}>
                       <Text style={styles.crownText}>2</Text>
                     </View>
+                    <Image source={rankings[1].animal} style={styles.animalImage} resizeMode="contain" />
                   </View>
                   <View style={[styles.podium, { 
                     height: getPodiumHeight(2),
@@ -163,6 +259,12 @@ export default function RankingScreen() {
                   </View>
                   <Text style={styles.podiumName}>{rankings[1].nickname}</Text>
                   <Text style={styles.podiumScore}>{rankings[1].score}점</Text>
+                  {(() => {
+                    const lbl = getRankChangeLabel(rankings[1]);
+                    return (
+                      <Text style={[styles.podiumRankChange, { color: lbl.color }]}>{lbl.text}</Text>
+                    );
+                  })()}
                 </TouchableOpacity>
 
                 {/* 1등 */}
@@ -171,10 +273,10 @@ export default function RankingScreen() {
                   onPress={() => handleAnimalPress(rankings[0])}
                 >
                   <View style={styles.animalContainer}>
-                    <Image source={rankings[0].animal} style={styles.animalImageLarge} resizeMode="contain" />
                     <View style={[styles.crown, { backgroundColor: getPodiumColor(1) }]}>
                       <Text style={styles.crownTextLarge}>👑</Text>
                     </View>
+                    <Image source={rankings[0].animal} style={styles.animalImageLarge} resizeMode="contain" />
                   </View>
                   <View style={[styles.podium, { 
                     height: getPodiumHeight(1),
@@ -184,6 +286,20 @@ export default function RankingScreen() {
                   </View>
                   <Text style={styles.podiumNameLarge}>{rankings[0].nickname}</Text>
                   <Text style={styles.podiumScoreLarge}>{rankings[0].score}점</Text>
+                  {(() => {
+                    const lbl = getRankChangeLabel(rankings[0]);
+                    return (
+                      <Text style={[styles.podiumRankChangeLarge, { color: lbl.color }]}>{lbl.text}</Text>
+                    );
+                  })()}
+                  {rankings.length >= 2 && (
+                    <View style={styles.podiumGapWrap}>
+                      <Text style={styles.podiumGapValue}>
+                        +{rankings[0].score - rankings[1].score}점
+                      </Text>
+                      <Text style={styles.podiumGapLabel}>2위와 격차</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
 
                 {/* 3등 */}
@@ -192,10 +308,10 @@ export default function RankingScreen() {
                   onPress={() => handleAnimalPress(rankings[2])}
                 >
                   <View style={styles.animalContainer}>
-                    <Image source={rankings[2].animal} style={styles.animalImage} resizeMode="contain" />
                     <View style={[styles.crownSmall, { backgroundColor: getPodiumColor(3) }]}>
                       <Text style={styles.crownText}>3</Text>
                     </View>
+                    <Image source={rankings[2].animal} style={styles.animalImage} resizeMode="contain" />
                   </View>
                   <View style={[styles.podium, { 
                     height: getPodiumHeight(3),
@@ -205,34 +321,77 @@ export default function RankingScreen() {
                   </View>
                   <Text style={styles.podiumName}>{rankings[2].nickname}</Text>
                   <Text style={styles.podiumScore}>{rankings[2].score}점</Text>
+                  {(() => {
+                    const lbl = getRankChangeLabel(rankings[2]);
+                    return (
+                      <Text style={[styles.podiumRankChange, { color: lbl.color }]}>{lbl.text}</Text>
+                    );
+                  })()}
                 </TouchableOpacity>
+              </View>
+            )}
+
+            {/* 보상 안내 */}
+            {rankings.length >= 3 && (
+              <View style={styles.rewardInfo}>
+                <Text style={styles.rewardTitle}>🏆 시즌 보상</Text>
+                <Text style={styles.rewardText}>1위: 프리미엄 뱃지</Text>
+                <Text style={styles.rewardText}>Top10: 특별 프레임</Text>
               </View>
             )}
 
             {/* 동물별 랭킹 리스트 */}
             <View style={styles.listContainer}>
               <Text style={styles.subtitle}>전체 랭킹</Text>
-              {rankings.map((item, index) => (
+              {rankings.map((item, index) => {
+                const changeLabel = getRankChangeLabel(item);
+                const isMe = isCurrentUser(item);
+                return (
                 <TouchableOpacity 
                   key={index} 
-                  style={styles.rankItem}
+                  style={[
+                    styles.rankItem,
+                    isMe && styles.rankItemCurrentUser,
+                  ]}
                   onPress={() => handleAnimalPress(item)}
                 >
                   <View style={styles.rankLeft}>
                     <Text style={styles.rankNumber}>{item.rank}</Text>
                     <Image source={item.animal} style={styles.rankAnimalImage} resizeMode="contain" />
                     <Text style={styles.rankName}>{item.nickname}</Text>
+                    {isMe && (
+                      <View style={styles.youBadge}>
+                        <Text style={styles.youBadgeText}>YOU</Text>
+                      </View>
+                    )}
                   </View>
                   <View style={styles.rankRight}>
-                    <Text style={styles.rankScore}>{item.score}점</Text>
+                    <View style={styles.rankScoreRow}>
+                      <Text style={styles.rankScore}>{item.score}점</Text>
+                      <Text style={[styles.rankChangeText, { color: changeLabel.color }]}>
+                        {changeLabel.text}
+                      </Text>
+                    </View>
                     <Text style={styles.rankTime}>Lv.{item.level}</Text>
                   </View>
                 </TouchableOpacity>
-              ))}
+              );
+              })}
             </View>
           </>
         )}
       </ScrollView>
+
+      {/* 내 순위 하단 고정 바: 로그인 유저 기준 항상 표시, YOU 뱃지와 별도 UI */}
+      {showMyRankBar && (
+        <View style={[styles.stickyMyRankBar, { paddingBottom: Math.max(14, insets.bottom) }]}>
+          <Text style={styles.stickyMyRankText}>
+            {myRankItem
+              ? `내 순위: ${myRankItem.rank}위 (${myRankItem.score}점)`
+              : "내 순위: - (참여 후 확인)"}
+          </Text>
+        </View>
+      )}
 
       {/* 상세 정보 모달 */}
       <Modal
@@ -295,6 +454,9 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
   },
+  scrollContentWithSticky: {
+    paddingBottom: 52,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -329,6 +491,25 @@ const styles = StyleSheet.create({
   
 
     fontFamily: 'KotraHope',},
+  seasonHeader: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 16,
+    marginTop: 24,
+  },
+  seasonName: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#2c3e50",
+    fontFamily: "KotraHope",
+  },
+  seasonDday: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#1E88E5",
+    fontFamily: "KotraHope",
+  },
   podiumContainer: {
     flexDirection: "row",
     justifyContent: "center",
@@ -349,37 +530,41 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     marginBottom: 5,
+    zIndex: 1,
   },
   animalImageLarge: {
     width: 70,
     height: 70,
     marginBottom: 5,
+    zIndex: 1,
   },
   crown: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: -10,
+    marginBottom: 8,
+    zIndex: 0,
   },
   crownSmall: {
-    width: 35,
-    height: 35,
-    borderRadius: 17.5,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: -5,
+    marginBottom: 6,
+    zIndex: 0,
   },
   crownText: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: "bold",
     color: "#fff",
   
 
     fontFamily: 'KotraHope',},
   crownTextLarge: {
-    fontSize: 30,
+    fontSize: 26,
   
 
     fontFamily: 'KotraHope',},
@@ -433,6 +618,53 @@ const styles = StyleSheet.create({
   
 
     fontFamily: 'KotraHope',},
+  podiumGapWrap: {
+    marginTop: 8,
+    alignItems: "center",
+  },
+  podiumGapValue: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#1E88E5",
+    fontFamily: "KotraHope",
+  },
+  podiumGapLabel: {
+    fontSize: 13,
+    color: "#7f8c8d",
+    marginTop: 2,
+    fontFamily: "KotraHope",
+  },
+  podiumRankChange: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 4,
+    fontFamily: "KotraHope",
+  },
+  podiumRankChangeLarge: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginTop: 4,
+    fontFamily: "KotraHope",
+  },
+  rewardInfo: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    marginBottom: 16,
+    alignItems: "center",
+  },
+  rewardTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#5d6d7e",
+    fontFamily: "KotraHope",
+    marginBottom: 10,
+  },
+  rewardText: {
+    fontSize: 14,
+    color: "#5d6d7e",
+    fontFamily: "KotraHope",
+    marginVertical: 3,
+  },
   listContainer: {
     backgroundColor: "#fff",
     borderTopLeftRadius: 20,
@@ -463,6 +695,16 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
+  rankItemCurrentUser: {
+    borderWidth: 3,
+    borderColor: "#1E88E5",
+    backgroundColor: "#E3F2FD",
+    shadowColor: "#1E88E5",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
   rankLeft: {
     flexDirection: "row",
     alignItems: "center",
@@ -488,8 +730,29 @@ const styles = StyleSheet.create({
   
 
     fontFamily: 'KotraHope',},
+  youBadge: {
+    marginLeft: 10,
+    backgroundColor: "#1565C0",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#0D47A1",
+  },
+  youBadgeText: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#fff",
+    fontFamily: "KotraHope",
+    letterSpacing: 0.5,
+  },
   rankRight: {
     alignItems: "flex-end",
+  },
+  rankScoreRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   rankScore: {
     fontSize: 18,
@@ -498,6 +761,11 @@ const styles = StyleSheet.create({
   
 
     fontFamily: 'KotraHope',},
+  rankChangeText: {
+    fontSize: 14,
+    fontWeight: "600",
+    fontFamily: "KotraHope",
+  },
   rankTime: {
     fontSize: 14,
     color: "#95a5a6",
@@ -505,6 +773,37 @@ const styles = StyleSheet.create({
   
 
     fontFamily: 'KotraHope',},
+  stickyMyRankBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#1E88E5",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: 2,
+    borderTopColor: "rgba(0,0,0,0.1)",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  stickyMyRankText: {
+    fontSize: 17,
+    fontWeight: "bold",
+    color: "#fff",
+    fontFamily: "KotraHope",
+    letterSpacing: 0.3,
+  },
   // 모달 스타일
   modalOverlay: {
     flex: 1,
