@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, ActivityIndicator, Image } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -10,7 +11,17 @@ import API_BASE_URL from "../../config/api";
 // WebBrowser 완료 후 자동으로 닫히도록 설정
 WebBrowser.maybeCompleteAuthSession();
 
+const LOGIN_COLORS = {
+  ivory: "#FFFEF5",
+  ivoryDark: "#F5F0E0",
+  yellow: "#FFE566",
+  yellowDark: "#E6C94A",
+  brown: "#8B7355",
+  brownLight: "#A08060",
+};
+
 export default function LoginScreen() {
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -177,13 +188,21 @@ export default function LoginScreen() {
   return (
     <View style={styles.wrapper}>
       <Navigator />
-      {/* 상단 40% 브랜드 영역 */}
-      <View style={styles.topSection}>
-        <Text style={styles.title}>PETS</Text>
-        <Text style={styles.subtitle}>오늘도 목표를 향해 한 걸음</Text>
+      {/* 상단: 이미지 꽉 채움 (cover) */}
+      <View style={styles.imageSection}>
+        <Image
+          source={require("../../assets/images/background/login.png")}
+          style={styles.loginImage}
+          resizeMode="cover"
+        />
+        {/* 이미지 중앙 상단에 PETS 문구 오버레이 */}
+        <View style={styles.titleOverlay} pointerEvents="none">
+          <Text style={styles.title}>PETS</Text>
+          <Text style={styles.subtitle}>오늘도 목표를 향해 한 걸음</Text>
+        </View>
       </View>
-      {/* 하단 60% 흰색 카드 영역 */}
-      <View style={styles.bottomCard}>
+      {/* 하단: 로그인 박스 */}
+      <View style={[styles.bottomCard, { backgroundColor: LOGIN_COLORS.ivory, borderColor: LOGIN_COLORS.yellow, paddingBottom: insets.bottom }]}>
         <ScrollView
           contentContainerStyle={styles.cardScrollContent}
           showsVerticalScrollIndicator={false}
@@ -195,7 +214,7 @@ export default function LoginScreen() {
             placeholder="이메일"
             value={email}
             onChangeText={setEmail}
-            placeholderTextColor="#999"
+            placeholderTextColor={LOGIN_COLORS.brownLight}
             autoCapitalize="none"
             keyboardType="email-address"
           />
@@ -207,7 +226,7 @@ export default function LoginScreen() {
             value={password}
             onChangeText={setPassword}
             secureTextEntry
-            placeholderTextColor="#999"
+            placeholderTextColor={LOGIN_COLORS.brownLight}
           />
 
           {/* 로그인 버튼 */}
@@ -217,7 +236,7 @@ export default function LoginScreen() {
             disabled={isSubmitting}
           >
             {isSubmitting ? (
-              <ActivityIndicator color="#ffffff" />
+              <ActivityIndicator color={LOGIN_COLORS.brown} />
             ) : (
               <Text style={styles.loginButtonText}>로그인</Text>
             )}
@@ -239,7 +258,10 @@ export default function LoginScreen() {
             {isGoogleLoading ? (
               <ActivityIndicator color="#3c4043" />
             ) : (
-              <Text style={styles.googleButtonText}>구글 로그인</Text>
+              <>
+                <Image source={require("../../assets/images/icons/google.png")} style={styles.googleIcon} resizeMode="contain" />
+                <Text style={styles.googleButtonText}>Google 계정으로 로그인</Text>
+              </>
             )}
           </TouchableOpacity>
 
@@ -271,72 +293,98 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    backgroundColor: "#1E88E5",
+    width: "100%",
+    backgroundColor: LOGIN_COLORS.ivory,
   },
-  topSection: {
-    flex: 0.4,
-    backgroundColor: "#1E88E5",
-    justifyContent: "center",
+  imageSection: {
+    width: "100%",
+    flex: 0.42,
+    position: "relative",
+    overflow: "hidden",
+  },
+  loginImage: {
+    width: "100%",
+    height: "100%",
+  },
+  titleOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "flex-start",
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingTop: 48,
   },
   bottomCard: {
-    flex: 0.6,
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingTop: 32,
+    flex: 1,
+    marginTop: -40,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderWidth: 2,
+    paddingTop: 40,
     elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
+    shadowColor: LOGIN_COLORS.brown,
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.12,
-    shadowRadius: 8,
+    shadowRadius: 12,
   },
   cardScrollContent: {
     paddingHorizontal: 32,
-    paddingBottom: 40,
+    paddingBottom: 24,
   },
   title: {
     fontSize: 46,
     fontWeight: "bold",
     letterSpacing: 1,
-    color: "#ffffff",
+    color: LOGIN_COLORS.brown,
     marginBottom: 8,
     fontFamily: "KotraHope",
+    textShadowColor: "rgba(255, 255, 255, 0.9)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 4,
   },
   subtitle: {
     fontSize: 19,
-    color: "rgba(255, 255, 255, 0.85)",
-    marginTop: 10,
+    color: LOGIN_COLORS.brown,
+    marginTop: 4,
     fontFamily: "KotraHope",
+    textShadowColor: "rgba(255, 255, 255, 0.9)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   input: {
-    backgroundColor: "#f5f5f5",
-    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
     paddingHorizontal: 18,
     paddingVertical: 16,
     fontSize: 16,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderWidth: 2,
+    borderColor: LOGIN_COLORS.ivoryDark,
     width: "100%",
+    fontFamily: "KotraHope",
   },
   loginButton: {
-    backgroundColor: "#1E88E5",
+    backgroundColor: LOGIN_COLORS.yellow,
     paddingVertical: 16,
-    borderRadius: 14,
+    borderRadius: 16,
     width: "100%",
     alignItems: "center",
     marginTop: 8,
     marginBottom: 24,
+    borderWidth: 2,
+    borderColor: LOGIN_COLORS.yellowDark,
   },
   loginButtonDisabled: {
     opacity: 0.6,
   },
   loginButtonText: {
-    color: "#ffffff",
+    color: LOGIN_COLORS.brown,
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "700",
     fontFamily: "KotraHope",
   },
   dividerRow: {
@@ -346,21 +394,23 @@ const styles = StyleSheet.create({
   },
   dividerLine: {
     flex: 1,
-    height: 1,
-    backgroundColor: "#e0e0e0",
+    height: 2,
+    backgroundColor: LOGIN_COLORS.ivoryDark,
   },
   dividerText: {
     marginHorizontal: 16,
     fontSize: 14,
-    color: "#999",
+    color: LOGIN_COLORS.brownLight,
     fontFamily: "KotraHope",
   },
   googleButton: {
+    flexDirection: "row",
     backgroundColor: "#FFFFFF",
     paddingVertical: 16,
     borderRadius: 14,
     width: "100%",
     alignItems: "center",
+    justifyContent: "center",
     marginBottom: 16,
     borderWidth: 1,
     borderColor: "#dadce0",
@@ -369,6 +419,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 2,
     elevation: 2,
+  },
+  googleIcon: {
+    width: 24,
+    height: 24,
+    marginRight: 12,
   },
   googleButtonDisabled: {
     opacity: 0.6,
@@ -380,17 +435,19 @@ const styles = StyleSheet.create({
     fontFamily: "KotraHope",
   },
   devButton: {
-    backgroundColor: "#6c757d",
+    backgroundColor: LOGIN_COLORS.ivoryDark,
     paddingVertical: 14,
     borderRadius: 14,
     width: "100%",
     alignItems: "center",
     marginBottom: 32,
+    borderWidth: 1,
+    borderColor: LOGIN_COLORS.brownLight,
   },
   devButtonText: {
-    color: "#ffffff",
+    color: LOGIN_COLORS.brown,
     fontSize: 16,
-    fontWeight: "500",
+    fontWeight: "600",
     fontFamily: "KotraHope",
   },
   linkContainer: {
@@ -401,12 +458,12 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontSize: 16,
-    color: "#666666",
+    color: LOGIN_COLORS.brownLight,
     fontFamily: "KotraHope",
   },
   separator: {
     fontSize: 16,
-    color: "#cccccc",
+    color: LOGIN_COLORS.ivoryDark,
   },
 });
 
