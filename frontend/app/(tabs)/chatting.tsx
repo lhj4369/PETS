@@ -8,14 +8,8 @@ import ExerciseChatView from "../../components/chatting/ExerciseChatView";
 import { ChatMessage } from "../../types/chat";
 import AuthManager from "../../utils/AuthManager";
 import API_BASE_URL from "../../config/api";
-
-const DAILY_SCRIPTS = [
-  "안녕! 오늘 하루는 어땠어? 나는 네 얘기를 듣는 게 제일 좋아.",
-  "혹시 오늘 웃을 일이 있었어? 없다면 내가 재미있는 얘기를 해줄게!",
-  "밖이 추우면 따뜻한 차 마시는 건 어때? 몸도 마음도 녹을 거야.",
-  "잠깐 스트레칭해 보는 건 어때? 어깨도 펴지고 기분도 상쾌해질 거야.",
-  "오늘은 조금 여유를 가지고 스스로를 칭찬해 줘 보자!",
-];
+import { useCustomization } from "../../context/CustomizationContext";
+import { getDailyScripts, getPlaceholderPhrase } from "../../utils/dailyScripts";
 
 const EXERCISE_RESPONSES = [
   "가벼운 준비 운동부터 시작해 봐요. 어깨와 허리를 살짝 돌려주는 것만으로도 큰 도움이 돼요!",
@@ -27,10 +21,13 @@ const EXERCISE_RESPONSES = [
 
 export default function ChattingScreen() {
   const { mode } = useLocalSearchParams<{ mode?: string | string[] }>();
+  const { selectedAnimalId } = useCustomization();
+  const dailyScripts = useMemo(() => getDailyScripts(selectedAnimalId ?? null), [selectedAnimalId]);
+  const placeholderPhrase = useMemo(() => getPlaceholderPhrase(selectedAnimalId ?? null), [selectedAnimalId]);
+
   const [viewMode, setViewMode] = useState<"daily" | "exercise">("daily");
   const [scriptIndex, setScriptIndex] = useState(-1);
   const [isScriptVisible, setIsScriptVisible] = useState(false);
-  const [hasTapped, setHasTapped] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "1",
@@ -42,12 +39,13 @@ export default function ChattingScreen() {
   const [inputText, setInputText] = useState("");
 
   const currentScript = useMemo(
-    () => (scriptIndex >= 0 ? DAILY_SCRIPTS[scriptIndex] : ""),
-    [scriptIndex]
+    () => (scriptIndex >= 0 ? dailyScripts[scriptIndex] : ""),
+    [scriptIndex, dailyScripts]
   );
 
   const normalizedMode = Array.isArray(mode) ? mode[0] : mode;
   const scriptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasAutoPlayedGreeting = useRef(false);
 
   useEffect(() => {
     if (normalizedMode === "daily") {
@@ -63,19 +61,36 @@ export default function ChattingScreen() {
     }, [normalizedMode])
   );
 
+  // 진입 시 동물별 인사 한 줄 자동 재생 (일상 탭에서 한 번만)
   useEffect(() => {
+    if (viewMode !== "daily" || dailyScripts.length === 0 || hasAutoPlayedGreeting.current) return;
+
+    const showTimer = setTimeout(() => {
+      setScriptIndex(0);
+      setIsScriptVisible(true);
+      hasAutoPlayedGreeting.current = true;
+      scriptTimerRef.current = setTimeout(() => {
+        setIsScriptVisible(false);
+      }, 4000);
+    }, 500);
+
     return () => {
+      clearTimeout(showTimer);
       if (scriptTimerRef.current) {
         clearTimeout(scriptTimerRef.current);
+        scriptTimerRef.current = null;
       }
+    };
+  }, [viewMode, dailyScripts.length]);
+
+  useEffect(() => {
+    return () => {
+      if (scriptTimerRef.current) clearTimeout(scriptTimerRef.current);
     };
   }, []);
 
   const handleAnimalPress = () => {
-    if (!hasTapped) {
-      setHasTapped(true);
-    }
-    setScriptIndex((prev) => (prev + 1) % DAILY_SCRIPTS.length);
+    setScriptIndex((prev) => (prev + 1) % dailyScripts.length);
     setIsScriptVisible(true);
     if (scriptTimerRef.current) {
       clearTimeout(scriptTimerRef.current);
@@ -182,7 +197,7 @@ export default function ChattingScreen() {
         <DailyChatView
           currentScript={currentScript}
           isScriptVisible={isScriptVisible}
-          hasTapped={hasTapped}
+          placeholderPhrase={placeholderPhrase}
           onAnimalPress={handleAnimalPress}
           onSwitchToExercise={handleSwitchToExercise}
         />

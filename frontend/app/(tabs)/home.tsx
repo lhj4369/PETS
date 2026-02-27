@@ -257,7 +257,7 @@ const HomeScreen = () => {
 
       // CustomizationContext 업데이트
       const animalImage = getAnimalImage(selectedAnimalId);
-      setCustomization(animalImage, selectedBackground, selectedClock);
+      setCustomization(animalImage, selectedBackground, selectedClock, selectedAnimalId ?? null);
 
       Alert.alert("완료", "프로필이 저장되었습니다.");
       setShowProfileModal(false);
@@ -281,7 +281,7 @@ const HomeScreen = () => {
     setSelectedAnimalId(pendingAnimal);
     // CustomizationContext 업데이트
     const animalImage = getAnimalImage(pendingAnimal);
-    setCustomization(animalImage, selectedBackground, selectedClock);
+    setCustomization(animalImage, selectedBackground, selectedClock, pendingAnimal);
     setPendingAnimal(null);
     setShowAnimalConfirm(false);
     setShowAnimalModal(false);
