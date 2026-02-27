@@ -175,154 +175,198 @@ export default function LoginScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.scrollContainer}>
+    <View style={styles.wrapper}>
       <Navigator />
-      <View style={styles.container}>
+      {/* 상단 40% 브랜드 영역 */}
+      <View style={styles.topSection}>
         <Text style={styles.title}>PETS</Text>
-        <Text style={styles.subtitle}>당신의 운동 파트너</Text>
-
-        {/* 이메일 입력 */}
-        <TextInput
-          style={styles.input}
-          placeholder="이메일"
-          value={email}
-          onChangeText={setEmail}
-          placeholderTextColor="#999"
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-
-        {/* 비밀번호 입력 */}
-        <TextInput
-          style={styles.input}
-          placeholder="비밀번호"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          placeholderTextColor="#999"
-        />
-
-        {/* 로그인 버튼 */}
-        <TouchableOpacity
-          style={[styles.loginButton, isSubmitting && styles.loginButtonDisabled]}
-          onPress={handleLogin}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator color="#ffffff" />
-          ) : (
-            <Text style={styles.loginButtonText}>로그인</Text>
-          )}
-        </TouchableOpacity>
-
-        {/* 구글 로그인 버튼 */}
-        <TouchableOpacity
-          style={[styles.googleButton, (!request || isGoogleLoading) && styles.googleButtonDisabled]}
-          onPress={handleGoogleLogin}
-          disabled={!request || isGoogleLoading}
-        >
-          {isGoogleLoading ? (
-            <ActivityIndicator color="#3c4043" />
-          ) : (
-            <Text style={styles.googleButtonText}>구글 로그인</Text>
-          )}
-        </TouchableOpacity>
-
-        {/* 개발자 모드 로그인 버튼 */}
-        <TouchableOpacity style={styles.devButton} onPress={handleDevLogin}>
-          <Text style={styles.devButtonText}>개발자 모드 로그인</Text>
-        </TouchableOpacity>
-
-        {/* 하단 링크들 */}
-        <View style={styles.linkContainer}>
-          <TouchableOpacity onPress={handleFindPassword}>
-            <Text style={styles.linkText}>비밀번호 찾기</Text>
-          </TouchableOpacity>
-          <Text style={styles.separator}>|</Text>
-          <TouchableOpacity onPress={handleFindId}>
-            <Text style={styles.linkText}>아이디 찾기</Text>
-          </TouchableOpacity>
-          <Text style={styles.separator}>|</Text>
-          <TouchableOpacity onPress={handleSignUp}>
-            <Text style={styles.linkText}>회원가입</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.subtitle}>오늘도 목표를 향해 한 걸음</Text>
       </View>
-    </ScrollView>
+      {/* 하단 60% 흰색 카드 영역 */}
+      <View style={styles.bottomCard}>
+        <ScrollView
+          contentContainerStyle={styles.cardScrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* 이메일 입력 */}
+          <TextInput
+            style={styles.input}
+            placeholder="이메일"
+            value={email}
+            onChangeText={setEmail}
+            placeholderTextColor="#999"
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+
+          {/* 비밀번호 입력 */}
+          <TextInput
+            style={styles.input}
+            placeholder="비밀번호"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            placeholderTextColor="#999"
+          />
+
+          {/* 로그인 버튼 */}
+          <TouchableOpacity
+            style={[styles.loginButton, isSubmitting && styles.loginButtonDisabled]}
+            onPress={handleLogin}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text style={styles.loginButtonText}>로그인</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* 구분선 */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>또는</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* 구글 로그인 버튼 */}
+          <TouchableOpacity
+            style={[styles.googleButton, (!request || isGoogleLoading) && styles.googleButtonDisabled]}
+            onPress={handleGoogleLogin}
+            disabled={!request || isGoogleLoading}
+          >
+            {isGoogleLoading ? (
+              <ActivityIndicator color="#3c4043" />
+            ) : (
+              <Text style={styles.googleButtonText}>구글 로그인</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* 개발자 모드 로그인 버튼 */}
+          <TouchableOpacity style={styles.devButton} onPress={handleDevLogin}>
+            <Text style={styles.devButtonText}>개발자 모드 로그인</Text>
+          </TouchableOpacity>
+
+          {/* 하단 링크들 */}
+          <View style={styles.linkContainer}>
+            <TouchableOpacity onPress={handleFindPassword}>
+              <Text style={styles.linkText}>비밀번호 찾기</Text>
+            </TouchableOpacity>
+            <Text style={styles.separator}>|</Text>
+            <TouchableOpacity onPress={handleFindId}>
+              <Text style={styles.linkText}>아이디 찾기</Text>
+            </TouchableOpacity>
+            <Text style={styles.separator}>|</Text>
+            <TouchableOpacity onPress={handleSignUp}>
+              <Text style={styles.linkText}>회원가입</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    flexGrow: 1,
-  },
-  container: {
+  wrapper: {
     flex: 1,
+    backgroundColor: "#1E88E5",
+  },
+  topSection: {
+    flex: 0.4,
+    backgroundColor: "#1E88E5",
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  bottomCard: {
+    flex: 0.6,
     backgroundColor: "#ffffff",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingTop: 32,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+  },
+  cardScrollContent: {
     paddingHorizontal: 32,
-    paddingVertical: 40,
+    paddingBottom: 40,
   },
   title: {
-    fontSize: 100,
+    fontSize: 46,
     fontWeight: "bold",
-    color: "#007AFF",
-    marginBottom: 12,
-    fontFamily: 'KotraHope',
+    letterSpacing: 1,
+    color: "#ffffff",
+    marginBottom: 8,
+    fontFamily: "KotraHope",
   },
   subtitle: {
-    fontSize: 24,
-    color: "#666666",
-    marginBottom: 40,
-    fontFamily: 'KotraHope',
+    fontSize: 19,
+    color: "rgba(255, 255, 255, 0.85)",
+    marginTop: 10,
+    fontFamily: "KotraHope",
   },
   input: {
     backgroundColor: "#f5f5f5",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
     fontSize: 16,
-    marginBottom: 12,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: "#e0e0e0",
-    width: "100%",    
+    width: "100%",
   },
   loginButton: {
-    backgroundColor: "#007AFF",
-    paddingHorizontal: 32,
+    backgroundColor: "#1E88E5",
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 14,
     width: "100%",
     alignItems: "center",
     marginTop: 8,
-    marginBottom: 12,
+    marginBottom: 24,
   },
   loginButtonDisabled: {
     opacity: 0.6,
   },
   loginButtonText: {
     color: "#ffffff",
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "600",
-    fontFamily: 'KotraHope',
+    fontFamily: "KotraHope",
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#e0e0e0",
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    fontSize: 14,
+    color: "#999",
+    fontFamily: "KotraHope",
   },
   googleButton: {
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 32,
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 14,
     width: "100%",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: "#dadce0",
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
     shadowRadius: 2,
     elevation: 2,
   },
@@ -331,24 +375,23 @@ const styles = StyleSheet.create({
   },
   googleButtonText: {
     color: "#3c4043",
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "500",
-    fontFamily: 'KotraHope',
+    fontFamily: "KotraHope",
   },
   devButton: {
     backgroundColor: "#6c757d",
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
     width: "100%",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 32,
   },
   devButtonText: {
     color: "#ffffff",
-    fontSize: 20,
-    fontWeight: "600",
-    fontFamily: 'KotraHope',
+    fontSize: 16,
+    fontWeight: "500",
+    fontFamily: "KotraHope",
   },
   linkContainer: {
     flexDirection: "row",
@@ -357,12 +400,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   linkText: {
-    fontSize: 18,
+    fontSize: 16,
     color: "#666666",
-    fontFamily: 'KotraHope',
+    fontFamily: "KotraHope",
   },
   separator: {
-    fontSize: 18,
+    fontSize: 16,
     color: "#cccccc",
   },
 });
