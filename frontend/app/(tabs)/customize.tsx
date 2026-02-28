@@ -1,5 +1,5 @@
 //커스터마이징 화면
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView, Image, ImageBackground } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView, Image, ImageBackground, ActivityIndicator } from "react-native";
 import { useEffect, useState, useRef } from "react";
 import { router } from "expo-router";
 import HomeButton from "../../components/HomeButton";
@@ -13,6 +13,8 @@ import summer from "../../assets/images/background/summer.png";
 import fall from "../../assets/images/background/fall.png";
 import winter from "../../assets/images/background/winter.png";
 import city from "../../assets/images/background/city.png";
+import city1 from "../../assets/images/background/city-1.png";
+import healthclub from "../../assets/images/background/healthclub.png";
 import home from "../../assets/images/background/home.png";
 import cute from "../../assets/images/clocks/cute.png";
 import alarm from "../../assets/images/clocks/alarm.png";
@@ -39,8 +41,10 @@ const backgrounds = [
   { name: '봄', src: spring },
   { name: '여름', src: summer },
   { name: '도시', src: city },
+  { name: '도시2', src: city1 },
   { name: '가을', src: fall },
   { name: '겨울', src: winter },
+  { name: '헬스장', src: healthclub },
 ];
 
 const clocks = [
@@ -56,6 +60,7 @@ const DEFAULT_CLOCK_NAME = clocks[1].name; // 알람 시계
 export default function CustomizeScreen() {
   const { setCustomization, selectedAnimal, selectedBackground, selectedClock } = useCustomization();
   const [selectedMenu, setSelectedMenu] = useState('동물');
+  const [isLoading, setIsLoading] = useState(false);
   const [activeAnimal, setActiveAnimal] = useState(() => {
     const match = animals.find(a => a.src === selectedAnimal);
     return match?.name ?? '강아지';
@@ -155,12 +160,13 @@ export default function CustomizeScreen() {
                   activeAnimal === a.name && styles.selectedOption
                 ]}
                 onPress={() => updateAnimalSelection(a.name)}
+                activeOpacity={0.7}
               >
                 <Image
                   source={a.src}
-                  style={{ width: 60, height: 60, resizeMode: 'contain' }}
+                  style={{ width: 65, height: 65, resizeMode: 'contain' }}
                 />
-                <Text style={styles.optionText}>{a.name}</Text>
+                <Text style={styles.optionText} numberOfLines={2}>{a.name}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -169,20 +175,21 @@ export default function CustomizeScreen() {
           return (
             <View style={styles.contentGrid}>
               {backgrounds.map((bg) => (
-                <TouchableOpacity
-                  key={bg.name}
-                  style={[
-                    styles.optionItem,
-                    activeBackground === bg.name && styles.selectedOption
-                  ]}
-                  onPress={() => updateBackgroundSelection(bg.name)}
-                >
-                  <Image
-                    source={bg.src}
-                    style={{ width: 80, height: 80, resizeMode: 'cover', borderRadius: 10 }}
-                  />
-                  <Text style={styles.optionText}>{bg.name}</Text>
-                </TouchableOpacity>
+              <TouchableOpacity
+                key={bg.name}
+                style={[
+                  styles.optionItem,
+                  activeBackground === bg.name && styles.selectedOption
+                ]}
+                onPress={() => updateBackgroundSelection(bg.name)}
+                activeOpacity={0.7}
+              >
+                <Image
+                  source={bg.src}
+                  style={{ width: 75, height: 75, resizeMode: 'cover', borderRadius: 8 }}
+                />
+                <Text style={styles.optionText} numberOfLines={2}>{bg.name}</Text>
+              </TouchableOpacity>
               ))}
             </View>
           );
@@ -191,20 +198,21 @@ export default function CustomizeScreen() {
             return (
               <View style={styles.contentGrid}>
                 {clocks.map((clock) => (
-                  <TouchableOpacity
-                    key={clock.name}
-                    style={[
-                      styles.optionItem,
-                      activeClock === clock.name && styles.selectedOption,
-                    ]}
-                    onPress={() => updateClockSelection(clock.name)}
-                  >
-                    <Image
-                      source={clock.src}
-                      style={{ width: 70, height: 70, resizeMode: 'contain' }}
-                    />
-                    <Text style={styles.optionText}>{clock.name}</Text>
-                  </TouchableOpacity>
+                <TouchableOpacity
+                  key={clock.name}
+                  style={[
+                    styles.optionItem,
+                    activeClock === clock.name && styles.selectedOption,
+                  ]}
+                  onPress={() => updateClockSelection(clock.name)}
+                  activeOpacity={0.7}
+                >
+                  <Image
+                    source={clock.src}
+                    style={{ width: 65, height: 65, resizeMode: 'contain' }}
+                  />
+                  <Text style={styles.optionText} numberOfLines={2}>{clock.name}</Text>
+                </TouchableOpacity>
                 ))}
               </View>
             );
@@ -215,6 +223,9 @@ export default function CustomizeScreen() {
   };
 
   const handleSave = async () => {
+    // 중복 클릭 방지
+    if (isLoading) return;
+    
     const { animal, background, clock } = selectionsRef.current;
     const selectedAnimalData = animals.find(a => a.name === animal);
     const selectedBgData = backgrounds.find(bg => bg.name === background);
@@ -225,11 +236,14 @@ export default function CustomizeScreen() {
       return;
     }
 
+    setIsLoading(true);
+
     // 로컬 상태 업데이트
     setCustomization(
       selectedAnimalData?.src || null,
       selectedBgData?.src || null,
-      selectedClockData?.src || null
+      selectedClockData?.src || null,
+      selectedAnimalData?.id ?? null
     );
 
     // 서버에 저장
@@ -237,6 +251,7 @@ export default function CustomizeScreen() {
       const headers = await AuthManager.getAuthHeader();
       if (!headers.Authorization) {
         // 로그인하지 않은 경우 로컬만 저장
+        setIsLoading(false);
         router.back();
         return;
       }
@@ -260,12 +275,15 @@ export default function CustomizeScreen() {
 
       const data = await response.json();
       if (!response.ok) {
+        setIsLoading(false);
         Alert.alert("오류", data?.error ?? "커스터마이징 저장에 실패했습니다.");
         return;
       }
 
+      setIsLoading(false);
       router.back();
     } catch (error) {
+      setIsLoading(false);
       console.error("커스터마이징 저장 실패:", error);
       Alert.alert("오류", "커스터마이징 저장 중 문제가 발생했습니다.");
     }
@@ -305,6 +323,7 @@ export default function CustomizeScreen() {
               selectedMenu === item && styles.activeMenuTab
             ]}
             onPress={() => setSelectedMenu(item)}
+            activeOpacity={0.8}
           >
             <Text style={[
               styles.menuTabText,
@@ -323,8 +342,20 @@ export default function CustomizeScreen() {
 
       {/* 저장 버튼 */}
       <View style={styles.saveButtonContainer}>
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>저장</Text>
+        <TouchableOpacity 
+          style={[styles.saveButton, isLoading && styles.saveButtonDisabled]} 
+          onPress={handleSave}
+          disabled={isLoading}
+          activeOpacity={0.8}
+        >
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator color="#fff" size="small" />
+              <Text style={[styles.saveButtonText, { marginLeft: 8 }]}>저장 중...</Text>
+            </View>
+          ) : (
+            <Text style={styles.saveButtonText}>저장</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -334,78 +365,89 @@ export default function CustomizeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#ffffff',
   },
   previewContainer: {
     alignItems: 'center',
-    paddingTop: 40,
-    paddingBottom: 0,
+    paddingTop: 10,
+    paddingBottom: 15,
+    backgroundColor: '#ffffff',
   },
   previewPetContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
   },
   homePreviewWrapper: {
-    width: 300,
-    height: 350,
+    width: 380,
+    height: 500,
     borderRadius: 16,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 5,
   },
   homePreviewBackground: {
     width: '100%',
     height: '100%',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    paddingBottom: 32,
+    paddingBottom: 45,
   },
   homePreviewBackgroundImage: {
     resizeMode: 'cover',
   },
   previewPetPlaceholder: {
-    fontSize: 18,
+    fontSize: 22,
     color: '#666',
     fontWeight: '500',
     fontFamily: 'KotraHope',
   },
   previewAnimal: {
-    width: 170,
-    height: 170,
+    width: 220,
+    height: 220,
     resizeMode: 'contain',
     marginLeft: 25,
   },
   previewClock: {
     position: 'absolute',
-    top: 180,
-    left: 10,
-    width: 90,
-    height: 90,
+    top: 260,
+    left: 20,
+    width: 110,
+    height: 110,
     resizeMode: 'contain',
   },
   menuContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: '#f0f0f0',
     marginHorizontal: 20,
     borderRadius: 10,
-    padding: 5,
-    marginBottom: 20,
+    padding: 4,
+    marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
   },
   menuTab: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 8,
     alignItems: 'center',
     borderRadius: 8,
   },
   activeMenuTab: {
     backgroundColor: '#4CAF50',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   menuTabText: {
-    fontSize: 20,
-    color: '#666',
+    fontSize: 17,
+    color: '#888',
     fontWeight: '500',
     fontFamily: 'KotraHope',
   },
@@ -413,22 +455,28 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontFamily: 'KotraHope',
+    fontSize: 17,
   },
   contentContainer: {
     flex: 1,
     paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 10,
+    backgroundColor: '#fafafa',
+    borderTopWidth: 1,
+    borderTopColor: '#e8e8e8',
   },
   contentGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 15,
+    justifyContent: 'flex-start',
+    gap: 12,
   },
   optionItem: {
     width: '30%',
-    aspectRatio: 1,
+    aspectRatio: 0.95,
     backgroundColor: '#fff',
-    borderRadius: 15,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -436,41 +484,59 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 3,
+    elevation: 2,
+    padding: 8,
   },
   selectedOption: {
     borderColor: '#4CAF50',
-    backgroundColor: '#f0f8f0',
+    borderWidth: 3,
+    backgroundColor: '#e8f5e9',
   },
   optionText: {
-    fontSize: 20,
+    fontSize: 16,
     color: '#333',
     fontWeight: '500',
     textAlign: 'center',
     fontFamily: 'KotraHope',
+    marginTop: 6,
+    lineHeight: 20,
   },
   saveButtonContainer: {
-    padding: 20,
+    padding: 16,
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 4,
   },
   saveButton: {
     backgroundColor: '#4CAF50',
-    paddingVertical: 15,
+    paddingVertical: 14,
     borderRadius: 25,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
   },
   saveButtonText: {
     color: '#fff',
-    fontSize: 22,
+    fontSize: 21,
     fontWeight: 'bold',
     fontFamily: 'KotraHope',
+  },
+  saveButtonDisabled: {
+    backgroundColor: '#9E9E9E',
+    opacity: 0.7,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

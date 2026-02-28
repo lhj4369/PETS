@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, ActivityIndicator, Image } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -10,7 +11,17 @@ import API_BASE_URL from "../../config/api";
 // WebBrowser 완료 후 자동으로 닫히도록 설정
 WebBrowser.maybeCompleteAuthSession();
 
+const LOGIN_COLORS = {
+  ivory: "#FFFEF5",
+  ivoryDark: "#F5F0E0",
+  yellow: "#FFE566",
+  yellowDark: "#E6C94A",
+  brown: "#8B7355",
+  brownLight: "#A08060",
+};
+
 export default function LoginScreen() {
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -175,180 +186,269 @@ export default function LoginScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.scrollContainer}>
+    <View style={styles.wrapper}>
       <Navigator />
-      <View style={styles.container}>
-        <Text style={styles.title}>PETS</Text>
-        <Text style={styles.subtitle}>당신의 운동 파트너</Text>
-
-        {/* 이메일 입력 */}
-        <TextInput
-          style={styles.input}
-          placeholder="이메일"
-          value={email}
-          onChangeText={setEmail}
-          placeholderTextColor="#999"
-          autoCapitalize="none"
-          keyboardType="email-address"
+      {/* 상단: 이미지 꽉 채움 (cover) */}
+      <View style={styles.imageSection}>
+        <Image
+          source={require("../../assets/images/background/login.png")}
+          style={styles.loginImage}
+          resizeMode="cover"
         />
-
-        {/* 비밀번호 입력 */}
-        <TextInput
-          style={styles.input}
-          placeholder="비밀번호"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          placeholderTextColor="#999"
-        />
-
-        {/* 로그인 버튼 */}
-        <TouchableOpacity
-          style={[styles.loginButton, isSubmitting && styles.loginButtonDisabled]}
-          onPress={handleLogin}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator color="#ffffff" />
-          ) : (
-            <Text style={styles.loginButtonText}>로그인</Text>
-          )}
-        </TouchableOpacity>
-
-        {/* 구글 로그인 버튼 */}
-        <TouchableOpacity
-          style={[styles.googleButton, (!request || isGoogleLoading) && styles.googleButtonDisabled]}
-          onPress={handleGoogleLogin}
-          disabled={!request || isGoogleLoading}
-        >
-          {isGoogleLoading ? (
-            <ActivityIndicator color="#3c4043" />
-          ) : (
-            <Text style={styles.googleButtonText}>구글 로그인</Text>
-          )}
-        </TouchableOpacity>
-
-        {/* 개발자 모드 로그인 버튼 */}
-        <TouchableOpacity style={styles.devButton} onPress={handleDevLogin}>
-          <Text style={styles.devButtonText}>개발자 모드 로그인</Text>
-        </TouchableOpacity>
-
-        {/* 하단 링크들 */}
-        <View style={styles.linkContainer}>
-          <TouchableOpacity onPress={handleFindPassword}>
-            <Text style={styles.linkText}>비밀번호 찾기</Text>
-          </TouchableOpacity>
-          <Text style={styles.separator}>|</Text>
-          <TouchableOpacity onPress={handleFindId}>
-            <Text style={styles.linkText}>아이디 찾기</Text>
-          </TouchableOpacity>
-          <Text style={styles.separator}>|</Text>
-          <TouchableOpacity onPress={handleSignUp}>
-            <Text style={styles.linkText}>회원가입</Text>
-          </TouchableOpacity>
+        {/* 이미지 중앙 상단에 PETS 문구 오버레이 */}
+        <View style={styles.titleOverlay} pointerEvents="none">
+          <Text style={styles.title}>PETS</Text>
+          <Text style={styles.subtitle}>오늘도 목표를 향해 한 걸음</Text>
         </View>
       </View>
-    </ScrollView>
+      {/* 하단: 로그인 박스 */}
+      <View style={[styles.bottomCard, { backgroundColor: LOGIN_COLORS.ivory, borderColor: LOGIN_COLORS.yellow, paddingBottom: insets.bottom }]}>
+        <ScrollView
+          contentContainerStyle={styles.cardScrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* 이메일 입력 */}
+          <TextInput
+            style={styles.input}
+            placeholder="이메일"
+            value={email}
+            onChangeText={setEmail}
+            placeholderTextColor={LOGIN_COLORS.brownLight}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+
+          {/* 비밀번호 입력 */}
+          <TextInput
+            style={styles.input}
+            placeholder="비밀번호"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            placeholderTextColor={LOGIN_COLORS.brownLight}
+          />
+
+          {/* 로그인 버튼 */}
+          <TouchableOpacity
+            style={[styles.loginButton, isSubmitting && styles.loginButtonDisabled]}
+            onPress={handleLogin}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color={LOGIN_COLORS.brown} />
+            ) : (
+              <Text style={styles.loginButtonText}>로그인</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* 구분선 */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>또는</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* 구글 로그인 버튼 */}
+          <TouchableOpacity
+            style={[styles.googleButton, (!request || isGoogleLoading) && styles.googleButtonDisabled]}
+            onPress={handleGoogleLogin}
+            disabled={!request || isGoogleLoading}
+          >
+            {isGoogleLoading ? (
+              <ActivityIndicator color="#3c4043" />
+            ) : (
+              <>
+                <Image source={require("../../assets/images/icons/google.png")} style={styles.googleIcon} resizeMode="contain" />
+                <Text style={styles.googleButtonText}>Google 계정으로 로그인</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* 개발자 모드 로그인 버튼 */}
+          <TouchableOpacity style={styles.devButton} onPress={handleDevLogin}>
+            <Text style={styles.devButtonText}>개발자 모드 로그인</Text>
+          </TouchableOpacity>
+
+          {/* 하단 링크들 */}
+          <View style={styles.linkContainer}>
+            <TouchableOpacity onPress={handleFindPassword}>
+              <Text style={styles.linkText}>비밀번호 찾기</Text>
+            </TouchableOpacity>
+            <Text style={styles.separator}>|</Text>
+            <TouchableOpacity onPress={handleFindId}>
+              <Text style={styles.linkText}>아이디 찾기</Text>
+            </TouchableOpacity>
+            <Text style={styles.separator}>|</Text>
+            <TouchableOpacity onPress={handleSignUp}>
+              <Text style={styles.linkText}>회원가입</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    flexGrow: 1,
-  },
-  container: {
+  wrapper: {
     flex: 1,
-    justifyContent: "center",
+    width: "100%",
+    backgroundColor: LOGIN_COLORS.ivory,
+  },
+  imageSection: {
+    width: "100%",
+    flex: 0.42,
+    position: "relative",
+    overflow: "hidden",
+  },
+  loginImage: {
+    width: "100%",
+    height: "100%",
+  },
+  titleOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "flex-start",
     alignItems: "center",
-    backgroundColor: "#ffffff",
+    paddingTop: 48,
+  },
+  bottomCard: {
+    flex: 1,
+    marginTop: -40,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderWidth: 2,
+    paddingTop: 40,
+    elevation: 8,
+    shadowColor: LOGIN_COLORS.brown,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+  },
+  cardScrollContent: {
     paddingHorizontal: 32,
-    paddingVertical: 40,
+    paddingBottom: 24,
   },
   title: {
-    fontSize: 100,
+    fontSize: 46,
     fontWeight: "bold",
-    color: "#007AFF",
-    marginBottom: 12,
-    fontFamily: 'KotraHope',
+    letterSpacing: 1,
+    color: LOGIN_COLORS.brown,
+    marginBottom: 8,
+    fontFamily: "KotraHope",
+    textShadowColor: "rgba(255, 255, 255, 0.9)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 4,
   },
   subtitle: {
-    fontSize: 24,
-    color: "#666666",
-    marginBottom: 40,
-    fontFamily: 'KotraHope',
+    fontSize: 19,
+    color: LOGIN_COLORS.brown,
+    marginTop: 4,
+    fontFamily: "KotraHope",
+    textShadowColor: "rgba(255, 255, 255, 0.9)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   input: {
-    backgroundColor: "#f5f5f5",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
     fontSize: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    width: "100%",    
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: LOGIN_COLORS.ivoryDark,
+    width: "100%",
+    fontFamily: "KotraHope",
   },
   loginButton: {
-    backgroundColor: "#007AFF",
-    paddingHorizontal: 32,
+    backgroundColor: LOGIN_COLORS.yellow,
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     width: "100%",
     alignItems: "center",
     marginTop: 8,
-    marginBottom: 12,
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: LOGIN_COLORS.yellowDark,
   },
   loginButtonDisabled: {
     opacity: 0.6,
   },
   loginButtonText: {
-    color: "#ffffff",
-    fontSize: 20,
-    fontWeight: "600",
-    fontFamily: 'KotraHope',
+    color: LOGIN_COLORS.brown,
+    fontSize: 18,
+    fontWeight: "700",
+    fontFamily: "KotraHope",
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: LOGIN_COLORS.ivoryDark,
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    fontSize: 14,
+    color: LOGIN_COLORS.brownLight,
+    fontFamily: "KotraHope",
   },
   googleButton: {
+    flexDirection: "row",
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 32,
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 14,
     width: "100%",
     alignItems: "center",
-    marginBottom: 12,
+    justifyContent: "center",
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: "#dadce0",
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
     shadowRadius: 2,
     elevation: 2,
+  },
+  googleIcon: {
+    width: 24,
+    height: 24,
+    marginRight: 12,
   },
   googleButtonDisabled: {
     opacity: 0.6,
   },
   googleButtonText: {
     color: "#3c4043",
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "500",
-    fontFamily: 'KotraHope',
+    fontFamily: "KotraHope",
   },
   devButton: {
-    backgroundColor: "#6c757d",
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: LOGIN_COLORS.ivoryDark,
+    paddingVertical: 14,
+    borderRadius: 14,
     width: "100%",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 32,
+    borderWidth: 1,
+    borderColor: LOGIN_COLORS.brownLight,
   },
   devButtonText: {
-    color: "#ffffff",
-    fontSize: 20,
+    color: LOGIN_COLORS.brown,
+    fontSize: 16,
     fontWeight: "600",
-    fontFamily: 'KotraHope',
+    fontFamily: "KotraHope",
   },
   linkContainer: {
     flexDirection: "row",
@@ -357,13 +457,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   linkText: {
-    fontSize: 18,
-    color: "#666666",
-    fontFamily: 'KotraHope',
+    fontSize: 16,
+    color: LOGIN_COLORS.brownLight,
+    fontFamily: "KotraHope",
   },
   separator: {
-    fontSize: 18,
-    color: "#cccccc",
+    fontSize: 16,
+    color: LOGIN_COLORS.ivoryDark,
   },
 });
 

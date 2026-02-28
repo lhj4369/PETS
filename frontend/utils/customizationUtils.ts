@@ -8,6 +8,8 @@ export const BACKGROUND_IMAGES: Record<string, ImageSourcePropType> = {
   fall: require("../assets/images/background/fall.png"),
   winter: require("../assets/images/background/winter.png"),
   city: require("../assets/images/background/city.png"),
+  city_1: require("../assets/images/background/city-1.png"),
+  healthclub: require("../assets/images/background/healthclub.png"),
 };
 
 // 시계 타입 매핑

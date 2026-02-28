@@ -96,6 +96,14 @@ router.get('/me', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
     }
 
+    // 출석 처리 (1일 1회, 접속 시) - 로컬 날짜 사용
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    await db.query(
+      'INSERT IGNORE INTO user_attendance (user_id, attendance_date) VALUES (?, ?)',
+      [req.user.id, today]
+    );
+
     const [profileRows] = await db.query(
       'SELECT animal_type AS animalType, nickname, height, weight, level, experience, strength, agility, stamina, concentration, background_type AS backgroundType, clock_type AS clockType FROM user_profiles WHERE user_id = ? LIMIT 1',
       [req.user.id]
@@ -179,7 +187,7 @@ router.post('/profile', authMiddleware, async (req, res) => {
   try {
     const { animalType, nickname, height, weight, backgroundType, clockType } = req.body;
     const allowedAnimals = ['dog', 'capybara', 'fox', 'red_panda', 'guinea_pig'];
-    const allowedBackgrounds = ['home', 'spring', 'summer', 'fall', 'winter', 'city'];
+    const allowedBackgrounds = ['home', 'spring', 'summer', 'fall', 'winter', 'city', 'city_1', 'healthclub'];
     const allowedClocks = ['cute', 'alarm', 'sand', 'mini'];
 
     if (!animalType || !allowedAnimals.includes(animalType)) {
@@ -228,7 +236,7 @@ router.post('/customization', authMiddleware, async (req, res) => {
   try {
     const { animalType, backgroundType, clockType } = req.body;
     const allowedAnimals = ['dog', 'capybara', 'fox', 'red_panda', 'guinea_pig'];
-    const allowedBackgrounds = ['home', 'spring', 'summer', 'fall', 'winter', 'city'];
+    const allowedBackgrounds = ['home', 'spring', 'summer', 'fall', 'winter', 'city', 'city_1', 'healthclub'];
     const allowedClocks = ['cute', 'alarm', 'sand', 'mini'];
 
     // 프로필이 존재하는지 확인
