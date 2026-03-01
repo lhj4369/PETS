@@ -5,6 +5,7 @@ import {
   Alert,
   Image,
   Modal,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -36,6 +37,8 @@ import { useCustomization } from "../../context/CustomizationContext";
 import { useFocusEffect } from "@react-navigation/native";
 import { getClockImageFromType } from "../../utils/customizationUtils";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { WorkoutLocationTracker } from "../../utils/WorkoutLocationTracker";
+import LocationMapModal from "../../components/LocationMapModal";
 
 type Mode = "aerobic" | "weight" | "interval";
 type Phase = "idle" | "running" | "summary";
@@ -89,10 +92,12 @@ export default function TimerScreen() {
   const [hasSavedRecord, setHasSavedRecord] = useState(false);
   const [showHeartRateCamera, setShowHeartRateCamera] = useState(false);
   const [pendingSummaryData, setPendingSummaryData] = useState<SummaryData | null>(null);
+  const [showLocationMap, setShowLocationMap] = useState(false);
   const workoutStartTimeRef = useRef<number | null>(null);
   const [animalType, setAnimalType] = useState<string | null>("dog");
   const timer = useWorkoutTimer();
   const { loadCustomizationFromServer } = useCustomization();
+  const locationTrackerRef = useRef<WorkoutLocationTracker | null>(null);
 
   // 프로필에서 동물 정보 로드
   useFocusEffect(
@@ -117,6 +122,16 @@ export default function TimerScreen() {
   );
 
   const handleStart = () => {
+    // 웹 환경이거나 웨이트/인터벌 모드는 지도 모달 없이 바로 시작
+    if (Platform.OS === 'web' || mode !== "aerobic") {
+      startWorkoutInternal();
+    } else {
+      // 모바일 환경에서 유산소 모드일 때만 지도 모달 표시
+      setShowLocationMap(true);
+    }
+  };
+
+  const startWorkoutInternal = async () => {
     finishRest(false);
     stopWorkoutTimer();
     timer.reset();
@@ -128,6 +143,20 @@ export default function TimerScreen() {
     setHasClaimedReward(false);
     setHasSavedRecord(false);
     setShowIntervalConfigurator(false);
+    
+    // GPS 추적 시작 (유산소 모드일 때만)
+    if (mode === "aerobic") {
+      try {
+        if (!locationTrackerRef.current) {
+          locationTrackerRef.current = new WorkoutLocationTracker();
+        }
+        locationTrackerRef.current.reset();
+        await locationTrackerRef.current.startTracking();
+      } catch (error) {
+        console.error("GPS 추적 시작 실패:", error);
+        // GPS 추적 실패해도 운동은 계속 진행
+      }
+    }
     
     if (mode === "interval") {
       // 새로운 인터벌 타이머: 운동부터 시작
@@ -141,6 +170,14 @@ export default function TimerScreen() {
       setActiveRestDurationMs(initialRest);
     }
     setPhase("running");
+  };
+
+  const handleLocationMapStart = () => {
+    setShowLocationMap(false);
+    // 약간의 지연 후 운동 시작 (모달 애니메이션 완료 대기)
+    setTimeout(() => {
+      startWorkoutInternal();
+    }, 300);
   };
 
   const handlePauseToggle = () => {
@@ -348,6 +385,11 @@ export default function TimerScreen() {
     return () => {
       stopRestTimer();
       stopWorkoutTimer();
+      // GPS 추적 정리
+      if (locationTrackerRef.current) {
+        locationTrackerRef.current.stopTracking();
+        locationTrackerRef.current.reset();
+      }
     };
   }, [stopRestTimer, stopWorkoutTimer]);
 
@@ -490,6 +532,13 @@ export default function TimerScreen() {
     finishRest(false);
     timer.reset();
     workoutStartTimeRef.current = null;
+    
+    // GPS 추적 중지 및 초기화
+    if (locationTrackerRef.current) {
+      locationTrackerRef.current.stopTracking();
+      locationTrackerRef.current.reset();
+    }
+    
     setSummary(null);
     setLaps([]);
     setCompletedSets(0);
@@ -514,16 +563,30 @@ export default function TimerScreen() {
     const endTime = Date.now();
     const startTime = workoutStartTimeRef.current || endTime - finalElapsed;
     
-    // Google Fit에서 이동 거리 가져오기
+    // GPS에서 이동 거리 가져오기 (우선순위)
     let distance = 0;
-    try {
-      const isAuthenticated = await GoogleFitManager.isAuthenticated();
-      if (isAuthenticated) {
-        distance = await GoogleFitManager.getDistance(startTime, endTime);
+    if (locationTrackerRef.current && locationTrackerRef.current.getIsTracking()) {
+      try {
+        locationTrackerRef.current.stopTracking();
+        distance = locationTrackerRef.current.calculateTotalDistance();
+        console.log(`GPS 이동 거리: ${distance.toFixed(2)}m`);
+      } catch (error) {
+        console.error("GPS 거리 계산 실패:", error);
       }
-    } catch (error) {
-      console.error("Google Fit 데이터 가져오기 실패:", error);
-      // 에러가 발생해도 운동 종료는 진행
+    }
+    
+    // GPS 거리가 없으면 Google Fit에서 가져오기 (백업)
+    if (distance === 0) {
+      try {
+        const isAuthenticated = await GoogleFitManager.isAuthenticated();
+        if (isAuthenticated) {
+          distance = await GoogleFitManager.getDistance(startTime, endTime);
+          console.log(`Google Fit 이동 거리: ${distance.toFixed(2)}m`);
+        }
+      } catch (error) {
+        console.error("Google Fit 데이터 가져오기 실패:", error);
+        // 에러가 발생해도 운동 종료는 진행
+      }
     }
     
     // 임시 summary 데이터 생성 (심박수는 카메라 측정 후 업데이트)
@@ -670,6 +733,12 @@ export default function TimerScreen() {
         visible={showHeartRateCamera}
         onComplete={handleHeartRateMeasurementComplete}
         onCancel={handleHeartRateMeasurementCancel}
+      />
+
+      <LocationMapModal
+        visible={showLocationMap}
+        onStart={handleLocationMapStart}
+        onClose={() => setShowLocationMap(false)}
       />
     </SafeAreaView>
   );
@@ -1355,7 +1424,17 @@ function TimerSummary({
       <View style={styles.summaryCard}>
         <SummaryRow label="총 운동 시간" value={formatDuration(data.elapsedMs)} />
         {data.mode === "aerobic" && (
-          <SummaryRow label="구간 수" value={`${data.laps?.length ?? 0}`} />
+          <>
+            <SummaryRow label="구간 수" value={`${data.laps?.length ?? 0}`} />
+            {data.distance !== undefined && data.distance > 0 && (
+              <SummaryRow 
+                label="이동 거리" 
+                value={data.distance >= 1000 
+                  ? `${(data.distance / 1000).toFixed(2)} km` 
+                  : `${Math.round(data.distance)} m`} 
+              />
+            )}
+          </>
         )}
         {(data.mode === "weight" || data.mode === "interval") && typeof data.restDurationMs === "number" && (
           <SummaryRow

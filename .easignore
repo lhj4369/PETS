@@ -1,0 +1,6 @@
+# EAS Build에서 제외할 파일/폴더
+# frontend 폴더를 제외하고 나머지는 무시
+backend/
+*.md
+README.md
+@kachu0514__pets.jks

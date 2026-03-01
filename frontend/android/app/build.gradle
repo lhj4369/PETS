@@ -87,12 +87,12 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.anonymous.frontend'
+    namespace 'com.petstraining.app'
     defaultConfig {
-        applicationId 'com.anonymous.frontend'
+        applicationId 'com.petstraining.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        versionCode 47
         versionName "1.0.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
@@ -179,8 +179,4 @@ dependencies {
     } else {
         implementation jscFlavor
     }
-
-    // Google Fit API
-    implementation("com.google.android.gms:play-services-fitness:21.2.0")
-    implementation("com.google.android.gms:play-services-auth:21.2.0")
 }

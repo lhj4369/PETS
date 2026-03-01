@@ -45,6 +45,6 @@ app-example
 /ios
 /android
 
-# gradle wrapper scripts generated per developer
-frontend/android/gradlew
-frontend/android/gradlew.bat
+# gradle wrapper scripts - EAS Build에 필요하므로 Git에 포함
+# frontend/android/gradlew
+# frontend/android/gradlew.bat
