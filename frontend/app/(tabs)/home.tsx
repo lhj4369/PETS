@@ -4,6 +4,7 @@ import {
   Image,
   ImageBackground,
   ImageSourcePropType,
+  InteractionManager,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -23,9 +24,11 @@ import API_BASE_URL from "../../config/api";
 import ChatBubbleButton from "../../components/ChatBubbleButton";
 import SettingsButton from "../../components/SettingsButton";
 import RankingButton from "../../components/RankingButton";
+import { useSettingsModal } from "../../context/SettingsModalContext";
 import QuestModal from "../../components/QuestModal";
 import ItemModal from "../../components/ItemModal";
 import { useCustomization, DEFAULT_ANIMAL_IMAGE, DEFAULT_BACKGROUND_IMAGE } from "../../context/CustomizationContext";
+import { APP_COLORS } from "../../constants/theme";
 import { getBackgroundTypeFromImage, getClockTypeFromImage, getBackgroundImageFromType, getClockImageFromType } from "../../utils/customizationUtils";
 
 const BASE_WIDTH = 390;
@@ -76,6 +79,7 @@ const HomeScreen = () => {
   const [showHamburgerMenu, setShowHamburgerMenu] = useState(false);
   const [showQuestModal, setShowQuestModal] = useState(false);
   const [showItemModal, setShowItemModal] = useState(false);
+  const { openSettings } = useSettingsModal();
 
   const [selectedAnimalId, setSelectedAnimalId] = useState<AnimalId | null>(null);
   const [nickname, setNickname] = useState("");
@@ -111,7 +115,7 @@ const HomeScreen = () => {
       setIsLoadingProfile(true);
       const headers = await AuthManager.getAuthHeader();
       if (!headers.Authorization) {
-        router.replace("/(auth)/login" as any);
+        router.replace("/" as any);
         return;
       }
 
@@ -119,7 +123,7 @@ const HomeScreen = () => {
 
       if (response.status === 401) {
         await AuthManager.logout();
-        router.replace("/(auth)/login" as any);
+        router.replace("/" as any);
         return;
       }
 
@@ -225,7 +229,7 @@ const HomeScreen = () => {
 
     const headers = await AuthManager.getAuthHeader();
     if (!headers.Authorization) {
-      router.replace("/(auth)/login" as any);
+      router.replace("/" as any);
       return;
     }
 
@@ -391,11 +395,11 @@ const HomeScreen = () => {
 
             <View style={styles.hamburgerMenuDivider} />
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.hamburgerMenuItem}
               onPress={() => {
                 setShowHamburgerMenu(false);
-                router.push("/(tabs)/settings" as any);
+                InteractionManager.runAfterInteractions(() => openSettings());
               }}
               activeOpacity={0.7}
             >
@@ -545,7 +549,7 @@ const HomeScreen = () => {
         <Modal visible={showAnimalModal} transparent animationType="fade" onRequestClose={() => {}}>
           <View style={styles.modalOverlay}>
             <View style={styles.animalModal}>
-              <Text style={styles.animalModalTitle}>함께할 동물을 골라주세요</Text>
+              <Text style={styles.animalModalTitle}>함께 운동할 귀여운 동물 친구를 골라봐!</Text>
               <Text style={styles.animalModalSubtitle}>
                 선택한 동물은 특정 도전 과제를 완료하기 전까지 변경할 수 없어요.
               </Text>
@@ -574,7 +578,7 @@ const HomeScreen = () => {
 
               {showAnimalConfirm && pendingAnimal && (
                 <View style={styles.animalConfirmBox}>
-                  <Text style={styles.animalConfirmTitle}>이 동물과 함께할까요?</Text>
+                  <Text style={styles.animalConfirmTitle}>이 친구와 함께할까요?</Text>
                   <Text style={styles.animalConfirmSubtitle}>
                     특정 도전 과제를 완료하기 전까지 변경할 수 없어요.
                   </Text>
@@ -604,9 +608,9 @@ const HomeScreen = () => {
           <View style={styles.modalOverlay}>
             <ScrollView contentContainerStyle={styles.profileScrollContent}>
               <View style={styles.profileModal}>
-                <Text style={styles.profileTitle}>기본 정보 입력</Text>
+                <Text style={styles.profileTitle}>지금 너의 상태를 알고 싶어!</Text>
                 <Text style={styles.profileSubtitle}>
-                  선택한 동물과 함께할 준비가 되었어요. 정보를 입력해주세요.
+                  닉네임, 키, 몸무게를 알려주면 맞춤 운동을 추천해줄게!
                 </Text>
 
                 {selectedAnimalId && (
@@ -624,28 +628,28 @@ const HomeScreen = () => {
 
                 <TextInput
                   style={styles.input}
-                  placeholder="닉네임을 입력하세요"
+                  placeholder="닉네임을 입력해줘"
                   value={nickname}
                   onChangeText={setNickname}
-                  placeholderTextColor="#999"
+                  placeholderTextColor={APP_COLORS.brownLight}
                 />
 
                 <TextInput
                   style={styles.input}
-                  placeholder="키(cm)를 입력하세요"
+                  placeholder="키(cm)를 입력해줘"
                   value={height}
                   onChangeText={setHeight}
                   keyboardType="numeric"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={APP_COLORS.brownLight}
                 />
 
                 <TextInput
                   style={styles.input}
-                  placeholder="몸무게(kg)를 입력하세요"
+                  placeholder="몸무게(kg)를 입력해줘"
                   value={weight}
                   onChangeText={setWeight}
                   keyboardType="numeric"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={APP_COLORS.brownLight}
                 />
 
                 <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
@@ -918,7 +922,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.35)",
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
@@ -926,29 +930,31 @@ const styles = StyleSheet.create({
   animalModal: {
     width: "100%",
     maxWidth: 400,
-    backgroundColor: "#fff",
-    borderRadius: 20,
+    backgroundColor: APP_COLORS.ivory,
+    borderRadius: 24,
     padding: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
+    borderWidth: 2,
+    borderColor: APP_COLORS.yellow,
+    shadowColor: APP_COLORS.brown,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   animalModalTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "bold",
-    color: "#333",
+    color: APP_COLORS.brown,
     textAlign: "center",
     marginBottom: 8,
-    fontFamily: 'KotraHope',
+    fontFamily: "KotraHope",
   },
   animalModalSubtitle: {
-    fontSize: 18,
-    color: "#666",
+    fontSize: 16,
+    color: APP_COLORS.brownLight,
     textAlign: "center",
     marginBottom: 24,
-    fontFamily: 'KotraHope',
+    fontFamily: "KotraHope",
   },
   animalOptions: {
     flexDirection: "row",
@@ -962,14 +968,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     paddingVertical: 16,
-    borderRadius: 12,
-    backgroundColor: "#f5f5f5",
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderRadius: 14,
+    backgroundColor: APP_COLORS.ivoryDark,
+    borderWidth: 2,
+    borderColor: APP_COLORS.ivoryDark,
   },
   animalOptionSelected: {
-    borderColor: "#007AFF",
-    backgroundColor: "#E6F0FF",
+    borderColor: APP_COLORS.yellowDark,
+    backgroundColor: "#FFF9CC",
   },
   animalImage: {
     width: 80,
@@ -977,32 +983,32 @@ const styles = StyleSheet.create({
   },
   animalLabel: {
     fontSize: 18,
-    color: "#333",
+    color: APP_COLORS.brown,
     fontWeight: "600",
-    fontFamily: 'KotraHope',
+    fontFamily: "KotraHope",
   },
   animalConfirmBox: {
     marginTop: 16,
-    backgroundColor: "#F8F9FF",
+    backgroundColor: APP_COLORS.ivoryDark,
     padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#CCD6FF",
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: APP_COLORS.yellow,
   },
   animalConfirmTitle: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#1F3B73",
+    color: APP_COLORS.brown,
     textAlign: "center",
     marginBottom: 6,
-    fontFamily: 'KotraHope',
+    fontFamily: "KotraHope",
   },
   animalConfirmSubtitle: {
-    fontSize: 17,
-    color: "#4A5A88",
+    fontSize: 15,
+    color: APP_COLORS.brownLight,
     textAlign: "center",
     marginBottom: 12,
-    fontFamily: 'KotraHope',
+    fontFamily: "KotraHope",
   },
   animalConfirmButtons: {
     flexDirection: "row",
@@ -1012,25 +1018,29 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 12,
   },
   animalConfirmCancel: {
-    backgroundColor: "#E8ECF8",
+    backgroundColor: APP_COLORS.ivoryDark,
+    borderWidth: 1,
+    borderColor: APP_COLORS.brownLight,
   },
   animalConfirmOk: {
-    backgroundColor: "#007AFF",
+    backgroundColor: APP_COLORS.yellow,
+    borderWidth: 2,
+    borderColor: APP_COLORS.yellowDark,
   },
   animalConfirmCancelText: {
-    color: "#4A5A88",
+    color: APP_COLORS.brown,
     fontSize: 18,
     fontWeight: "600",
-    fontFamily: 'KotraHope',
+    fontFamily: "KotraHope",
   },
   animalConfirmOkText: {
-    color: "#FFFFFF",
+    color: APP_COLORS.brown,
     fontSize: 18,
     fontWeight: "600",
-    fontFamily: 'KotraHope',
+    fontFamily: "KotraHope",
   },
   profileScrollContent: {
     flexGrow: 1,
@@ -1040,29 +1050,31 @@ const styles = StyleSheet.create({
   profileModal: {
     width: "100%",
     maxWidth: 400,
-    backgroundColor: "#fff",
-    borderRadius: 20,
+    backgroundColor: APP_COLORS.ivory,
+    borderRadius: 24,
     padding: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
+    borderWidth: 2,
+    borderColor: APP_COLORS.yellow,
+    shadowColor: APP_COLORS.brown,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   profileTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "bold",
-    color: "#333",
+    color: APP_COLORS.brown,
     textAlign: "center",
     marginBottom: 8,
-    fontFamily: 'KotraHope',
+    fontFamily: "KotraHope",
   },
   profileSubtitle: {
-    fontSize: 18,
-    color: "#666",
+    fontSize: 16,
+    color: APP_COLORS.brownLight,
     textAlign: "center",
     marginBottom: 24,
-    fontFamily: 'KotraHope',
+    fontFamily: "KotraHope",
   },
   selectedAnimalSummary: {
     flexDirection: "row",
@@ -1070,9 +1082,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     marginBottom: 20,
-    backgroundColor: "#F0F4FF",
-    borderRadius: 12,
+    backgroundColor: APP_COLORS.ivoryDark,
+    borderRadius: 14,
     paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: APP_COLORS.yellow,
   },
   selectedAnimalImage: {
     width: 60,
@@ -1081,31 +1095,34 @@ const styles = StyleSheet.create({
   selectedAnimalLabel: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#333",
-    fontFamily: 'KotraHope',
+    color: APP_COLORS.brown,
+    fontFamily: "KotraHope",
   },
   input: {
     width: "100%",
-    backgroundColor: "#f5f5f5",
-    borderRadius: 12,
+    backgroundColor: "#fff",
+    borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontSize: 20,
+    fontSize: 18,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderWidth: 2,
+    borderColor: APP_COLORS.ivoryDark,
+    color: APP_COLORS.brown,
   },
   saveButton: {
-    backgroundColor: "#007AFF",
-    borderRadius: 12,
+    backgroundColor: APP_COLORS.yellow,
+    borderRadius: 14,
     paddingVertical: 16,
     alignItems: "center",
     marginTop: 8,
+    borderWidth: 2,
+    borderColor: APP_COLORS.yellowDark,
   },
   saveButtonText: {
-    color: "#fff",
+    color: APP_COLORS.brown,
     fontSize: 20,
-    fontWeight: "600",
-    fontFamily: 'KotraHope',
+    fontWeight: "700",
+    fontFamily: "KotraHope",
   },
 });

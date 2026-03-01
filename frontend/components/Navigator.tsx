@@ -3,24 +3,30 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWindowDimensions } from "react-native";
+import { useSettingsModal } from "../context/SettingsModalContext";
 
 export default function Navigator() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
+  const { openSettings } = useSettingsModal();
 
   const closeMenu = () => {
     setIsMenuOpen(false);
   };
 
-  const navigateToScreen = (path: string) => {
+  const handleMenuSelect = (path: string) => {
     setIsMenuOpen(false);
-    router.push(path as any);
+    if (path === "/settings") {
+      openSettings();
+    } else {
+      router.push(path as any);
+    }
   };
 
   // 모든 화면 목록 (로그인 포함)
   const menuItems = [
-    { label: '로그인', path: '/(auth)/login' },
+    { label: '로그인', path: '/' },
     { label: '홈', path: '/home' },
     { label: '타이머', path: '/timer' },
     { label: '운동 기록', path: '/records' },
@@ -62,7 +68,7 @@ export default function Navigator() {
               <TouchableOpacity 
                 key={index} 
                 style={styles.menuItem} 
-                onPress={() => navigateToScreen(item.path)}
+                onPress={() => handleMenuSelect(item.path)}
               >
                 <Text style={styles.menuItemText}>{item.label}</Text>
               </TouchableOpacity>
