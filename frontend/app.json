@@ -10,7 +10,8 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.petshealth.app",
+      "bundleIdentifier": "com.petstraining.app",
+      "buildNumber": "46",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "이 앱은 운동 중 위치 정보를 추적하기 위해 위치 권한이 필요합니다.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "이 앱은 운동 중 위치 정보를 추적하기 위해 위치 권한이 필요합니다."
@@ -23,7 +24,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.petshealth.app",
+      "package": "com.petstraining.app",
+      "versionCode": 47,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
