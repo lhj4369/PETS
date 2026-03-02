@@ -2,9 +2,13 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, SafeAreaView, ActivityIndicator, Alert, Image, ImageSourcePropType, Platform } from "react-native";
 import { useState, useEffect } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import HomeButton from "../../components/HomeButton";
 import AuthManager, { StoredUser } from "../../utils/AuthManager";
 import API_BASE_URL from "../../config/api";
+
+/** 이전 랭킹 저장 키 (유저별 이전 순위로 rankChange 계산용) */
+const RANKING_PREVIOUS_KEY = "@pets_ranking_previous";
 import dog from "../../assets/images/animals/dog.png";
 import capibara from "../../assets/images/animals/capibara.png";
 import fox from "../../assets/images/animals/fox.png";
@@ -85,18 +89,45 @@ export default function RankingScreen() {
       }
 
       const data = await response.json();
-      
+
+      /** 동일 유저 매칭용 키 (이전 순위와 비교 시 사용) */
+      const getUserKey = (item: any) => {
+        const id = item.id ?? item.accountId ?? item.account_id;
+        if (id != null) return String(id);
+        if (item.email != null) return String(item.email);
+        return null;
+      };
+
+      // 이전 랭킹 로드 (순위 변동 계산용)
+      let prevRankByKey: Record<string, number> = {};
+      try {
+        const raw = await AsyncStorage.getItem(RANKING_PREVIOUS_KEY);
+        if (raw) {
+          const arr = JSON.parse(raw) as { key: string; rank: number }[];
+          arr.forEach((e) => {
+            prevRankByKey[e.key] = e.rank;
+          });
+        }
+      } catch (_) {
+        // 무시: 이전 데이터 없으면 전부 신규/변동 없음 처리
+      }
+
+      const toSave: { key: string; rank: number }[] = [];
+
       const formattedRankings: RankingItem[] = data.rankings.map((item: any, index: number) => {
         const rank = index + 1;
-        const prevRank = item.previousRank ?? item.previous_rank;
-        const rankChangeVal = item.rankChange ?? item.rank_change;
-        let rankChange: number | null =
-          typeof rankChangeVal === "number"
-            ? rankChangeVal
-            : prevRank != null
-              ? prevRank - rank
-              : 0;
-        if (item.isNewUser || item.is_new_user) rankChange = null;
+        const key = getUserKey(item);
+
+        // 이전 순위와 비교해 rankChange 계산: 양수=상승, 0=유지, 음수=하락, null=신규
+        let rankChange: number | null = null;
+        if (key != null) {
+          const prevRank = prevRankByKey[key];
+          if (prevRank != null) {
+            rankChange = prevRank - rank; // 이전 4위 → 현재 3위 = 4-3 = 1 (▲1)
+          }
+          toSave.push({ key, rank });
+        }
+
         return {
           rank,
           name: item.name || "익명",
@@ -114,6 +145,13 @@ export default function RankingScreen() {
       });
 
       setRankings(formattedRankings);
+
+      // 다음 비교를 위해 현재 순위 저장
+      try {
+        await AsyncStorage.setItem(RANKING_PREVIOUS_KEY, JSON.stringify(toSave));
+      } catch (_) {
+        // 저장 실패해도 랭킹 표시에는 영향 없음
+      }
 
       const user = await AuthManager.getUser();
       setCurrentUser(user);
