@@ -93,8 +93,6 @@ const HomeScreen = () => {
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const { openQuest } = useLocalSearchParams<{ openQuest?: string }>();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const scale = Math.min(screenWidth / BASE_WIDTH, screenHeight / BASE_HEIGHT);
 
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [showAnimalModal, setShowAnimalModal] = useState(false);
@@ -300,179 +298,78 @@ const HomeScreen = () => {
           </View>
         )}
 
-        {/* 상단: 프로필 카드(가로 꽉) + 그 아래 퀘스트/채팅/랭킹 */}
+        {/* 상단: 프로필 카드만 (베이지, 풀너비) */}
         <View style={[styles.topBlock, { paddingTop: insets.top + 8, paddingHorizontal: 16 }]}>
-          {/* 프로필 카드: 화면 가로 전체 */}
-        {/* 햄버거 메뉴 버튼 */}
-        <TouchableOpacity 
-          style={[styles.hamburgerButton, { top: insets.top + 28 }]} //햄버거 메뉴 상하 위치 조절
-          onPress={() => setShowHamburgerMenu(!showHamburgerMenu)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.hamburgerIcon}>☰</Text>
-        </TouchableOpacity>
-
-        {/* 햄버거 메뉴 드롭다운 */}
-        {showHamburgerMenu && (
-          <View style={[styles.hamburgerMenu, { top: insets.top + 100 }]}>
-            <TouchableOpacity 
-              style={styles.hamburgerMenuItem}
-              onPress={() => {
-                setShowHamburgerMenu(false);
-                router.push("/(tabs)/chatting" as any);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.hamburgerMenuIcon}>💬</Text>
-              <Text style={styles.hamburgerMenuText}>채팅</Text>
-            </TouchableOpacity>
-
-            <View style={styles.hamburgerMenuDivider} />
-
-            <TouchableOpacity 
-              style={styles.hamburgerMenuItem}
-              onPress={() => {
-                setShowHamburgerMenu(false);
-                setShowQuestModal(true);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.hamburgerMenuIcon}>📋</Text>
-              <Text style={styles.hamburgerMenuText}>퀘스트</Text>
-            </TouchableOpacity>
-
-            <View style={styles.hamburgerMenuDivider} />
-
-            <TouchableOpacity 
-              style={styles.hamburgerMenuItem}
-              onPress={() => {
-                setShowHamburgerMenu(false);
-                setShowItemModal(true);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.hamburgerMenuIcon}>🎒</Text>
-              <Text style={styles.hamburgerMenuText}>아이템</Text>
-            </TouchableOpacity>
-
-            <View style={styles.hamburgerMenuDivider} />
-
-            <TouchableOpacity 
-              style={styles.hamburgerMenuItem}
-              onPress={() => {
-                setShowHamburgerMenu(false);
-                router.push("/(tabs)/challenges" as any);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.hamburgerMenuIcon}>🔥</Text>
-              <Text style={styles.hamburgerMenuText}>기록도전</Text>
-            </TouchableOpacity>
-
-            <View style={styles.hamburgerMenuDivider} />
-
-            <TouchableOpacity 
-              style={styles.hamburgerMenuItem}
-              onPress={() => {
-                setShowHamburgerMenu(false);
-                navigateToRanking();
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.hamburgerMenuIcon}>🏆</Text>
-              <Text style={styles.hamburgerMenuText}>랭킹</Text>
-            </TouchableOpacity>
-
-            <View style={styles.hamburgerMenuDivider} />
-
+          <View style={styles.statusBarContainer}>
             <TouchableOpacity
-              style={styles.hamburgerMenuItem}
-              onPress={() => {
-                setShowHamburgerMenu(false);
-                InteractionManager.runAfterInteractions(() => openSettings());
-              }}
-              activeOpacity={0.7}
+              style={styles.profileSection}
+              activeOpacity={0.85}
+              onPress={() => setShowExpDetailModal(true)}
             >
-              <Text style={styles.hamburgerMenuIcon}>⚙️</Text>
-              <Text style={styles.hamburgerMenuText}>설정</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <View
-          style={[
-            styles.statusBarContainer,
-            { paddingTop: insets.top + 80, maxWidth: Math.min(280, screenWidth - 80) }, //상태창 상하 위치 조절
-          ]}
-        >
-          <TouchableOpacity
-            style={styles.profileSection}
-            activeOpacity={0.85}
-            onPress={() => setShowExpDetailModal(true)}
-          >
-            <View style={styles.profileLeft}>
-              <View style={styles.avatarWrap}>
-                <View style={styles.avatarCircle}>
-                  <Image
-                    source={selectedAnimal ?? DEFAULT_ANIMAL_IMAGE}
-                    style={styles.avatarImage}
-                    resizeMode="contain"
-                  />
+              <View style={styles.profileLeft}>
+                <View style={styles.avatarWrap}>
+                  <View style={styles.avatarCircle}>
+                    <Image
+                      source={selectedAnimal ?? DEFAULT_ANIMAL_IMAGE}
+                      style={styles.avatarImage}
+                      resizeMode="contain"
+                    />
+                  </View>
+                </View>
+                <View style={styles.profileInfo}>
+                  <View style={styles.nicknameRow}>
+                    <Text style={styles.nickname} numberOfLines={1}>
+                      {nickname || accountName || "PETS"}
+                    </Text>
+                    <Text style={styles.levelInline}>Lv.{level}</Text>
+                  </View>
+                  <View style={styles.expBarHorizontal}>
+                    <View
+                      style={[
+                        styles.expBarHorizontalFill,
+                        { width: `${Math.min(100, expProgress * 100)}%` },
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.statsRow}>
+                    <Text style={styles.statNum}>{strength}</Text>
+                    <Text style={styles.statDiv}>/</Text>
+                    <Text style={styles.statNum}>{agility}</Text>
+                    <Text style={styles.statDiv}>/</Text>
+                    <Text style={styles.statNum}>{stamina}</Text>
+                    <Text style={styles.statDiv}>/</Text>
+                    <Text style={styles.statNum}>{concentration}</Text>
+                  </View>
+                  <Text style={styles.statHint}>힘 / 민첩 / 지구력 / 집중력</Text>
                 </View>
               </View>
-              <View style={styles.profileInfo}>
-                <View style={styles.nicknameRow}>
-                  <Text style={styles.nickname} numberOfLines={1}>
-                    {nickname || accountName || "PETS"}
-                  </Text>
-                  <Text style={styles.levelInline}>Lv.{level}</Text>
-                </View>
-                <View style={styles.expBarHorizontal}>
-                  <View
-                    style={[
-                      styles.expBarHorizontalFill,
-                      { width: `${Math.min(100, expProgress * 100)}%` },
-                    ]}
-                  />
-                </View>
-                <View style={styles.statsRow}>
-                  <Text style={styles.statNum}>{strength}</Text>
-                  <Text style={styles.statDiv}>/</Text>
-                  <Text style={styles.statNum}>{agility}</Text>
-                  <Text style={styles.statDiv}>/</Text>
-                  <Text style={styles.statNum}>{stamina}</Text>
-                  <Text style={styles.statDiv}>/</Text>
-                  <Text style={styles.statNum}>{concentration}</Text>
-                </View>
-                <Text style={styles.statHint}>힘 / 민첩 / 지구력 / 집중력</Text>
-              </View>
-            </View>
-            <TouchableOpacity style={styles.editProfileBtn} onPress={(e) => { e.stopPropagation(); handleEditProfile(); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={styles.editProfileBtnText}>✏️</Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
-
-          {/* 프로필 아래: 퀘스트 / 채팅 / 랭킹 (가로 배치) */}
-          <View style={styles.topIconsRow}>
-            <TouchableOpacity style={styles.topIconBtn} onPress={() => setShowQuestModal(true)} activeOpacity={0.7}>
-              <Image source={HOME_ICONS.quest} style={[styles.topIcon, { width: iconSize, height: iconSize }]} resizeMode="contain" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.topIconBtn} onPress={navigateToChatting} activeOpacity={0.7}>
-              <Image source={HOME_ICONS.aiChat} style={[styles.topIcon, { width: iconSize, height: iconSize }]} resizeMode="contain" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.topIconBtn} onPress={navigateToRanking} activeOpacity={0.7}>
-              <Image source={HOME_ICONS.ranking} style={[styles.topIcon, { width: iconSize, height: iconSize }]} resizeMode="contain" />
+              <TouchableOpacity style={styles.editProfileBtn} onPress={(e) => { e.stopPropagation(); handleEditProfile(); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={styles.editProfileBtnText}>✏️</Text>
+              </TouchableOpacity>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* 메인: 캐릭터 중심, 터치 반응 */}
+        {/* 메인: 캐릭터 + 우측 세로 버튼 3개 + 햄버거 */}
         <View style={styles.mainArea}>
           <TouchableOpacity activeOpacity={1} onPress={onPetPress} style={styles.petTouchArea}>
             <Animated.View style={[styles.petWrap, { transform: [{ scale: petScaleAnim }] }]}>
               <Image source={selectedAnimal ?? DEFAULT_ANIMAL_IMAGE} style={[styles.petImage, { width: petSize, height: petSize }]} resizeMode="contain" />
             </Animated.View>
           </TouchableOpacity>
+
+          {/* 우측 세로 배치: 퀘스트 / 채팅 / 랭킹 (라이트 베이지 원형) */}
+          <View style={[styles.rightFloatingColumn, { top: 16 }]}>
+            <TouchableOpacity style={styles.rightFloatingBtn} onPress={() => setShowQuestModal(true)} activeOpacity={0.7}>
+              <Image source={HOME_ICONS.quest} style={[styles.rightFloatingIcon, { width: iconSize, height: iconSize }]} resizeMode="contain" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.rightFloatingBtn} onPress={navigateToChatting} activeOpacity={0.7}>
+              <Image source={HOME_ICONS.aiChat} style={[styles.rightFloatingIcon, { width: iconSize, height: iconSize }]} resizeMode="contain" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.rightFloatingBtn} onPress={navigateToRanking} activeOpacity={0.7}>
+              <Image source={HOME_ICONS.ranking} style={[styles.rightFloatingIcon, { width: iconSize, height: iconSize }]} resizeMode="contain" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* 하단 고정 메뉴: 커마 / 타이머 / 기록도전 / 아이템 / 설정 */}
@@ -522,10 +419,6 @@ const HomeScreen = () => {
             <View style={styles.animalModal}>
               <Text style={styles.animalModalTitle}>함께할 동물을 골라주세요</Text>
               <Text style={styles.animalModalSubtitle}>선택한 동물은 특정 도전 과제를 완료하기 전까지 변경할 수 없어요.</Text>
-              <Text style={styles.animalModalTitle}>함께 운동할 귀여운 동물 친구를 골라봐!</Text>
-              <Text style={styles.animalModalSubtitle}>
-                선택한 동물은 특정 도전 과제를 완료하기 전까지 변경할 수 없어요.
-              </Text>
 
               <View style={styles.animalOptions}>
                 {ANIMAL_OPTIONS.map((animal) => {
@@ -542,10 +435,6 @@ const HomeScreen = () => {
                 <View style={styles.animalConfirmBox}>
                   <Text style={styles.animalConfirmTitle}>이 동물과 함께할까요?</Text>
                   <Text style={styles.animalConfirmSubtitle}>특정 도전 과제를 완료하기 전까지 변경할 수 없어요.</Text>
-                  <Text style={styles.animalConfirmTitle}>이 친구와 함께할까요?</Text>
-                  <Text style={styles.animalConfirmSubtitle}>
-                    특정 도전 과제를 완료하기 전까지 변경할 수 없어요.
-                  </Text>
                   <View style={styles.animalConfirmButtons}>
                     <TouchableOpacity style={[styles.animalConfirmButton, styles.animalConfirmCancel]} onPress={cancelAnimalSelection} activeOpacity={0.8}>
                       <Text style={styles.animalConfirmCancelText}>취소</Text>
@@ -566,10 +455,6 @@ const HomeScreen = () => {
               <View style={styles.profileModal}>
                 <Text style={styles.profileTitle}>기본 정보 입력</Text>
                 <Text style={styles.profileSubtitle}>선택한 동물과 함께할 준비가 되었어요. 정보를 입력해주세요.</Text>
-                <Text style={styles.profileTitle}>지금 너의 상태를 알고 싶어!</Text>
-                <Text style={styles.profileSubtitle}>
-                  닉네임, 키, 몸무게를 알려주면 맞춤 운동을 추천해줄게!
-                </Text>
 
                 {selectedAnimalId && (
                   <View style={styles.selectedAnimalSummary}>
@@ -580,32 +465,6 @@ const HomeScreen = () => {
                 <TextInput style={styles.input} placeholder="닉네임을 입력하세요" value={nickname} onChangeText={setNickname} placeholderTextColor="#999" />
                 <TextInput style={styles.input} placeholder="키(cm)를 입력하세요" value={height} onChangeText={setHeight} keyboardType="numeric" placeholderTextColor="#999" />
                 <TextInput style={styles.input} placeholder="몸무게(kg)를 입력하세요" value={weight} onChangeText={setWeight} keyboardType="numeric" placeholderTextColor="#999" />
-
-                <TextInput
-                  style={styles.input}
-                  placeholder="닉네임을 입력해줘"
-                  value={nickname}
-                  onChangeText={setNickname}
-                  placeholderTextColor={APP_COLORS.brownLight}
-                />
-
-                <TextInput
-                  style={styles.input}
-                  placeholder="키(cm)를 입력해줘"
-                  value={height}
-                  onChangeText={setHeight}
-                  keyboardType="numeric"
-                  placeholderTextColor={APP_COLORS.brownLight}
-                />
-
-                <TextInput
-                  style={styles.input}
-                  placeholder="몸무게(kg)를 입력해줘"
-                  value={weight}
-                  onChangeText={setWeight}
-                  keyboardType="numeric"
-                  placeholderTextColor={APP_COLORS.brownLight}
-                />
 
                 <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
                   <Text style={styles.saveButtonText}>저장하기</Text>
@@ -648,6 +507,10 @@ const styles = StyleSheet.create({
     width: "100%",
     flexDirection: "column",
     alignItems: "stretch",
+  },
+  statusBarContainer: {
+    width: "100%",
+    alignSelf: "center",
   },
   profileSection: {
     width: "100%",
@@ -695,6 +558,7 @@ const styles = StyleSheet.create({
     height: "100%",
     backgroundColor: pastel.mint,
     borderRadius: 5,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.35)",
@@ -745,16 +609,26 @@ const styles = StyleSheet.create({
   statDiv: { fontSize: 12, color: pastel.textLight, marginHorizontal: 2 },
   statHint: { fontSize: 10, color: pastel.textLight, marginTop: 2, fontFamily: "KotraHope" },
   editProfileBtn: { padding: 6 },
-  editProfileBtnText: { fontSize: 16 },
-  topIconsRow: {
+  editProfileBtnText: { fontSize: 18, color: "#E07C3C" },
+  rightFloatingColumn: {
+    position: "absolute",
+    right: 16,
     flexDirection: "column",
-    alignItems: "flex-end",
-    paddingVertical: 16,
-    borderRadius: 14,
-    backgroundColor: APP_COLORS.ivoryDark,
-    borderWidth: 2,
-    borderColor: APP_COLORS.ivoryDark,
+    alignItems: "center",
+    gap: 12,
   },
+  rightFloatingBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: pastel.card,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: pastel.lavender,
+    ...Platform.select({ ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 4 }, android: { elevation: 3 } }),
+  },
+  rightFloatingIcon: {},
   animalOptionSelected: {
     borderColor: APP_COLORS.yellowDark,
     backgroundColor: "#FFF9CC",
@@ -813,6 +687,15 @@ const styles = StyleSheet.create({
   petWrap: {},
   petImage: {},
   bottomBar: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    width: "100%",
+    backgroundColor: pastel.card,
+    borderTopWidth: 2,
+    borderColor: pastel.lavender,
+    ...Platform.select({ ios: { shadowColor: "#000", shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.08, shadowRadius: 6 }, android: { elevation: 4 } }),
+  },
   animalConfirmButton: {
     flex: 1,
     alignItems: "center",
@@ -889,7 +772,6 @@ const styles = StyleSheet.create({
   bottomItem: { alignItems: "center", justifyContent: "center", paddingVertical: 8, minWidth: 64 },
   bottomIcon: {},
   bottomLabel: { fontSize: 14, color: pastel.text, marginTop: 6, fontFamily: "KotraHope" },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "center", alignItems: "center", padding: 20 },
   expDetailCard: {
     width: "100%",
     maxWidth: 320,
@@ -907,77 +789,11 @@ const styles = StyleSheet.create({
   expDetailSub: { fontSize: 13, color: pastel.textLight, marginTop: 4, fontFamily: "KotraHope" },
   expDetailClose: { marginTop: 20, backgroundColor: pastel.mint, paddingVertical: 14, borderRadius: 16, alignItems: "center" },
   expDetailCloseText: { fontSize: 16, fontWeight: "700", color: pastel.text, fontFamily: "KotraHope" },
-  animalModal: { width: "100%", maxWidth: 400, backgroundColor: pastel.card, borderRadius: 24, padding: 24, borderWidth: 2, borderColor: pastel.lavender },
-  animalModalTitle: { fontSize: 24, fontWeight: "bold", color: pastel.text, textAlign: "center", marginBottom: 8, fontFamily: "KotraHope" },
-  animalModalSubtitle: { fontSize: 16, color: pastel.textLight, textAlign: "center", marginBottom: 20, fontFamily: "KotraHope" },
   animalOptions: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 12 },
   animalOption: { flexBasis: "48%", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 16, borderRadius: 16, backgroundColor: pastel.bg, borderWidth: 2, borderColor: pastel.lavender },
-  animalOptionSelected: { borderColor: pastel.mint, backgroundColor: "#E8F5E9" },
-  animalImage: { width: 72, height: 72 },
-  animalLabel: { fontSize: 16, color: pastel.text, fontWeight: "600", fontFamily: "KotraHope" },
-  animalConfirmBox: { marginTop: 16, backgroundColor: "#E8F5E9", padding: 16, borderRadius: 16, borderWidth: 2, borderColor: pastel.mint },
-  animalConfirmTitle: { fontSize: 18, fontWeight: "600", color: pastel.text, textAlign: "center", marginBottom: 6, fontFamily: "KotraHope" },
-  animalConfirmSubtitle: { fontSize: 15, color: pastel.textLight, textAlign: "center", marginBottom: 12, fontFamily: "KotraHope" },
-  animalConfirmButtons: { flexDirection: "row", gap: 12 },
-  animalConfirmButton: { flex: 1, alignItems: "center", paddingVertical: 12, borderRadius: 12 },
-  animalConfirmCancel: { backgroundColor: pastel.lavender },
-  animalConfirmOk: { backgroundColor: pastel.mint },
-  animalConfirmCancelText: { color: pastel.text, fontSize: 16, fontWeight: "600", fontFamily: "KotraHope" },
-  animalConfirmOkText: { color: pastel.text, fontSize: 16, fontWeight: "600", fontFamily: "KotraHope" },
-  profileScrollContent: { flexGrow: 1, justifyContent: "center", width: "100%" },
-  profileModal: { width: "100%", maxWidth: 400, backgroundColor: pastel.card, borderRadius: 24, padding: 24, borderWidth: 2, borderColor: pastel.lavender },
-  profileTitle: { fontSize: 24, fontWeight: "bold", color: pastel.text, textAlign: "center", marginBottom: 8, fontFamily: "KotraHope" },
-  profileSubtitle: { fontSize: 16, color: pastel.textLight, textAlign: "center", marginBottom: 20, fontFamily: "KotraHope" },
-  selectedAnimalSummary: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 16, backgroundColor: pastel.bg, borderRadius: 12, paddingVertical: 12 },
   selectedAnimalImage: { width: 56, height: 56 },
   selectedAnimalLabel: { fontSize: 18, fontWeight: "600", color: pastel.text, fontFamily: "KotraHope" },
   input: { width: "100%", backgroundColor: pastel.bg, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 18, marginBottom: 14, borderWidth: 2, borderColor: pastel.lavender },
   saveButton: { backgroundColor: pastel.mint, borderRadius: 14, paddingVertical: 16, alignItems: "center", marginTop: 8 },
   saveButtonText: { color: pastel.text, fontSize: 18, fontWeight: "600", fontFamily: "KotraHope" },
-    justifyContent: "center",
-    gap: 8,
-    marginBottom: 20,
-    backgroundColor: APP_COLORS.ivoryDark,
-    borderRadius: 14,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: APP_COLORS.yellow,
-  },
-  selectedAnimalImage: {
-    width: 60,
-    height: 60,
-  },
-  selectedAnimalLabel: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: APP_COLORS.brown,
-    fontFamily: "KotraHope",
-  },
-  input: {
-    width: "100%",
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 18,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: APP_COLORS.ivoryDark,
-    color: APP_COLORS.brown,
-  },
-  saveButton: {
-    backgroundColor: APP_COLORS.yellow,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: "center",
-    marginTop: 8,
-    borderWidth: 2,
-    borderColor: APP_COLORS.yellowDark,
-  },
-  saveButtonText: {
-    color: APP_COLORS.brown,
-    fontSize: 20,
-    fontWeight: "700",
-    fontFamily: "KotraHope",
-  },
 });
