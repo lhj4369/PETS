@@ -16,7 +16,7 @@ import {
   Alert,
   useWindowDimensions,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import AuthManager from "../../utils/AuthManager";
@@ -68,6 +68,7 @@ type ProfileResponse = {
 
 const HomeScreen = () => {
   const insets = useSafeAreaInsets();
+  const { openQuest } = useLocalSearchParams<{ openQuest?: string }>();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const scale = Math.min(screenWidth / BASE_WIDTH, screenHeight / BASE_HEIGHT);
 
@@ -210,6 +211,14 @@ const HomeScreen = () => {
       fetchProfile();
     }, [fetchProfile])
   );
+
+  // 메뉴에서 퀘스트 선택 시 모달 열기
+  useEffect(() => {
+    if (openQuest === "1") {
+      setShowQuestModal(true);
+      router.replace("/(tabs)/home" as any);
+    }
+  }, [openQuest]);
 
   const navigateToTimer = () => router.push("/(tabs)/timer" as any);
   const navigateToRecords = () => router.push("/(tabs)/records" as any);

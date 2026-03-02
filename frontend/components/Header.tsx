@@ -7,7 +7,7 @@ import { useSettingsModal } from "../context/SettingsModalContext";
 interface HeaderProps {
   showBackButton?: boolean;
   showMenuButton?: boolean;
-  menuType?: "home" | "timer" | "records" | "ranking" | "challenges" | "customize" | "chatting" | "quest";
+  menuType?: "home" | "timer" | "records" | "ranking" | "challenges" | "customize" | "chatting";
 }
 
 export default function Header({ showBackButton = false, showMenuButton = true, menuType = "home" }: HeaderProps) {
@@ -31,6 +31,8 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
     setIsMenuOpen(false);
     if (screen === "settings") {
       openSettings();
+    } else if (screen === "quest") {
+      router.push("/(tabs)/home?openQuest=1" as any);
     } else {
       router.push(`/(tabs)/${screen}` as any);
     }
@@ -101,17 +103,6 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
             { label: '랭킹', screen: 'ranking' },
             { label: '기록 도전', screen: 'challenges' },
             { label: '퀘스트', screen: 'quest' },
-            { label: '커스터마이징', screen: 'customize' },
-            { label: '설정', screen: 'settings' },
-        ];
-      case 'quest':
-        return [
-            { label: '홈', screen: 'home' },
-            { label: '타이머', screen: 'timer' },
-            { label: '운동 기록', screen: 'records' },
-            { label: '랭킹', screen: 'ranking' },
-            { label: '기록 도전', screen: 'challenges' },
-            { label: '채팅', screen: 'chatting' },
             { label: '커스터마이징', screen: 'customize' },
             { label: '설정', screen: 'settings' },
         ];

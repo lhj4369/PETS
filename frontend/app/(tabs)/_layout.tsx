@@ -21,7 +21,6 @@ export default function TabsLayout() {
           <Tabs.Screen name="ranking" options={{ title: "랭킹" }} />
           <Tabs.Screen name="challenges" options={{ title: "도전" }} />
           <Tabs.Screen name="chatting" options={{ title: "채팅" }} />
-          <Tabs.Screen name="quest" options={{ title: "퀘스트" }} />
           <Tabs.Screen name="customize" options={{ title: "커스터마이징" }} />
         </Tabs>
         {ENABLE_NAVIGATOR && <Navigator />}

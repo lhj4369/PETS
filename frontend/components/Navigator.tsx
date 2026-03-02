@@ -33,7 +33,7 @@ export default function Navigator() {
     { label: '랭킹', path: '/ranking' },
     { label: '기록 도전', path: '/challenges' },
     { label: '채팅', path: '/chatting' },
-    { label: '퀘스트', path: '/(tabs)/quest' },
+    { label: '퀘스트', path: '/(tabs)/home?openQuest=1' },
     { label: '커스터마이징', path: '/customize' },
     { label: '설정', path: '/settings' },
   ];
