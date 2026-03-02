@@ -3,36 +3,37 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWindowDimensions } from "react-native";
+import { useSettingsModal } from "../context/SettingsModalContext";
 
 export default function Navigator() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const showButton = true; // 버튼 표시 여부: true = 보임, false = 숨김
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
-
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
+  const { openSettings } = useSettingsModal();
 
   const closeMenu = () => {
     setIsMenuOpen(false);
   };
 
-  const navigateToScreen = (path: string) => {
+  const handleMenuSelect = (path: string) => {
     setIsMenuOpen(false);
-    router.push(path as any);
+    if (path === "/settings") {
+      openSettings();
+    } else {
+      router.push(path as any);
+    }
   };
 
   // 모든 화면 목록 (로그인 포함)
   const menuItems = [
-    { label: '로그인', path: '/(auth)/login' },
+    { label: '로그인', path: '/' },
     { label: '홈', path: '/home' },
     { label: '타이머', path: '/timer' },
     { label: '운동 기록', path: '/records' },
     { label: '랭킹', path: '/ranking' },
     { label: '기록 도전', path: '/challenges' },
     { label: '채팅', path: '/chatting' },
-    { label: '퀘스트', path: '/(tabs)/quest' },
+    { label: '퀘스트', path: '/(tabs)/home?openQuest=1' },
     { label: '커스터마이징', path: '/customize' },
     { label: '설정', path: '/settings' },
   ];
@@ -43,17 +44,15 @@ export default function Navigator() {
   return (
     <>
       {/* 우측 중단 메뉴 버튼 */}
-      {showButton && (
-        <TouchableOpacity 
+      <TouchableOpacity 
           style={[
             styles.floatingButton,
             { top: buttonTop }
           ]} 
-          onPress={() => setIsMenuOpen(!isMenuOpen)}
+          onPress={() => setIsMenuOpen((prev) => !prev)}
         >
           <Text style={styles.buttonText}>☰</Text>
         </TouchableOpacity>
-      )}
 
       {/* 플로팅 메뉴 */}
       <Modal
@@ -69,7 +68,7 @@ export default function Navigator() {
               <TouchableOpacity 
                 key={index} 
                 style={styles.menuItem} 
-                onPress={() => navigateToScreen(item.path)}
+                onPress={() => handleMenuSelect(item.path)}
               >
                 <Text style={styles.menuItemText}>{item.label}</Text>
               </TouchableOpacity>

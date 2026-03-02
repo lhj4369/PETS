@@ -84,6 +84,77 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// 아이디 찾기 API (이름으로 조회, 이메일(아이디) 반환)
+router.post('/find-id', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: '이름을 입력해주세요.' });
+    }
+    const [rows] = await db.query('SELECT email FROM accounts WHERE name = ?', [name]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: '일치하는 회원 정보를 찾을 수 없습니다.' });
+    }
+    if (rows.length > 1) {
+      return res.status(400).json({ error: '동일한 이름의 회원이 여러 명입니다. 고객센터로 문의해주세요.' });
+    }
+    res.json({ email: rows[0].email });
+  } catch (err) {
+    console.error('아이디 찾기 에러:', err);
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  }
+});
+
+// 비밀번호 찾기 - 본인 확인 (이름 + 이메일 일치 시 verified 반환)
+router.post('/find-password', async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    if (!name || !email) {
+      return res.status(400).json({ error: '이름과 이메일을 모두 입력해주세요.' });
+    }
+    const [rows] = await db.query('SELECT id FROM accounts WHERE name = ? AND email = ?', [name, email]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: '일치하는 회원 정보를 찾을 수 없습니다.' });
+    }
+    res.json({ verified: true });
+  } catch (err) {
+    console.error('비밀번호 찾기 본인확인 에러:', err);
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  }
+});
+
+// 비밀번호 재설정 (이름 + 이메일 일치 시 새 비밀번호로 변경)
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { name, email, newPassword } = req.body;
+    if (!name || !email || !newPassword) {
+      return res.status(400).json({ error: '이름, 이메일, 새 비밀번호를 모두 입력해주세요.' });
+    }
+    const [rows] = await db.query('SELECT id FROM accounts WHERE name = ? AND email = ?', [name, email]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: '일치하는 회원 정보를 찾을 수 없습니다.' });
+    }
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await db.query('UPDATE accounts SET password = ? WHERE id = ?', [hashed, rows[0].id]);
+    res.json({ message: '비밀번호가 변경되었습니다.' });
+  } catch (err) {
+    console.error('비밀번호 재설정 에러:', err);
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  }
+});
+
+// 회원 탈퇴 (모든 정보 삭제)
+router.delete('/account', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    await db.query('DELETE FROM accounts WHERE id = ?', [userId]);
+    res.json({ message: '회원 탈퇴가 완료되었습니다.' });
+  } catch (err) {
+    console.error('회원 탈퇴 에러:', err);
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  }
+});
+
 // 로그인된 사용자 정보 확인
 router.get('/me', authMiddleware, async (req, res) => {
   try {

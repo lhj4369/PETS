@@ -1,13 +1,10 @@
 import { TouchableOpacity, StyleSheet, Image } from "react-native";
-import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSettingsModal } from "../context/SettingsModalContext";
 
 export default function SettingsButton() {
   const insets = useSafeAreaInsets();
-
-  const navigateToSettings = () => {
-    router.push("/(tabs)/settings" as any);
-  };
+  const { openSettings } = useSettingsModal();
 
   return (
     <TouchableOpacity
@@ -15,7 +12,7 @@ export default function SettingsButton() {
         styles.settingsButton,
         { top: insets.top + 95, right: 20 }
       ]}
-      onPress={navigateToSettings}
+      onPress={openSettings}
       activeOpacity={0.7}
     >
       <Image 

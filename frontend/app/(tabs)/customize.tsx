@@ -362,16 +362,21 @@ export default function CustomizeScreen() {
   );
 }
 
+// 퀘스트 팝업 테마 컬러 (참조: 첫 번째 이미지)
+const THEME_YELLOW = '#FFD54F';      // 밝은 노란색 - 활성 탭, 저장 버튼, 선택 테두리
+const THEME_CREAM = '#FFF8E1';       // 오프화이트/연한 크림 - 본문, 비활성 탭 배경
+const THEME_TEXT_DARK = '#333333';   // 짙은 회색 - 텍스트
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: THEME_CREAM,
   },
   previewContainer: {
     alignItems: 'center',
     paddingTop: 10,
     paddingBottom: 15,
-    backgroundColor: '#ffffff',
+    backgroundColor: THEME_CREAM,
   },
   previewPetContainer: {
     alignItems: 'center',
@@ -420,7 +425,7 @@ const styles = StyleSheet.create({
   },
   menuContainer: {
     flexDirection: 'row',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: THEME_CREAM,
     marginHorizontal: 20,
     borderRadius: 10,
     padding: 4,
@@ -436,10 +441,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignItems: 'center',
     borderRadius: 8,
+    backgroundColor: THEME_CREAM,
   },
   activeMenuTab: {
-    backgroundColor: '#4CAF50',
-    shadowColor: '#4CAF50',
+    backgroundColor: THEME_YELLOW,
+    shadowColor: THEME_YELLOW,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -447,7 +453,7 @@ const styles = StyleSheet.create({
   },
   menuTabText: {
     fontSize: 17,
-    color: '#888',
+    color: THEME_TEXT_DARK,
     fontWeight: '500',
     fontFamily: 'KotraHope',
   },
@@ -462,9 +468,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 10,
-    backgroundColor: '#fafafa',
+    backgroundColor: THEME_CREAM,
     borderTopWidth: 1,
-    borderTopColor: '#e8e8e8',
+    borderTopColor: '#EDE7D6',
   },
   contentGrid: {
     flexDirection: 'row',
@@ -480,7 +486,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#e0e0e0',
+    borderColor: '#E8E0C8',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -489,13 +495,13 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   selectedOption: {
-    borderColor: '#4CAF50',
+    borderColor: THEME_YELLOW,
     borderWidth: 3,
-    backgroundColor: '#e8f5e9',
+    backgroundColor: '#FFFDE7',
   },
   optionText: {
     fontSize: 16,
-    color: '#333',
+    color: THEME_TEXT_DARK,
     fontWeight: '500',
     textAlign: 'center',
     fontFamily: 'KotraHope',
@@ -504,9 +510,9 @@ const styles = StyleSheet.create({
   },
   saveButtonContainer: {
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: THEME_CREAM,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: '#EDE7D6',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
@@ -514,11 +520,11 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   saveButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: THEME_YELLOW,
     paddingVertical: 14,
     borderRadius: 25,
     alignItems: 'center',
-    shadowColor: '#4CAF50',
+    shadowColor: THEME_YELLOW,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,

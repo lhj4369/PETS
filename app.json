@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "a540a80a-2f4b-4584-9367-246f8bc18943"
+      }
+    },
+    "android": {
+      "package": "com.kachu0514.pets2"
+    }
+  }
+}

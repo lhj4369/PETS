@@ -12,15 +12,7 @@ import {
 } from "react-native";
 import AuthManager from "../utils/AuthManager";
 import API_BASE_URL from "../config/api";
-
-const ITEM_COLORS = {
-  ivory: "#FFFEF5",
-  ivoryDark: "#F5F0E0",
-  yellow: "#FFE566",
-  yellowDark: "#E6C94A",
-  brown: "#8B7355",
-  brownLight: "#A08060",
-};
+import { APP_COLORS } from "../constants/theme";
 
 const ACCESSORY_IMAGES: Record<string, any> = {
   crown: require("../assets/images/accessory/crown.png"),
@@ -141,7 +133,7 @@ export default function ItemModal({ visible, onClose }: ItemModalProps) {
 
             {isLoading ? (
               <View style={styles.loadingBox}>
-                <ActivityIndicator size="large" color={ITEM_COLORS.yellowDark} />
+                <ActivityIndicator size="large" color={APP_COLORS.yellowDark} />
                 <Text style={styles.loadingText}>아이템을 불러오는 중...</Text>
               </View>
             ) : (
@@ -298,10 +290,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modal: {
-    backgroundColor: ITEM_COLORS.ivory,
+    backgroundColor: APP_COLORS.ivory,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: ITEM_COLORS.yellow,
+    borderColor: APP_COLORS.yellow,
     maxHeight: "80%",
     overflow: "hidden",
   },
@@ -311,14 +303,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: ITEM_COLORS.yellow,
+    backgroundColor: APP_COLORS.yellow,
     borderBottomWidth: 2,
-    borderBottomColor: ITEM_COLORS.yellowDark,
+    borderBottomColor: APP_COLORS.yellowDark,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    color: ITEM_COLORS.brown,
+    color: APP_COLORS.brown,
     fontFamily: "KotraHope",
   },
   closeBtn: {
@@ -331,12 +323,12 @@ const styles = StyleSheet.create({
   },
   closeText: {
     fontSize: 20,
-    color: ITEM_COLORS.brown,
+    color: APP_COLORS.brown,
     fontWeight: "600",
   },
   tabRow: {
     flexDirection: "row",
-    backgroundColor: ITEM_COLORS.ivoryDark,
+    backgroundColor: APP_COLORS.ivoryDark,
     paddingHorizontal: 8,
     paddingVertical: 8,
     gap: 8,
@@ -348,15 +340,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   tabActive: {
-    backgroundColor: ITEM_COLORS.yellow,
+    backgroundColor: APP_COLORS.yellow,
   },
   tabText: {
     fontSize: 16,
-    color: ITEM_COLORS.brownLight,
+    color: APP_COLORS.brownLight,
     fontFamily: "KotraHope",
   },
   tabTextActive: {
-    color: ITEM_COLORS.brown,
+    color: APP_COLORS.brown,
     fontWeight: "bold",
   },
   loadingBox: {
@@ -366,7 +358,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: ITEM_COLORS.brown,
+    color: APP_COLORS.brown,
     fontFamily: "KotraHope",
   },
   scroll: {
@@ -380,7 +372,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: 40,
     fontSize: 18,
-    color: ITEM_COLORS.brownLight,
+    color: APP_COLORS.brownLight,
     fontFamily: "KotraHope",
   },
   grid: {
@@ -395,7 +387,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    borderColor: ITEM_COLORS.ivoryDark,
+    borderColor: APP_COLORS.ivoryDark,
     alignItems: "center",
   },
   itemCardLocked: {
@@ -406,7 +398,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 10,
-    backgroundColor: ITEM_COLORS.yellow,
+    backgroundColor: APP_COLORS.yellow,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -421,12 +413,12 @@ const styles = StyleSheet.create({
   },
   itemPlaceholder: {
     fontSize: 24,
-    color: ITEM_COLORS.brownLight,
+    color: APP_COLORS.brownLight,
   },
   itemName: {
     fontSize: 14,
     fontWeight: "600",
-    color: ITEM_COLORS.brown,
+    color: APP_COLORS.brown,
     fontFamily: "KotraHope",
     marginBottom: 4,
   },
@@ -448,7 +440,7 @@ const styles = StyleSheet.create({
     fontFamily: "KotraHope",
   },
   quantityBadge: {
-    backgroundColor: ITEM_COLORS.yellowDark,
+    backgroundColor: APP_COLORS.yellowDark,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -466,10 +458,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   detailModal: {
-    backgroundColor: ITEM_COLORS.ivory,
+    backgroundColor: APP_COLORS.ivory,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: ITEM_COLORS.yellow,
+    borderColor: APP_COLORS.yellow,
     padding: 24,
     alignItems: "center",
   },
@@ -477,7 +469,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 16,
-    backgroundColor: ITEM_COLORS.yellow,
+    backgroundColor: APP_COLORS.yellow,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -489,12 +481,12 @@ const styles = StyleSheet.create({
   },
   detailPlaceholder: {
     fontSize: 48,
-    color: ITEM_COLORS.brownLight,
+    color: APP_COLORS.brownLight,
   },
   detailName: {
     fontSize: 20,
     fontWeight: "bold",
-    color: ITEM_COLORS.brown,
+    color: APP_COLORS.brown,
     fontFamily: "KotraHope",
     marginBottom: 12,
   },
@@ -507,19 +499,19 @@ const styles = StyleSheet.create({
   detailQuantity: {
     fontSize: 16,
     fontWeight: "600",
-    color: ITEM_COLORS.brown,
+    color: APP_COLORS.brown,
     fontFamily: "KotraHope",
     marginBottom: 12,
   },
   detailDesc: {
     fontSize: 14,
-    color: ITEM_COLORS.brownLight,
+    color: APP_COLORS.brownLight,
     fontFamily: "KotraHope",
     textAlign: "center",
     marginBottom: 20,
   },
   detailCloseBtn: {
-    backgroundColor: ITEM_COLORS.yellowDark,
+    backgroundColor: APP_COLORS.yellowDark,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,

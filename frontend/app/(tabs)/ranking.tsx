@@ -1,5 +1,17 @@
 //랭킹 화면
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, SafeAreaView, ActivityIndicator, Alert, Image, ImageSourcePropType, Platform } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Modal,
+  SafeAreaView,
+  ActivityIndicator,
+  Alert,
+  Image,
+  ImageSourcePropType,
+} from "react-native";
 import { useState, useEffect } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -9,11 +21,14 @@ import API_BASE_URL from "../../config/api";
 
 /** 이전 랭킹 저장 키 (유저별 이전 순위로 rankChange 계산용) */
 const RANKING_PREVIOUS_KEY = "@pets_ranking_previous";
+import { APP_COLORS } from "../../constants/theme";
 import dog from "../../assets/images/animals/dog.png";
 import capibara from "../../assets/images/animals/capibara.png";
 import fox from "../../assets/images/animals/fox.png";
 import ginipig from "../../assets/images/animals/ginipig.png";
 import red_panda from "../../assets/images/animals/red_panda.png";
+import crownImg from "../../assets/images/accessory/crown.png";
+import muscleSuitImg from "../../assets/images/accessory/muscle_suit.png";
 import { DEFAULT_ANIMAL_IMAGE } from "../../context/CustomizationContext";
 
 type RankingItem = {
@@ -26,9 +41,7 @@ type RankingItem = {
   totalWorkouts: number;
   totalDurationMinutes: number;
   avgHeartRate: number;
-  /** 순위 변동: 양수=상승, 0=유지, 음수=하락, null=신규 진입 */
   rankChange: number | null;
-  /** 현재 사용자 여부 판별용 (API에서 오는 id/accountId 등) */
   userId?: string | number;
   email?: string;
 };
@@ -181,9 +194,9 @@ export default function RankingScreen() {
   };
 
   const getPodiumColor = (rank: number) => {
-    if (rank === 1) return "#FFD700"; // 금색
-    if (rank === 2) return "#C0C0C0"; // 은색
-    if (rank === 3) return "#CD7F32"; // 동메달
+    if (rank === 1) return APP_COLORS.yellow;
+    if (rank === 2) return APP_COLORS.ivoryDark;
+    if (rank === 3) return "#D4A574";
     return "#e0e0e0";
   };
 
@@ -199,7 +212,6 @@ export default function RankingScreen() {
     return itemName === loginName || itemNick === loginName;
   };
 
-  /** 종료일 기준 남은 일수. 양수=남은일, 0=당일, 음수=지남. null=종료일 없음 */
   const getDday = (): number | null => {
     if (!seasonEndDate) return null;
     const today = new Date();
@@ -210,7 +222,6 @@ export default function RankingScreen() {
     return diff;
   };
 
-  /** D-day 표시 문자열: D-N / D-Day / 종료 */
   const getDdayLabel = (): string | null => {
     const diff = getDday();
     if (diff === null) return null;
@@ -223,19 +234,44 @@ export default function RankingScreen() {
     if (item.rankChange === null) return { text: "NEW", color: "#9b59b6" };
     if (item.rankChange > 0) return { text: `▲${item.rankChange}`, color: "#27ae60" };
     if (item.rankChange < 0) return { text: `▼${Math.abs(item.rankChange)}`, color: "#e74c3c" };
-    return { text: "-", color: "#95a5a6" };
+    return { text: "-", color: APP_COLORS.brownLight };
   };
 
   const myRankItem = rankings.find((r) => isCurrentUser(r));
-  /** 로그인 유저 기준 하단 바는 항상 표시 (본인 순위가 리스트에 보여도 별도 UI로 노출) */
-  const showMyRankBar = !isLoading && currentUser != null;
-  const MAIN_COLOR = "#1E88E5";
   const insets = useSafeAreaInsets();
-  const BOTTOM_BAR_HEIGHT = 52;
 
   const handleAnimalPress = (animal: RankingItem) => {
     setSelectedAnimal(animal);
     setModalVisible(true);
+  };
+
+  const renderRankCard = (item: RankingItem, isMyRank = false) => {
+    const changeLabel = getRankChangeLabel(item);
+    return (
+      <TouchableOpacity
+        key={item.rank}
+        style={[styles.rankItem, isMyRank && styles.rankItemCurrentUser]}
+        onPress={() => handleAnimalPress(item)}
+      >
+        <View style={styles.rankLeft}>
+          <Text style={styles.rankNumber}>{item.rank}</Text>
+          <Image source={item.animal} style={styles.rankAnimalImage} resizeMode="contain" />
+          <Text style={styles.rankName}>{item.nickname}</Text>
+          {isMyRank && (
+            <View style={styles.youBadge}>
+              <Text style={styles.youBadgeText}>YOU</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.rankRight}>
+          <View style={styles.rankScoreRow}>
+            <Text style={styles.rankScore}>{item.score}점</Text>
+            <Text style={[styles.rankChangeText, { color: changeLabel.color }]}>{changeLabel.text}</Text>
+          </View>
+          <Text style={styles.rankTime}>Lv.{item.level}</Text>
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   if (isLoading) {
@@ -243,7 +279,7 @@ export default function RankingScreen() {
       <SafeAreaView style={styles.container}>
         <HomeButton />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator size="large" color={APP_COLORS.yellowDark} />
           <Text style={styles.loadingText}>랭킹을 불러오는 중...</Text>
         </View>
       </SafeAreaView>
@@ -255,181 +291,131 @@ export default function RankingScreen() {
       <HomeButton />
       <ScrollView
         style={styles.scrollContainer}
-        contentContainerStyle={showMyRankBar ? [styles.scrollContentWithSticky, { paddingBottom: BOTTOM_BAR_HEIGHT + Math.max(14, insets.bottom) }] : undefined}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(40, insets.bottom) }]}
+        showsVerticalScrollIndicator={false}
       >
-        {/* 시즌 시스템 UI */}
+        {/* 시즌 헤더 */}
         <View style={styles.seasonHeader}>
           <Text style={styles.seasonName}>{seasonName}</Text>
-          {(() => {
-            const ddayLabel = getDdayLabel();
-            return ddayLabel != null ? (
-              <Text style={styles.seasonDday}>{ddayLabel}</Text>
-            ) : null;
-          })()}
+          {getDdayLabel() != null && (
+            <Text style={styles.seasonDday}>{getDdayLabel()}</Text>
+          )}
         </View>
-        <Text style={styles.title}>전체 랭킹</Text>
-        
+
         {rankings.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>랭킹 데이터가 없습니다.</Text>
           </View>
         ) : (
           <>
-            {/* 시상대 */}
+            {/* 1, 2, 3위 시상대 - 최상단 */}
             {rankings.length >= 3 && (
-              <View style={styles.podiumContainer}>
-                {/* 2등 */}
-                <TouchableOpacity 
-                  style={styles.podiumItem}
-                  onPress={() => handleAnimalPress(rankings[1])}
-                >
-                  <View style={styles.animalContainer}>
-                    <View style={[styles.crownSmall, { backgroundColor: getPodiumColor(2) }]}>
-                      <Text style={styles.crownText}>2</Text>
-                    </View>
-                    <Image source={rankings[1].animal} style={styles.animalImage} resizeMode="contain" />
-                  </View>
-                  <View style={[styles.podium, { 
-                    height: getPodiumHeight(2),
-                    backgroundColor: getPodiumColor(2) 
-                  }]}>
-                    <Text style={styles.podiumRank}>2</Text>
-                  </View>
-                  <Text style={styles.podiumName}>{rankings[1].nickname}</Text>
-                  <Text style={styles.podiumScore}>{rankings[1].score}점</Text>
-                  {(() => {
-                    const lbl = getRankChangeLabel(rankings[1]);
-                    return (
-                      <Text style={[styles.podiumRankChange, { color: lbl.color }]}>{lbl.text}</Text>
-                    );
-                  })()}
-                </TouchableOpacity>
-
-                {/* 1등 */}
-                <TouchableOpacity 
-                  style={styles.podiumItem}
-                  onPress={() => handleAnimalPress(rankings[0])}
-                >
-                  <View style={styles.animalContainer}>
-                    <View style={[styles.crown, { backgroundColor: getPodiumColor(1) }]}>
-                      <Text style={styles.crownTextLarge}>👑</Text>
-                    </View>
-                    <Image source={rankings[0].animal} style={styles.animalImageLarge} resizeMode="contain" />
-                  </View>
-                  <View style={[styles.podium, { 
-                    height: getPodiumHeight(1),
-                    backgroundColor: getPodiumColor(1) 
-                  }]}>
-                    <Text style={styles.podiumRank}>1</Text>
-                  </View>
-                  <Text style={styles.podiumNameLarge}>{rankings[0].nickname}</Text>
-                  <Text style={styles.podiumScoreLarge}>{rankings[0].score}점</Text>
-                  {(() => {
-                    const lbl = getRankChangeLabel(rankings[0]);
-                    return (
-                      <Text style={[styles.podiumRankChangeLarge, { color: lbl.color }]}>{lbl.text}</Text>
-                    );
-                  })()}
-                  {rankings.length >= 2 && (
-                    <View style={styles.podiumGapWrap}>
-                      <Text style={styles.podiumGapValue}>
-                        +{rankings[0].score - rankings[1].score}점
-                      </Text>
-                      <Text style={styles.podiumGapLabel}>2위와 격차</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-
-                {/* 3등 */}
-                <TouchableOpacity 
-                  style={styles.podiumItem}
-                  onPress={() => handleAnimalPress(rankings[2])}
-                >
-                  <View style={styles.animalContainer}>
-                    <View style={[styles.crownSmall, { backgroundColor: getPodiumColor(3) }]}>
-                      <Text style={styles.crownText}>3</Text>
-                    </View>
-                    <Image source={rankings[2].animal} style={styles.animalImage} resizeMode="contain" />
-                  </View>
-                  <View style={[styles.podium, { 
-                    height: getPodiumHeight(3),
-                    backgroundColor: getPodiumColor(3) 
-                  }]}>
-                    <Text style={styles.podiumRank}>3</Text>
-                  </View>
-                  <Text style={styles.podiumName}>{rankings[2].nickname}</Text>
-                  <Text style={styles.podiumScore}>{rankings[2].score}점</Text>
-                  {(() => {
-                    const lbl = getRankChangeLabel(rankings[2]);
-                    return (
-                      <Text style={[styles.podiumRankChange, { color: lbl.color }]}>{lbl.text}</Text>
-                    );
-                  })()}
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* 보상 안내 */}
-            {rankings.length >= 3 && (
-              <View style={styles.rewardInfo}>
-                <Text style={styles.rewardTitle}>🏆 시즌 보상</Text>
-                <Text style={styles.rewardText}>1위: 프리미엄 뱃지</Text>
-                <Text style={styles.rewardText}>Top10: 특별 프레임</Text>
-              </View>
-            )}
-
-            {/* 동물별 랭킹 리스트 */}
-            <View style={styles.listContainer}>
-              <Text style={styles.subtitle}>전체 랭킹</Text>
-              {rankings.map((item, index) => {
-                const changeLabel = getRankChangeLabel(item);
-                const isMe = isCurrentUser(item);
-                return (
-                <TouchableOpacity 
-                  key={index} 
-                  style={[
-                    styles.rankItem,
-                    isMe && styles.rankItemCurrentUser,
-                  ]}
-                  onPress={() => handleAnimalPress(item)}
-                >
-                  <View style={styles.rankLeft}>
-                    <Text style={styles.rankNumber}>{item.rank}</Text>
-                    <Image source={item.animal} style={styles.rankAnimalImage} resizeMode="contain" />
-                    <Text style={styles.rankName}>{item.nickname}</Text>
-                    {isMe && (
-                      <View style={styles.youBadge}>
-                        <Text style={styles.youBadgeText}>YOU</Text>
+                <View style={styles.podiumContainer}>
+                  <TouchableOpacity style={styles.podiumItem} onPress={() => handleAnimalPress(rankings[1])}>
+                    <View style={styles.animalContainer}>
+                      <View style={[styles.crownSmall, { backgroundColor: getPodiumColor(2) }]}>
+                        <Text style={styles.crownText}>2</Text>
                       </View>
-                    )}
-                  </View>
-                  <View style={styles.rankRight}>
-                    <View style={styles.rankScoreRow}>
-                      <Text style={styles.rankScore}>{item.score}점</Text>
-                      <Text style={[styles.rankChangeText, { color: changeLabel.color }]}>
-                        {changeLabel.text}
-                      </Text>
+                      <Image source={rankings[1].animal} style={styles.animalImage} resizeMode="contain" />
                     </View>
-                    <Text style={styles.rankTime}>Lv.{item.level}</Text>
+                    <View style={[styles.podium, { height: getPodiumHeight(2), backgroundColor: getPodiumColor(2) }]}>
+                      <Text style={styles.podiumRank}>2</Text>
+                    </View>
+                    <Text style={styles.podiumName}>{rankings[1].nickname}</Text>
+                    <Text style={styles.podiumScore}>{rankings[1].score}점</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.podiumItem} onPress={() => handleAnimalPress(rankings[0])}>
+                    <View style={styles.animalContainer}>
+                      <View style={[styles.crown, { backgroundColor: getPodiumColor(1) }]}>
+                        <Text style={styles.crownTextLarge}>1</Text>
+                      </View>
+                      <Image source={rankings[0].animal} style={styles.animalImageLarge} resizeMode="contain" />
+                    </View>
+                    <View style={[styles.podium, { height: getPodiumHeight(1), backgroundColor: getPodiumColor(1) }]}>
+                      <Text style={styles.podiumRank}>1</Text>
+                    </View>
+                    <Text style={styles.podiumNameLarge}>{rankings[0].nickname}</Text>
+                    <Text style={styles.podiumScoreLarge}>{rankings[0].score}점</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.podiumItem} onPress={() => handleAnimalPress(rankings[2])}>
+                    <View style={styles.animalContainer}>
+                      <View style={[styles.crownSmall, { backgroundColor: getPodiumColor(3) }]}>
+                        <Text style={styles.crownText}>3</Text>
+                      </View>
+                      <Image source={rankings[2].animal} style={styles.animalImage} resizeMode="contain" />
+                    </View>
+                    <View style={[styles.podium, { height: getPodiumHeight(3), backgroundColor: getPodiumColor(3) }]}>
+                      <Text style={styles.podiumRank}>3</Text>
+                    </View>
+                    <Text style={styles.podiumName}>{rankings[2].nickname}</Text>
+                    <Text style={styles.podiumScore}>{rankings[2].score}점</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+            {/* 시즌 보상 */}
+            <View style={styles.rewardSection}>
+              <Text style={styles.rewardTitle}>🏆 시즌 보상</Text>
+              <View style={styles.rewardCards}>
+                <View style={styles.rewardCard}>
+                  <Image source={crownImg} style={styles.rewardImage} resizeMode="contain" />
+                  <Text style={styles.rewardRank}>1위</Text>
+                  <Text style={styles.rewardItemName}>왕관</Text>
+                  <Text style={styles.rewardDesc}>운동시 얻는 모든 스탯 +2</Text>
+                </View>
+                <View style={styles.rewardCard}>
+                  <Image source={muscleSuitImg} style={styles.rewardImage} resizeMode="contain" />
+                  <Text style={styles.rewardRank}>TOP 5</Text>
+                  <Text style={styles.rewardItemName}>근육맨 슈트</Text>
+                  <Text style={styles.rewardDesc}>운동시 얻는 모든 스탯 +1</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* 내 랭킹 */}
+            {currentUser != null && (
+              <View style={styles.myRankSection}>
+                <Text style={styles.myRankLabel}>내 랭킹</Text>
+                {myRankItem ? (
+                  <TouchableOpacity
+                    style={styles.myRankCard}
+                    onPress={() => handleAnimalPress(myRankItem)}
+                  >
+                    <View style={styles.myRankInner}>
+                      <Image source={myRankItem.animal} style={styles.myRankAnimal} resizeMode="contain" />
+                      <View style={styles.myRankInfo}>
+                        <Text style={styles.myRankNickname}>{myRankItem.nickname}</Text>
+                        <Text style={styles.myRankDetail}>
+                          {myRankItem.rank}위 · {myRankItem.score}점 · Lv.{myRankItem.level}
+                        </Text>
+                        {(() => {
+                          const lbl = getRankChangeLabel(myRankItem);
+                          return <Text style={[styles.myRankChange, { color: lbl.color }]}>{lbl.text}</Text>;
+                        })()}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.myRankCard}>
+                    <Text style={styles.myRankEmpty}>참여 후 확인</Text>
+                    <Text style={styles.myRankEmptySub}>운동을 시작하면 내 순위가 표시됩니다</Text>
                   </View>
-                </TouchableOpacity>
-              );
-              })}
+                )}
+              </View>
+            )}
+
+            {/* 전체 랭킹 */}
+            <View style={styles.listSection}>
+              <Text style={styles.sectionTitle}>전체 랭킹</Text>
+              <View style={styles.rankList}>
+                {rankings.map((item) => renderRankCard(item, isCurrentUser(item)))}
+              </View>
             </View>
           </>
         )}
       </ScrollView>
-
-      {/* 내 순위 하단 고정 바: 로그인 유저 기준 항상 표시, YOU 뱃지와 별도 UI */}
-      {showMyRankBar && (
-        <View style={[styles.stickyMyRankBar, { paddingBottom: Math.max(14, insets.bottom) }]}>
-          <Text style={styles.stickyMyRankText}>
-            {myRankItem
-              ? `내 순위: ${myRankItem.rank}위 (${myRankItem.score}점)`
-              : "내 순위: - (참여 후 확인)"}
-          </Text>
-        </View>
-      )}
 
       {/* 상세 정보 모달 */}
       <Modal
@@ -438,7 +424,7 @@ export default function RankingScreen() {
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
           onPress={() => setModalVisible(false)}
@@ -449,27 +435,28 @@ export default function RankingScreen() {
                 <View style={styles.modalHeader}>
                   <Image source={selectedAnimal.animal} style={styles.modalAnimalImage} resizeMode="contain" />
                   <Text style={styles.modalName}>{selectedAnimal.nickname}</Text>
-                  <Text style={styles.modalOwner}>레벨 {selectedAnimal.level} | 경험치 {selectedAnimal.score}점</Text>
+                  <Text style={styles.modalOwner}>
+                    레벨 {selectedAnimal.level} | 경험치 {selectedAnimal.score}점
+                  </Text>
                 </View>
-                
+
                 <View style={styles.modalDivider} />
-                
+
                 <View style={styles.modalStats}>
                   <View style={styles.statRow}>
                     <Text style={styles.statLabel}>총 운동 시간</Text>
                     <Text style={styles.statValue}>{formatDuration(selectedAnimal.totalDurationMinutes)}</Text>
                   </View>
-                  
                   <View style={styles.statRow}>
                     <Text style={styles.statLabel}>총 운동 횟수</Text>
                     <Text style={styles.statValue}>{selectedAnimal.totalWorkouts}회</Text>
                   </View>
-                  
                   <View style={styles.statRow}>
                     <Text style={styles.statLabel}>평균 심박수</Text>
-                    <Text style={styles.statValue}>{selectedAnimal.avgHeartRate > 0 ? `${selectedAnimal.avgHeartRate} bpm` : '데이터 없음'}</Text>
+                    <Text style={styles.statValue}>
+                      {selectedAnimal.avgHeartRate > 0 ? `${selectedAnimal.avgHeartRate} bpm` : "데이터 없음"}
+                    </Text>
                   </View>
-                  
                   <View style={styles.statRow}>
                     <Text style={styles.statLabel}>랭킹</Text>
                     <Text style={styles.statValue}>{selectedAnimal.rank}위</Text>
@@ -487,13 +474,13 @@ export default function RankingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: APP_COLORS.ivory,
   },
   scrollContainer: {
     flex: 1,
   },
-  scrollContentWithSticky: {
-    paddingBottom: 52,
+  scrollContent: {
+    paddingHorizontal: 20,
   },
   loadingContainer: {
     flex: 1,
@@ -503,32 +490,18 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: "#7f8c8d",
-  
-
-    fontFamily: 'KotraHope',},
+    color: APP_COLORS.brown,
+    fontFamily: "KotraHope",
+  },
   emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
+    paddingVertical: 80,
     alignItems: "center",
-    paddingVertical: 100,
   },
   emptyText: {
     fontSize: 18,
-    color: "#7f8c8d",
-  
-
-    fontFamily: 'KotraHope',},
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginTop: 40,
-    marginBottom: 30,
-    color: "#2c3e50",
-  
-
-    fontFamily: 'KotraHope',},
+    color: APP_COLORS.brownLight,
+    fontFamily: "KotraHope",
+  },
   seasonHeader: {
     flexDirection: "row",
     justifyContent: "center",
@@ -539,26 +512,148 @@ const styles = StyleSheet.create({
   seasonName: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#2c3e50",
+    color: APP_COLORS.brown,
     fontFamily: "KotraHope",
   },
   seasonDday: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#1E88E5",
+    color: APP_COLORS.yellowDark,
     fontFamily: "KotraHope",
+  },
+  myRankSection: {
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  myRankLabel: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: APP_COLORS.brown,
+    fontFamily: "KotraHope",
+    marginBottom: 12,
+  },
+  myRankCard: {
+    backgroundColor: APP_COLORS.yellow,
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 2,
+    borderColor: APP_COLORS.yellowDark,
+  },
+  myRankInner: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  myRankAnimal: {
+    width: 56,
+    height: 56,
+    marginRight: 16,
+  },
+  myRankInfo: {
+    flex: 1,
+  },
+  myRankNickname: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: APP_COLORS.brown,
+    fontFamily: "KotraHope",
+  },
+  myRankDetail: {
+    fontSize: 15,
+    color: APP_COLORS.brownLight,
+    marginTop: 4,
+    fontFamily: "KotraHope",
+  },
+  myRankChange: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginTop: 4,
+    fontFamily: "KotraHope",
+  },
+  myRankEmpty: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: APP_COLORS.brown,
+    fontFamily: "KotraHope",
+    textAlign: "center",
+  },
+  myRankEmptySub: {
+    fontSize: 14,
+    color: APP_COLORS.brownLight,
+    marginTop: 6,
+    fontFamily: "KotraHope",
+    textAlign: "center",
+  },
+  rewardSection: {
+    marginTop: 24,
+    marginBottom: 20,
+  },
+  rewardTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: APP_COLORS.brown,
+    fontFamily: "KotraHope",
+    marginBottom: 14,
+  },
+  rewardCards: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  rewardCard: {
+    flex: 1,
+    backgroundColor: "#FFF",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: APP_COLORS.ivoryDark,
+    alignItems: "center",
+  },
+  rewardImage: {
+    width: 48,
+    height: 48,
+    marginBottom: 8,
+  },
+  rewardRank: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: APP_COLORS.yellowDark,
+    fontFamily: "KotraHope",
+  },
+  rewardItemName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: APP_COLORS.brown,
+    fontFamily: "KotraHope",
+    marginTop: 2,
+  },
+  rewardDesc: {
+    fontSize: 12,
+    color: APP_COLORS.brownLight,
+    marginTop: 4,
+    fontFamily: "KotraHope",
+    textAlign: "center",
+  },
+  listSection: {
+    marginTop: 28,
+    marginBottom: 40,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: APP_COLORS.brown,
+    fontFamily: "KotraHope",
+    marginBottom: 16,
   },
   podiumContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "flex-end",
-    paddingHorizontal: 20,
-    marginBottom: 40,
+    marginTop: 16,
+    marginBottom: 24,
   },
   podiumItem: {
     alignItems: "center",
     flex: 1,
-    marginHorizontal: 5,
+    marginHorizontal: 4,
   },
   animalContainer: {
     marginBottom: 10,
@@ -585,6 +680,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     zIndex: 0,
   },
+  crownTextLarge: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#fff",
+    fontFamily: "KotraHope",
+  },
   crownSmall: {
     width: 30,
     height: 30,
@@ -598,150 +699,69 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "bold",
     color: "#fff",
-  
-
-    fontFamily: 'KotraHope',},
-  crownTextLarge: {
-    fontSize: 26,
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
   podium: {
     width: "100%",
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 3,
-    borderColor: "#2c3e50",
+    borderWidth: 2,
+    borderColor: APP_COLORS.brown,
     borderBottomWidth: 0,
   },
   podiumRank: {
-    fontSize: 40,
+    fontSize: 36,
     fontWeight: "bold",
-    color: "#fff",
-    textShadowColor: "rgba(0, 0, 0, 0.3)",
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 3,
-    fontFamily: 'KotraHope',
+    color: APP_COLORS.brown,
+    fontFamily: "KotraHope",
   },
   podiumName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     marginTop: 8,
-    color: "#2c3e50",
-  
-
-    fontFamily: 'KotraHope',},
+    color: APP_COLORS.brown,
+    fontFamily: "KotraHope",
+  },
   podiumNameLarge: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "bold",
     marginTop: 10,
-    color: "#2c3e50",
-  
-
-    fontFamily: 'KotraHope',},
+    color: APP_COLORS.brown,
+    fontFamily: "KotraHope",
+  },
   podiumScore: {
-    fontSize: 14,
-    color: "#7f8c8d",
+    fontSize: 13,
+    color: APP_COLORS.brownLight,
     marginTop: 2,
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
   podiumScoreLarge: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
-    color: "#e67e22",
+    color: APP_COLORS.yellowDark,
     marginTop: 3,
-  
-
-    fontFamily: 'KotraHope',},
-  podiumGapWrap: {
-    marginTop: 8,
-    alignItems: "center",
-  },
-  podiumGapValue: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#1E88E5",
     fontFamily: "KotraHope",
   },
-  podiumGapLabel: {
-    fontSize: 13,
-    color: "#7f8c8d",
-    marginTop: 2,
-    fontFamily: "KotraHope",
+  rankList: {
+    gap: 10,
   },
-  podiumRankChange: {
-    fontSize: 13,
-    fontWeight: "700",
-    marginTop: 4,
-    fontFamily: "KotraHope",
-  },
-  podiumRankChangeLarge: {
-    fontSize: 14,
-    fontWeight: "700",
-    marginTop: 4,
-    fontFamily: "KotraHope",
-  },
-  rewardInfo: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginBottom: 16,
-    alignItems: "center",
-  },
-  rewardTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#5d6d7e",
-    fontFamily: "KotraHope",
-    marginBottom: 10,
-  },
-  rewardText: {
-    fontSize: 14,
-    color: "#5d6d7e",
-    fontFamily: "KotraHope",
-    marginVertical: 3,
-  },
-  listContainer: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 40,
-  },
-  subtitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 20,
-    color: "#2c3e50",
-  
-
-    fontFamily: 'KotraHope',},
   rankItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 15,
-    paddingHorizontal: 15,
-    backgroundColor: "#f8f9fa",
-    borderRadius: 12,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: "#FFF",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: APP_COLORS.ivoryDark,
   },
   rankItemCurrentUser: {
-    borderWidth: 3,
-    borderColor: "#1E88E5",
-    backgroundColor: "#E3F2FD",
-    shadowColor: "#1E88E5",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+    borderWidth: 2,
+    borderColor: APP_COLORS.yellowDark,
+    backgroundColor: APP_COLORS.yellow,
   },
   rankLeft: {
     flexDirection: "row",
@@ -749,38 +769,34 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   rankNumber: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "bold",
-    width: 30,
-    color: "#2c3e50",
-  
-
-    fontFamily: 'KotraHope',},
+    width: 28,
+    color: APP_COLORS.brown,
+    fontFamily: "KotraHope",
+  },
   rankAnimalImage: {
     width: 32,
     height: 32,
     marginRight: 10,
   },
   rankName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
-    color: "#2c3e50",
-  
-
-    fontFamily: 'KotraHope',},
+    color: APP_COLORS.brown,
+    fontFamily: "KotraHope",
+  },
   youBadge: {
-    marginLeft: 10,
-    backgroundColor: "#1565C0",
-    paddingHorizontal: 10,
+    marginLeft: 8,
+    backgroundColor: APP_COLORS.yellowDark,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#0D47A1",
   },
   youBadgeText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "bold",
-    color: "#fff",
+    color: "#FFF",
     fontFamily: "KotraHope",
     letterSpacing: 0.5,
   },
@@ -793,56 +809,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   rankScore: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "bold",
-    color: "#e67e22",
-  
-
-    fontFamily: 'KotraHope',},
+    color: APP_COLORS.yellowDark,
+    fontFamily: "KotraHope",
+  },
   rankChangeText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
     fontFamily: "KotraHope",
   },
   rankTime: {
-    fontSize: 14,
-    color: "#95a5a6",
+    fontSize: 13,
+    color: APP_COLORS.brownLight,
     marginTop: 2,
-  
-
-    fontFamily: 'KotraHope',},
-  stickyMyRankBar: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "#1E88E5",
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderTopWidth: 2,
-    borderTopColor: "rgba(0,0,0,0.1)",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-      },
-      android: { elevation: 8 },
-    }),
-  },
-  stickyMyRankText: {
-    fontSize: 17,
-    fontWeight: "bold",
-    color: "#fff",
     fontFamily: "KotraHope",
-    letterSpacing: 0.3,
   },
-  // 모달 스타일
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -851,13 +833,13 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: "#fff",
+    backgroundColor: APP_COLORS.ivory,
     borderRadius: 20,
     padding: 25,
     width: "90%",
     maxWidth: 400,
-    borderWidth: 3,
-    borderColor: "#2c3e50",
+    borderWidth: 2,
+    borderColor: APP_COLORS.yellow,
   },
   modalHeader: {
     alignItems: "center",
@@ -871,20 +853,18 @@ const styles = StyleSheet.create({
   modalName: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#2c3e50",
+    color: APP_COLORS.brown,
+    fontFamily: "KotraHope",
     marginBottom: 5,
-  
-
-    fontFamily: 'KotraHope',},
+  },
   modalOwner: {
     fontSize: 16,
-    color: "#7f8c8d",
-  
-
-    fontFamily: 'KotraHope',},
+    color: APP_COLORS.brownLight,
+    fontFamily: "KotraHope",
+  },
   modalDivider: {
     height: 2,
-    backgroundColor: "#2c3e50",
+    backgroundColor: APP_COLORS.ivoryDark,
     marginVertical: 15,
   },
   modalStats: {
@@ -898,16 +878,14 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 16,
-    color: "#2c3e50",
+    color: APP_COLORS.brown,
     fontWeight: "500",
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
   statValue: {
     fontSize: 16,
-    color: "#2c3e50",
+    color: APP_COLORS.brown,
     fontWeight: "bold",
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
 });

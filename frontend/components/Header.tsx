@@ -2,16 +2,18 @@ import { View, TouchableOpacity, StyleSheet, Modal, Text, Image } from "react-na
 import { router } from "expo-router";
 import { useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSettingsModal } from "../context/SettingsModalContext";
 
 interface HeaderProps {
   showBackButton?: boolean;
   showMenuButton?: boolean;
-  menuType?: 'home' | 'timer' | 'records' | 'ranking' | 'challenges' | 'settings' | 'customize' | 'chatting' | 'quest';
+  menuType?: "home" | "timer" | "records" | "ranking" | "challenges" | "customize" | "chatting";
 }
 
-export default function Header({ showBackButton = false, showMenuButton = true, menuType = 'home' }: HeaderProps) {
+export default function Header({ showBackButton = false, showMenuButton = true, menuType = "home" }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const insets = useSafeAreaInsets();
+  const { openSettings } = useSettingsModal();
 
   const goBack = () => {
     router.back();
@@ -25,9 +27,15 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
     setIsMenuOpen(false);
   };
 
-  const navigateToScreen = (screen: string) => {
+  const handleMenuSelect = (screen: string) => {
     setIsMenuOpen(false);
-    router.push(`/(tabs)/${screen}` as any);
+    if (screen === "settings") {
+      openSettings();
+    } else if (screen === "quest") {
+      router.push("/(tabs)/home?openQuest=1" as any);
+    } else {
+      router.push(`/(tabs)/${screen}` as any);
+    }
   };
 
   const getMenuItems = () => {
@@ -76,18 +84,7 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
             { label: '커스터마이징', screen: 'customize' },
             { label: '설정', screen: 'settings' }, 
         ];
-      case 'settings':
-        return [
-            { label: '홈', screen: 'home' },
-            { label: '타이머', screen: 'timer' },
-            { label: '운동 기록', screen: 'records' },
-            { label: '랭킹', screen: 'ranking' },
-            { label: '기록 도전', screen: 'challenges' },
-            { label: '채팅', screen: 'chatting' },
-            { label: '퀘스트', screen: 'quest' },
-            { label: '커스터마이징', screen: 'customize' },
-          ];
-      case 'customize':
+      case "customize":
         return [
             { label: '홈', screen: 'home' },
             { label: '타이머', screen: 'timer' },
@@ -106,17 +103,6 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
             { label: '랭킹', screen: 'ranking' },
             { label: '기록 도전', screen: 'challenges' },
             { label: '퀘스트', screen: 'quest' },
-            { label: '커스터마이징', screen: 'customize' },
-            { label: '설정', screen: 'settings' },
-        ];
-      case 'quest':
-        return [
-            { label: '홈', screen: 'home' },
-            { label: '타이머', screen: 'timer' },
-            { label: '운동 기록', screen: 'records' },
-            { label: '랭킹', screen: 'ranking' },
-            { label: '기록 도전', screen: 'challenges' },
-            { label: '채팅', screen: 'chatting' },
             { label: '커스터마이징', screen: 'customize' },
             { label: '설정', screen: 'settings' },
         ];
@@ -178,7 +164,7 @@ export default function Header({ showBackButton = false, showMenuButton = true, 
               <TouchableOpacity 
                 key={index} 
                 style={styles.menuItem} 
-                onPress={() => navigateToScreen(item.screen)}
+                onPress={() => handleMenuSelect(item.screen)}
               >
                 <Text style={styles.menuItemText}>{item.label}</Text>
               </TouchableOpacity>
