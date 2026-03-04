@@ -38,12 +38,12 @@ export default function Navigator() {
     { label: '설정', path: '/settings' },
   ];
 
-  // 우측 중단 위치 계산 (3시 방향, 세로 중간)
-  const buttonTop = insets.top + (height - insets.top - insets.bottom) / 2 - 25; // 버튼 높이(50)의 절반 빼기
+  // 좌측 중앙 위치 계산 (9시 방향, 세로 중간)
+  const buttonTop = insets.top + (height - insets.top - insets.bottom) / 2 - 25;
 
   return (
     <>
-      {/* 우측 중단 메뉴 버튼 */}
+      {/* 좌측 중앙 메뉴 버튼 */}
       <TouchableOpacity 
           style={[
             styles.floatingButton,
@@ -83,7 +83,7 @@ export default function Navigator() {
 const styles = StyleSheet.create({
   floatingButton: {
     position: 'absolute',
-    right: 20,
+    left: 20,
     width: 50,
     height: 50,
     borderRadius: 25,
@@ -106,18 +106,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
   },
   floatingMenu: {
     backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderBottomLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderBottomRightRadius: 20,
     paddingVertical: 20,
     paddingHorizontal: 20,
     width: 250,
     height: '100%',
     shadowColor: '#000',
-    shadowOffset: { width: -2, height: 0 },
+    shadowOffset: { width: 2, height: 0 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 5,

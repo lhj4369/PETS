@@ -125,8 +125,8 @@ const HomeScreen = () => {
   };
 
   const petSize = Math.min(220, screenWidth * 0.55);
-  const iconSize = Math.max(44, Math.min(56, screenWidth * 0.12));
-  const bottomIconSize = 42;
+  const rightIconSize = Math.max(68, Math.min(76, screenWidth * 0.17));
+  const bottomIconSize = 84;
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -209,7 +209,7 @@ const HomeScreen = () => {
   const navigateToCustomize = () => router.push("/(tabs)/customize" as any);
   const navigateToChallenges = () => router.push("/(tabs)/challenges" as any);
   const navigateToChatting = () => router.push("/(tabs)/chatting" as any);
-  const navigateToSettings = () => router.push("/(tabs)/settings" as any);
+  const navigateToSettings = () => openSettings();
   const navigateToItem = () => setShowItemModal(true);
 
   const handleSaveProfile = async () => {
@@ -298,55 +298,63 @@ const HomeScreen = () => {
           </View>
         )}
 
-        {/* 상단: 프로필 카드만 (베이지, 풀너비) */}
-        <View style={[styles.topBlock, { paddingTop: insets.top + 8, paddingHorizontal: 16 }]}>
-          <View style={styles.statusBarContainer}>
+        {/* 상단: 프로필 / 닉네임 / 스탯박스 (창 크기에 맞게) */}
+        <View style={[styles.topBlock, { paddingTop: insets.top, paddingHorizontal: 0 }]}>
+          <View style={[styles.topRow, { width: screenWidth }]}>
+            {/* 좌측: 프로필 + 닉네임 */}
+            <View style={styles.topRowLeft}>
             <TouchableOpacity
-              style={styles.profileSection}
+              style={styles.profileLeftBox}
               activeOpacity={0.85}
               onPress={() => setShowExpDetailModal(true)}
             >
-              <View style={styles.profileLeft}>
-                <View style={styles.avatarWrap}>
-                  <View style={styles.avatarCircle}>
-                    <Image
-                      source={selectedAnimal ?? DEFAULT_ANIMAL_IMAGE}
-                      style={styles.avatarImage}
-                      resizeMode="contain"
-                    />
-                  </View>
-                </View>
-                <View style={styles.profileInfo}>
-                  <View style={styles.nicknameRow}>
-                    <Text style={styles.nickname} numberOfLines={1}>
-                      {nickname || accountName || "PETS"}
-                    </Text>
-                    <Text style={styles.levelInline}>Lv.{level}</Text>
-                  </View>
-                  <View style={styles.expBarHorizontal}>
-                    <View
-                      style={[
-                        styles.expBarHorizontalFill,
-                        { width: `${Math.min(100, expProgress * 100)}%` },
-                      ]}
-                    />
-                  </View>
-                  <View style={styles.statsRow}>
-                    <Text style={styles.statNum}>{strength}</Text>
-                    <Text style={styles.statDiv}>/</Text>
-                    <Text style={styles.statNum}>{agility}</Text>
-                    <Text style={styles.statDiv}>/</Text>
-                    <Text style={styles.statNum}>{stamina}</Text>
-                    <Text style={styles.statDiv}>/</Text>
-                    <Text style={styles.statNum}>{concentration}</Text>
-                  </View>
-                  <Text style={styles.statHint}>힘 / 민첩 / 지구력 / 집중력</Text>
+              <View style={styles.avatarCircle}>
+                <Image
+                  source={selectedAnimal ?? DEFAULT_ANIMAL_IMAGE}
+                  style={styles.avatarImage}
+                  resizeMode="contain"
+                />
+              </View>
+              <View style={styles.profileLevelRow}>
+                <Text style={styles.levelLabel}>Lv.{level}</Text>
+                <View style={styles.expBarSmall}>
+                  <View
+                    style={[
+                      styles.expBarHorizontalFill,
+                      { width: `${Math.min(100, expProgress * 100)}%` },
+                    ]}
+                  />
                 </View>
               </View>
               <TouchableOpacity style={styles.editProfileBtn} onPress={(e) => { e.stopPropagation(); handleEditProfile(); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Text style={styles.editProfileBtnText}>✏️</Text>
               </TouchableOpacity>
             </TouchableOpacity>
+
+            <View style={styles.nicknameBox}>
+              <Text style={styles.nicknameInBox} numberOfLines={1}>{nickname || accountName || "PETS"}</Text>
+            </View>
+            </View>
+
+            {/* 스탯 박스들 (flex로 남은 공간 채움) */}
+            <View style={styles.topRowStats}>
+            <View style={[styles.statBox, styles.statBoxMid]}>
+              <View style={styles.statLabelCircle}><Text style={styles.statLabelText}>힘</Text></View>
+              <Text style={styles.statValue}>{strength}</Text>
+            </View>
+            <View style={[styles.statBox, styles.statBoxMid]}>
+              <View style={styles.statLabelCircle}><Text style={styles.statLabelText}>민첩</Text></View>
+              <Text style={styles.statValue}>{agility}</Text>
+            </View>
+            <View style={[styles.statBox, styles.statBoxMid]}>
+              <View style={styles.statLabelCircle}><Text style={styles.statLabelText}>지구력</Text></View>
+              <Text style={styles.statValue}>{stamina}</Text>
+            </View>
+            <View style={[styles.statBox, styles.statBoxLast]}>
+              <View style={styles.statLabelCircle}><Text style={styles.statLabelText}>집중</Text></View>
+              <Text style={styles.statValue}>{concentration}</Text>
+            </View>
+            </View>
           </View>
         </View>
 
@@ -358,42 +366,56 @@ const HomeScreen = () => {
             </Animated.View>
           </TouchableOpacity>
 
-          {/* 우측 세로 배치: 퀘스트 / 채팅 / 랭킹 (라이트 베이지 원형) */}
+          {/* 우측 세로 배치: 퀘스트 / 채팅 / 랭킹 (메뉴명 원 안 아래, 아이콘과 약간 겹침) */}
           <View style={[styles.rightFloatingColumn, { top: 16 }]}>
             <TouchableOpacity style={styles.rightFloatingBtn} onPress={() => setShowQuestModal(true)} activeOpacity={0.7}>
-              <Image source={HOME_ICONS.quest} style={[styles.rightFloatingIcon, { width: iconSize, height: iconSize }]} resizeMode="contain" />
+              <View style={styles.rightFloatingIconWrap}>
+                <Image source={HOME_ICONS.quest} style={[styles.rightFloatingIcon, { width: rightIconSize, height: rightIconSize }]} resizeMode="contain" />
+              </View>
+              <Text style={styles.rightFloatingLabel}>퀘스트</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.rightFloatingBtn} onPress={navigateToChatting} activeOpacity={0.7}>
-              <Image source={HOME_ICONS.aiChat} style={[styles.rightFloatingIcon, { width: iconSize, height: iconSize }]} resizeMode="contain" />
+              <View style={styles.rightFloatingIconWrap}>
+                <Image source={HOME_ICONS.aiChat} style={[styles.rightFloatingIcon, { width: rightIconSize, height: rightIconSize }]} resizeMode="contain" />
+              </View>
+              <Text style={styles.rightFloatingLabel}>채팅</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.rightFloatingBtn} onPress={navigateToRanking} activeOpacity={0.7}>
-              <Image source={HOME_ICONS.ranking} style={[styles.rightFloatingIcon, { width: iconSize, height: iconSize }]} resizeMode="contain" />
+              <View style={styles.rightFloatingIconWrap}>
+                <Image source={HOME_ICONS.ranking} style={[styles.rightFloatingIcon, { width: rightIconSize, height: rightIconSize }]} resizeMode="contain" />
+              </View>
+              <Text style={styles.rightFloatingLabel}>랭킹</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* 하단 고정 메뉴: 커마 / 타이머 / 기록도전 / 아이템 / 설정 */}
-        <View style={[styles.bottomBar, { paddingBottom: Math.max(18, insets.bottom), paddingTop: 18 }]}>
-          <TouchableOpacity style={styles.bottomItem} onPress={navigateToCustomize} activeOpacity={0.7}>
-            <Image source={HOME_ICONS.customize} style={[styles.bottomIcon, { width: bottomIconSize, height: bottomIconSize }]} resizeMode="contain" />
-            <Text style={styles.bottomLabel}>커마</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.bottomItem} onPress={navigateToTimer} activeOpacity={0.7}>
-            <Image source={HOME_ICONS.timer} style={[styles.bottomIcon, { width: bottomIconSize, height: bottomIconSize }]} resizeMode="contain" />
-            <Text style={styles.bottomLabel}>타이머</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.bottomItem} onPress={navigateToChallenges} activeOpacity={0.7}>
-            <Image source={HOME_ICONS.challenge} style={[styles.bottomIcon, { width: bottomIconSize, height: bottomIconSize }]} resizeMode="contain" />
-            <Text style={styles.bottomLabel}>기록도전</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.bottomItem} onPress={navigateToItem} activeOpacity={0.7}>
-            <Image source={HOME_ICONS.item} style={[styles.bottomIcon, { width: bottomIconSize, height: bottomIconSize }]} resizeMode="contain" />
-            <Text style={styles.bottomLabel}>아이템</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.bottomItem} onPress={navigateToSettings} activeOpacity={0.7}>
-            <Image source={HOME_ICONS.settings} style={[styles.bottomIcon, { width: bottomIconSize, height: bottomIconSize }]} resizeMode="contain" />
-            <Text style={styles.bottomLabel}>설정</Text>
-          </TouchableOpacity>
+        {/* 하단 고정 메뉴: 하단에 딱 붙음, 아이콘 크고 아래로 */}
+        <View style={[styles.bottomBarWrapper, { paddingBottom: 0 }]}>
+          <View style={styles.bottomBar}>
+            <View style={[styles.bottomBarBg, { height: 50 + Math.max(0, insets.bottom) }]} />
+            <View style={styles.bottomItemsRow}>
+              <TouchableOpacity style={styles.bottomItem} onPress={navigateToCustomize} activeOpacity={0.7}>
+                <Image source={HOME_ICONS.customize} style={[styles.bottomIcon, { width: bottomIconSize, height: bottomIconSize }]} resizeMode="contain" />
+                <Text style={styles.bottomLabel}>커마</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.bottomItem} onPress={navigateToTimer} activeOpacity={0.7}>
+                <Image source={HOME_ICONS.timer} style={[styles.bottomIcon, { width: bottomIconSize, height: bottomIconSize }]} resizeMode="contain" />
+                <Text style={styles.bottomLabel}>타이머</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.bottomItem} onPress={navigateToChallenges} activeOpacity={0.7}>
+                <Image source={HOME_ICONS.challenge} style={[styles.bottomIcon, { width: bottomIconSize, height: bottomIconSize }]} resizeMode="contain" />
+                <Text style={styles.bottomLabel}>기록도전</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.bottomItem} onPress={navigateToItem} activeOpacity={0.7}>
+                <Image source={HOME_ICONS.item} style={[styles.bottomIcon, { width: bottomIconSize, height: bottomIconSize }]} resizeMode="contain" />
+                <Text style={styles.bottomLabel}>아이템</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.bottomItem} onPress={navigateToSettings} activeOpacity={0.7}>
+                <Image source={HOME_ICONS.settings} style={[styles.bottomIcon, { width: bottomIconSize, height: bottomIconSize }]} resizeMode="contain" />
+                <Text style={styles.bottomLabel}>설정</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         {/* 경험치 상세 모달 (프로필 터치 시) */}
@@ -484,13 +506,13 @@ const HomeScreen = () => {
 export default HomeScreen;
 
 const pastel = {
-  bg: "#F5F0F8",
+  bg: "#FFFEF5",
   card: "#FFF8E7",
   mint: "#B8E0D2",
   pink: "#F5D4E8",
   lavender: "#E8E0F0",
-  text: "#4A4A4A",
-  textLight: "#7A7A7A",
+  text: "#8B7355",
+  textLight: "#A08060",
 };
 
 const styles = StyleSheet.create({
@@ -508,28 +530,60 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     alignItems: "stretch",
   },
-  statusBarContainer: {
-    width: "100%",
-    alignSelf: "center",
-  },
-  profileSection: {
-    width: "100%",
+  topRow: {
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: pastel.card,
-    borderRadius: 24,
-    paddingVertical: 22,
-    paddingHorizontal: 14,
-    minHeight: 120,
-    borderWidth: 2,
-    borderColor: pastel.lavender,
-    ...Platform.select({ ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6 }, android: { elevation: 4 } }),
+    flexWrap: "nowrap",
+    alignItems: "flex-start",
   },
-  profileLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
-  avatarWrap: {
-    position: "relative",
-    marginRight: 14,
+  topRowLeft: {
+    flexDirection: "row",
+    flexShrink: 0,
+  },
+  topRowStats: {
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "nowrap",
+    alignItems: "stretch",
+    justifyContent: "space-between",
+    minWidth: 0,
+  },
+  profileLeftBox: {
+    backgroundColor: pastel.bg,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    padding: 10,
+    paddingTop: 12,
+    paddingLeft: 10,
+    borderWidth: 1,
+    borderColor: pastel.lavender,
+    borderTopWidth: 0,
+    marginRight: -1,
     alignItems: "center",
+    minWidth: 88,
+    ...Platform.select({ ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4 }, android: { elevation: 3 } }),
+  },
+  nicknameBox: {
+    backgroundColor: pastel.bg,
+    borderRadius: 10,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    borderWidth: 1,
+    borderColor: pastel.lavender,
+    marginRight: -1,
+    justifyContent: "center",
+    alignSelf: "flex-start",
+    ...Platform.select({ ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4 }, android: { elevation: 3 } }),
+  },
+  nicknameInBox: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: pastel.text,
+    fontFamily: "KotraHope",
   },
   avatarCircle: {
     width: 56,
@@ -539,25 +593,78 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
+    borderWidth: 2,
+    borderColor: pastel.pink,
   },
   avatarImage: {
     width: 40,
     height: 40,
   },
-  expBarHorizontal: {
+  profileLevelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 8,
     width: "100%",
-    height: 9,
-    borderRadius: 5,
+    justifyContent: "center",
+  },
+  levelLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: pastel.pink,
+    fontFamily: "KotraHope",
+  },
+  expBarSmall: {
+    width: 56,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: "#FBF6ED",
     overflow: "hidden",
-    marginTop: 6,
     borderWidth: 1,
     borderColor: pastel.lavender,
   },
   expBarHorizontalFill: {
     height: "100%",
     backgroundColor: pastel.mint,
-    borderRadius: 5,
+    borderRadius: 4,
+  },
+  statBox: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: pastel.bg,
+    borderRadius: 10,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    paddingTop: 8,
+    borderWidth: 1,
+    borderColor: pastel.lavender,
+    marginRight: -1,
+    minWidth: 0,
+  },
+  statBoxMid: {},
+  statBoxLast: { marginRight: 0 },
+  statLabelCircle: {
+    backgroundColor: pastel.mint,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginRight: 4,
+  },
+  statLabelText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: pastel.text,
+    fontFamily: "KotraHope",
+  },
+  statValue: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: pastel.text,
+    fontFamily: "KotraHope",
   },
   modalOverlay: {
     flex: 1,
@@ -595,40 +702,38 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     fontFamily: "KotraHope",
   },
-  profileInfo: { flex: 1 },
-  nicknameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  nickname: { fontSize: 16, fontWeight: "700", color: pastel.text, fontFamily: "KotraHope", flexShrink: 1 },
-  levelInline: { fontSize: 14, fontWeight: "700", color: pastel.pink, marginLeft: 4, fontFamily: "KotraHope" },
-  statsRow: { flexDirection: "row", alignItems: "baseline", marginTop: 4 },
-  statNum: { fontSize: 15, fontWeight: "700", color: pastel.text },
-  statDiv: { fontSize: 12, color: pastel.textLight, marginHorizontal: 2 },
-  statHint: { fontSize: 10, color: pastel.textLight, marginTop: 2, fontFamily: "KotraHope" },
-  editProfileBtn: { padding: 6 },
+  editProfileBtn: { position: "absolute", top: 4, right: 4, padding: 6 },
   editProfileBtnText: { fontSize: 18, color: "#E07C3C" },
   rightFloatingColumn: {
     position: "absolute",
     right: 16,
     flexDirection: "column",
     alignItems: "center",
-    gap: 12,
+    gap: 8,
   },
   rightFloatingBtn: {
     width: 52,
     height: 52,
     borderRadius: 26,
     backgroundColor: pastel.card,
-    justifyContent: "center",
+    justifyContent: "flex-end",
     alignItems: "center",
     borderWidth: 2,
     borderColor: pastel.lavender,
+    overflow: "hidden",
+    paddingBottom: 2,
+    paddingTop: 2,
     ...Platform.select({ ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 4 }, android: { elevation: 3 } }),
   },
+  rightFloatingIconWrap: { flex: 1, justifyContent: "center", alignItems: "center" },
   rightFloatingIcon: {},
+  rightFloatingLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: pastel.text,
+    fontFamily: "KotraHope",
+    marginTop: -6,
+  },
   animalOptionSelected: {
     borderColor: APP_COLORS.yellowDark,
     backgroundColor: "#FFF9CC",
@@ -686,15 +791,36 @@ const styles = StyleSheet.create({
   petTouchArea: { justifyContent: "center", alignItems: "center" },
   petWrap: {},
   petImage: {},
-  bottomBar: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
+  bottomBarWrapper: {
     width: "100%",
+  },
+  bottomBar: {
+    width: "100%",
+    minHeight: 110,
+    position: "relative",
+  },
+  bottomBarBg: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 50,
     backgroundColor: pastel.card,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     borderTopWidth: 2,
+    borderLeftWidth: 2,
+    borderRightWidth: 2,
     borderColor: pastel.lavender,
     ...Platform.select({ ios: { shadowColor: "#000", shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.08, shadowRadius: 6 }, android: { elevation: 4 } }),
+  },
+  bottomItemsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    paddingBottom: 10,
+    paddingHorizontal: 4,
+    minHeight: 110,
   },
   animalConfirmButton: {
     flex: 1,
@@ -769,9 +895,19 @@ const styles = StyleSheet.create({
     borderColor: pastel.lavender,
     ...Platform.select({ ios: { shadowColor: "#000", shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 6 }, android: { elevation: 6 } }),
   },
-  bottomItem: { alignItems: "center", justifyContent: "center", paddingVertical: 8, minWidth: 64 },
-  bottomIcon: {},
-  bottomLabel: { fontSize: 14, color: pastel.text, marginTop: 6, fontFamily: "KotraHope" },
+  bottomItem: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    minWidth: 0,
+  },
+  bottomIcon: { marginBottom: -14 },
+  bottomLabel: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: pastel.text,
+    fontFamily: "KotraHope",
+  },
   expDetailCard: {
     width: "100%",
     maxWidth: 320,

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
+  Switch,
   useWindowDimensions,
 } from "react-native";
 import { router } from "expo-router";
@@ -18,6 +19,7 @@ import API_BASE_URL from "../config/api";
 import { deleteAccount } from "../api/auth";
 import { APP_COLORS } from "../constants/theme";
 import { useSettingsModal } from "../context/SettingsModalContext";
+import { useNavigatorVisibility } from "../context/NavigatorVisibilityContext";
 
 type ProfileResponse = {
   account?: { id: number; name: string; email: string } | null;
@@ -26,6 +28,7 @@ type ProfileResponse = {
 
 export default function SettingsModal() {
   const { isOpen, closeSettings } = useSettingsModal();
+  const { isVisible: isNavigatorVisible, setIsVisible: setNavigatorVisible } = useNavigatorVisibility();
   const { width } = useWindowDimensions();
   const modalWidth = Math.min(width - 40, 360);
 
@@ -188,6 +191,21 @@ export default function SettingsModal() {
               </View>
             ) : (
               <>
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>개발자용</Text>
+                  <View style={styles.infoCard}>
+                    <View style={styles.navigatorToggleRow}>
+                      <Text style={styles.infoLabel}>개발자 내비게이터</Text>
+                      <Switch
+                        value={isNavigatorVisible}
+                        onValueChange={setNavigatorVisible}
+                        trackColor={{ false: APP_COLORS.ivoryDark, true: APP_COLORS.yellow }}
+                        thumbColor={isNavigatorVisible ? APP_COLORS.brown : "#f4f3f4"}
+                      />
+                    </View>
+                  </View>
+                </View>
+
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>내 계정</Text>
                   <View style={styles.infoCard}>
@@ -383,6 +401,13 @@ const styles = StyleSheet.create({
   infoRowLast: {},
   infoLabel: { fontSize: 14, color: APP_COLORS.brownLight, fontFamily: "KotraHope" },
   infoValue: { fontSize: 14, color: APP_COLORS.brown, fontWeight: "600", fontFamily: "KotraHope" },
+  navigatorToggleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
   statusRow: {
     flexDirection: "row",
     justifyContent: "space-between",
