@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   View,
-   Text,
+  Text,
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
@@ -11,6 +11,7 @@ import {
   Alert,
   Platform,
   TextInput,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -74,6 +75,36 @@ const getRecordTimestamp = (record: WorkoutRecord) => {
 const sortRecordsByCreation = (records: WorkoutRecord[]) =>
   [...records].sort((a, b) => getRecordTimestamp(a) - getRecordTimestamp(b));
 
+/** API에서 오는 날짜를 YYYY-MM-DD로 통일 (ISO 문자열·형식 차이 대비) */
+function normalizeDateString(value: string | null | undefined): string {
+  if (value == null || value === "") return "";
+  const str = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  const iso = str.split("T")[0];
+  if (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const d = new Date(str);
+  if (!Number.isNaN(d.getTime())) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+  return str;
+}
+
+/** YYYY-MM-DD → "YYYY년 M월 D일" (앞자리 0 제거) */
+function formatDateDisplay(dateStr: string): string {
+  const parts = dateStr.split("-").map(Number);
+  if (parts.length !== 3) return dateStr;
+  const [y, m, d] = parts;
+  return `${y}년 ${m}월 ${d}일`;
+}
+
+// 퀘스트/커스터마이징과 동일 테마 (PETS 앱 컨셉)
+const THEME_YELLOW = "#FFD54F";
+const THEME_CREAM = "#FFF8E1";
+const THEME_TEXT_DARK = "#333333";
+
 export default function RecordsScreen() {
   const [currentDate, setCurrentDate] = useState(new Date());
   // 초기 로드 시 오늘 날짜 선택
@@ -107,6 +138,8 @@ export default function RecordsScreen() {
   const isNavigating = useRef(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingRecord, setEditingRecord] = useState<WorkoutRecord | null>(null);
+  const [isSavingAdd, setIsSavingAdd] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const fetchWorkoutRecords = useCallback(async () => {
     setIsLoading(true);
@@ -132,19 +165,18 @@ export default function RecordsScreen() {
 
       if (response.ok) {
         const data = await response.json();
-        // 백엔드에서 이미 YYYY-MM-DD 형식으로 반환
-        const records: WorkoutRecord[] = (data.records || []).map((r: any) => ({
+        const rawRecords = data.records ?? [];
+        const records: WorkoutRecord[] = rawRecords.map((r: any) => ({
           id: r.id.toString(),
-          date: r.workoutDate,
-          duration: r.durationMinutes,
-          type: r.workoutType,
+          date: normalizeDateString(r.workoutDate),
+          duration: Number(r.durationMinutes) || 0,
+          type: r.workoutType ?? "기타",
           notes: r.notes || undefined,
           heartRate: r.heartRate ?? null,
           hasReward: r.hasReward ?? false,
           source: determineRecordSource(r),
           createdAt: r.createdAt ?? null,
         }));
-        
         setWorkoutRecords(records);
       } else {
         let errorMessage = `운동 기록을 불러올 수 없습니다. (${response.status})`;
@@ -242,6 +274,7 @@ export default function RecordsScreen() {
   };
 
   const addWorkoutRecord = async (record: WorkoutRecordPayload) => {
+    setIsSavingAdd(true);
     try {
       const headers = await AuthManager.getAuthHeader();
       if (!headers.Authorization) {
@@ -273,11 +306,15 @@ export default function RecordsScreen() {
         return;
       }
 
-      // 저장 후 다시 불러오기
+      // 저장 후 같은 달 기록 다시 불러오기 → 달력·선택일 목록 갱신
       await fetchWorkoutRecords();
       setShowAddModal(false);
+      setToastMessage("저장되었습니다");
+      setTimeout(() => setToastMessage(null), 2000);
     } catch (error) {
       Alert.alert("오류", "운동 기록 저장 중 문제가 발생했습니다.");
+    } finally {
+      setIsSavingAdd(false);
     }
   };
 
@@ -386,6 +423,8 @@ export default function RecordsScreen() {
       if (selectedDayRecords.length === 1) {
         setShowDetailModal(false);
       }
+      setToastMessage("삭제되었습니다");
+      setTimeout(() => setToastMessage(null), 2000);
     } catch (error) {
       Alert.alert("오류", "운동 기록 삭제 중 문제가 발생했습니다.");
     }
@@ -446,15 +485,37 @@ export default function RecordsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <HomeButton />
+      {toastMessage ? (
+        <View style={styles["toast"]}>
+          <Text style={styles["toastText"]}>{toastMessage}</Text>
+        </View>
+      ) : null}
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={THEME_YELLOW} />
+          <Text style={styles.loadingText}>기록 불러오는 중...</Text>
+        </View>
+      )}
       <View style={styles.mainContainer}>
         {/* 상단: 달력 영역 */}
         <View style={styles.calendarSection}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigateMonth('prev')}>
-              <Ionicons name="chevron-back" size={24} color="#333" />
+            <TouchableOpacity
+              style={styles.todayButton}
+              onPress={() => {
+                const today = new Date();
+                setCurrentDate(today);
+                setSelectedDate(getTodayDateString());
+              }}
+            >
+              <Ionicons name="today-outline" size={20} color={THEME_YELLOW} />
+              <Text style={styles.todayButtonText}>오늘</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowMonthYearModal(true)}>
-              <Text style={styles.monthYear}>
+            <TouchableOpacity onPress={() => navigateMonth('prev')}>
+              <Ionicons name="chevron-back" size={24} color={THEME_TEXT_DARK} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowMonthYearModal(true)} style={styles.monthYearTouchable}>
+              <Text style={styles.monthYear} numberOfLines={1}>
                 {currentDate.getFullYear()}년 {currentDate.getMonth() + 1}월
               </Text>
             </TouchableOpacity>
@@ -472,7 +533,7 @@ export default function RecordsScreen() {
                 color={(() => {
                   const nextMonth = new Date(currentDate);
                   nextMonth.setMonth(nextMonth.getMonth() + 1);
-                  return canNavigateToMonth(nextMonth) ? "#333" : "#ccc";
+                  return canNavigateToMonth(nextMonth) ? THEME_TEXT_DARK : "#999";
                 })()} 
               />
             </TouchableOpacity>
@@ -500,6 +561,7 @@ export default function RecordsScreen() {
                   ? `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day.date).padStart(2, '0')}`
                   : null;
                 const isSelected = selectedDate === dateStr;
+                const isToday = dateStr === getTodayDateString();
                 const isFuture = dateStr ? isFutureDate(dateStr) : false;
                 const isDisabled = !day.isCurrentMonth || isFuture;
                 
@@ -509,6 +571,7 @@ export default function RecordsScreen() {
                     style={[
                       styles.dayCell,
                       !day.isCurrentMonth && styles.otherMonth,
+                      isToday && !isSelected && styles.todayDay,
                       isSelected && styles.selectedDay,
                       isFuture && styles.futureDay,
                     ]}
@@ -553,6 +616,14 @@ export default function RecordsScreen() {
               <ScrollView style={styles.recordsScrollView} contentContainerStyle={styles.recordsContent}>
                 {selectedDayRecords.length > 0 ? (
                   <View style={styles.recordsList}>
+                    <View style={styles.recordSummary}>
+                      <Text style={styles.recordSummaryText}>
+                        {formatDateDisplay(selectedDate)} · 총{" "}
+                        <Text style={styles.recordSummaryDuration}>
+                          {formatDuration(totalDuration)}
+                        </Text>
+                      </Text>
+                    </View>
                     {selectedDayRecords.map((record) => {
                       const isManual = record.source === "manual";
                       return (
@@ -582,6 +653,16 @@ export default function RecordsScreen() {
                             >
                               {formatDuration(record.duration)}
                             </Text>
+                            <View style={styles["recordSourceRow"]}>
+                              <Ionicons
+                                name={isManual ? "create-outline" : "lock-closed-outline"}
+                                size={12}
+                                color="#888"
+                              />
+                              <Text style={styles.recordSourceLabel}>
+                                {isManual ? "내가 추가한 기록" : "자동 기록 (수정 불가)"}
+                              </Text>
+                            </View>
                           </View>
                           <View style={styles.recordActions}>
                             {isManual ? (
@@ -593,7 +674,7 @@ export default function RecordsScreen() {
                                   }}
                                   style={styles.actionButton}
                                 >
-                                  <Ionicons name="create-outline" size={20} color="#1976D2" />
+                                  <Ionicons name="create-outline" size={20} color={THEME_YELLOW} />
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                   onPress={() => deleteWorkoutRecord(record.id)}
@@ -603,7 +684,7 @@ export default function RecordsScreen() {
                                 </TouchableOpacity>
                               </>
                             ) : (
-                              <Ionicons name="lock-closed-outline" size={18} color="#78909C" />
+                              <Ionicons name="lock-closed-outline" size={18} color={THEME_TEXT_DARK} />
                             )}
                           </View>
                         </View>
@@ -612,12 +693,19 @@ export default function RecordsScreen() {
                   </View>
                 ) : (
                   <View style={styles.emptyRecords}>
-                    <Text style={styles.emptyRecordsText}>이 날짜에 운동 기록이 없습니다</Text>
+                    <View style={styles.emptyRecordsIconWrap}>
+                      <Ionicons name="calendar-outline" size={56} color="#C4B896" />
+                    </View>
+                    <Text style={styles.emptyRecordsTitle}>이 날은 아직 기록이 없어요</Text>
+                    <Text style={styles.emptyRecordsText}>아래 버튼으로 운동 기록을 추가해 보세요!</Text>
                   </View>
                 )}
               </ScrollView>
             ) : (
               <View style={styles.emptyRecords}>
+                <View style={styles.emptyRecordsIconWrap}>
+                  <Ionicons name="calendar-outline" size={56} color="#C4B896" />
+                </View>
                 <Text style={styles.emptyRecordsText}>날짜를 선택해주세요</Text>
               </View>
             )}
@@ -652,10 +740,9 @@ export default function RecordsScreen() {
       <AddWorkoutModal
         visible={showAddModal}
         selectedDate={selectedDate || new Date().toISOString().split('T')[0]}
+        isSaving={isSavingAdd}
         onSave={async (record: WorkoutRecordPayload) => {
           await addWorkoutRecord(record);
-          // addWorkoutRecord 내부에서 fetchWorkoutRecords를 호출하므로
-          // useEffect가 자동으로 selectedDayRecords를 업데이트함
         }}
         onClose={() => setShowAddModal(false)}
       />
@@ -682,6 +769,12 @@ export default function RecordsScreen() {
           setCurrentDate(date);
           setShowMonthYearModal(false);
         }}
+        onSelectToday={() => {
+          const today = new Date();
+          setCurrentDate(today);
+          setSelectedDate(getTodayDateString());
+          setShowMonthYearModal(false);
+        }}
         onClose={() => setShowMonthYearModal(false)}
       />
     </SafeAreaView>
@@ -689,32 +782,45 @@ export default function RecordsScreen() {
 }
 
 // 운동 기록 추가 모달
+function formatDateForDisplay(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  if (y && m && d) return `${y}년 ${m}월 ${d}일`;
+  return dateStr;
+}
+
 interface AddWorkoutModalProps {
   visible: boolean;
   selectedDate: string;
+  isSaving?: boolean;
   onSave: (record: WorkoutRecordPayload) => void | Promise<void>;
   onClose: () => void;
 }
 
-function AddWorkoutModal({ visible, selectedDate, onSave, onClose }: AddWorkoutModalProps) {
+const WORKOUT_TYPES = ["유산소", "웨이트", "인터벌", "기타"] as const;
+
+function AddWorkoutModal({ visible, selectedDate, isSaving = false, onSave, onClose }: AddWorkoutModalProps) {
   const [type, setType] = useState("유산소");
   const [duration, setDuration] = useState("");
 
   const handleDurationChange = (text: string) => {
-    // 숫자만 허용
     const numericValue = text.replace(/[^0-9]/g, '');
     setDuration(numericValue);
   };
 
+  const durationNum = parseInt(duration, 10);
+  const canSave = !isSaving && duration.trim() !== "" && !Number.isNaN(durationNum) && durationNum > 0;
+
   const handleSave = () => {
-    if (!duration || parseInt(duration) <= 0) {
-      Alert.alert("오류", "올바른 운동 시간을 입력해주세요.");
+    if (!canSave) {
+      if (duration.trim() === "" || Number.isNaN(durationNum) || durationNum <= 0) {
+        Alert.alert("오류", "올바른 운동 시간을 입력해주세요. (1분 이상)");
+      }
       return;
     }
 
     onSave({
       date: selectedDate,
-      duration: parseInt(duration),
+      duration: durationNum,
       type,
     });
 
@@ -738,25 +844,28 @@ function AddWorkoutModal({ visible, selectedDate, onSave, onClose }: AddWorkoutM
           <View style={styles.modalHandle} />
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>운동 기록 추가</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color="#333" />
+            <TouchableOpacity onPress={onClose} disabled={isSaving}>
+              <Ionicons name="close" size={24} color={THEME_TEXT_DARK} />
             </TouchableOpacity>
           </View>
+          <Text style={styles.modalDateSubtitle}>{formatDateForDisplay(selectedDate)}</Text>
 
           <View style={styles.modalContent}>
             <Text style={styles.label}>운동 타입</Text>
             <View style={styles.typeContainer}>
-              {["유산소", "인터벌", "기타"].map((t) => (
+              {WORKOUT_TYPES.map((t) => (
                 <TouchableOpacity
                   key={t}
                   style={[
                     styles.typeBtn, 
                     type === t && styles.typeBtnActive,
                     t === "유산소" && type === t && styles.aerobicTypeBtnActive,
+                    t === "웨이트" && type === t && styles.weightTypeBtnActive,
                     t === "인터벌" && type === t && styles.intervalTypeBtnActive,
                     t === "기타" && type === t && styles.otherTypeBtnActive,
                   ]}
                   onPress={() => setType(t)}
+                  disabled={isSaving}
                 >
                   <Text style={[styles.typeBtnText, type === t && styles.typeBtnTextActive]}>
                     {t}
@@ -771,12 +880,24 @@ function AddWorkoutModal({ visible, selectedDate, onSave, onClose }: AddWorkoutM
               value={duration}
               onChangeText={handleDurationChange}
               keyboardType="numeric"
-              placeholder="운동 시간을 입력하세요"
+              placeholder="1~999 분 입력"
+              editable={!isSaving}
             />
           </View>
 
-          <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-            <Text style={styles.saveBtnText}>저장</Text>
+          <TouchableOpacity 
+            style={[styles.saveBtn, !canSave && styles.saveBtnDisabled]} 
+            onPress={handleSave}
+            disabled={!canSave}
+          >
+            {isSaving ? (
+              <View style={styles.saveBtnLoading}>
+                <ActivityIndicator size="small" color={THEME_TEXT_DARK} />
+                <Text style={styles.saveBtnText}>저장 중...</Text>
+              </View>
+            ) : (
+              <Text style={styles.saveBtnText}>저장</Text>
+            )}
           </TouchableOpacity>
         </TouchableOpacity>
       </View>
@@ -831,20 +952,21 @@ function EditWorkoutModal({ visible, record, onSave, onClose }: EditWorkoutModal
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>운동 기록 수정</Text>
             <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color="#333" />
+              <Ionicons name="close" size={24} color={THEME_TEXT_DARK} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.modalContent}>
             <Text style={styles.label}>운동 타입</Text>
             <View style={styles.typeContainer}>
-              {["유산소", "인터벌", "기타"].map((t) => (
+              {WORKOUT_TYPES.map((t) => (
                 <TouchableOpacity
                   key={t}
                   style={[
                     styles.typeBtn, 
                     type === t && styles.typeBtnActive,
                     t === "유산소" && type === t && styles.aerobicTypeBtnActive,
+                    t === "웨이트" && type === t && styles.weightTypeBtnActive,
                     t === "인터벌" && type === t && styles.intervalTypeBtnActive,
                     t === "기타" && type === t && styles.otherTypeBtnActive,
                   ]}
@@ -863,7 +985,7 @@ function EditWorkoutModal({ visible, record, onSave, onClose }: EditWorkoutModal
               value={duration}
               onChangeText={handleDurationChange}
               keyboardType="numeric"
-              placeholder="운동 시간을 입력하세요"
+              placeholder="1~999 분 입력"
             />
           </View>
 
@@ -878,16 +1000,37 @@ function EditWorkoutModal({ visible, record, onSave, onClose }: EditWorkoutModal
 
 
 // 월/연도 선택 모달
-function MonthYearModal({ visible, currentDate, onSelect, onClose }: {
+const MIN_YEAR = new Date().getFullYear() - 2;
+const MAX_YEAR = new Date().getFullYear() + 1;
+
+function MonthYearModal({ visible, currentDate, onSelect, onSelectToday, onClose }: {
   visible: boolean;
   currentDate: Date;
   onSelect: (date: Date) => void;
+  onSelectToday?: () => void;
   onClose: () => void;
 }) {
   const [selectedDate, setSelectedDate] = useState(currentDate);
 
+  // 모달이 열릴 때 현재 캘린더 월/연도로 동기화
+  useEffect(() => {
+    if (visible) {
+      setSelectedDate(new Date(currentDate));
+    }
+  }, [visible, currentDate]);
+
   const handleConfirm = () => {
     onSelect(selectedDate);
+  };
+
+  const changeYear = (delta: number) => {
+    setSelectedDate((prev) => {
+      const next = new Date(prev);
+      const nextYear = next.getFullYear() + delta;
+      const clamped = Math.min(MAX_YEAR, Math.max(MIN_YEAR, nextYear));
+      next.setFullYear(clamped);
+      return next;
+    });
   };
 
   return (
@@ -895,6 +1038,33 @@ function MonthYearModal({ visible, currentDate, onSelect, onClose }: {
       <View style={styles.monthModalOverlay}>
         <View style={styles.monthModalContent}>
           <Text style={styles.monthModalTitle}>빠른 이동</Text>
+
+          {/* 연도 선택 */}
+          <View style={styles.yearRow}>
+            <TouchableOpacity
+              onPress={() => changeYear(-1)}
+              style={styles.yearArrow}
+              disabled={selectedDate.getFullYear() <= MIN_YEAR}
+            >
+              <Ionicons
+                name="chevron-back"
+                size={24}
+                color={selectedDate.getFullYear() <= MIN_YEAR ? "#ccc" : THEME_TEXT_DARK}
+              />
+            </TouchableOpacity>
+            <Text style={styles.yearText}>{selectedDate.getFullYear()}년</Text>
+            <TouchableOpacity
+              onPress={() => changeYear(1)}
+              style={styles.yearArrow}
+              disabled={selectedDate.getFullYear() >= MAX_YEAR}
+            >
+              <Ionicons
+                name="chevron-forward"
+                size={24}
+                color={selectedDate.getFullYear() >= MAX_YEAR ? "#ccc" : THEME_TEXT_DARK}
+              />
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.monthGrid}>
             {Array.from({ length: 12 }, (_, i) => i).map((month) => (
@@ -922,6 +1092,16 @@ function MonthYearModal({ visible, currentDate, onSelect, onClose }: {
             ))}
           </View>
 
+          {onSelectToday ? (
+            <TouchableOpacity
+              style={styles.monthModalTodayBtn}
+              onPress={() => onSelectToday()}
+            >
+              <Ionicons name="today-outline" size={18} color={THEME_YELLOW} />
+              <Text style={styles.monthModalTodayBtnText}>오늘로 이동</Text>
+            </TouchableOpacity>
+          ) : null}
+
           <View style={styles.monthModalButtons}>
             <TouchableOpacity
               style={[styles.monthModalBtn, styles.monthModalBtnCancel]}
@@ -942,21 +1122,57 @@ function MonthYearModal({ visible, currentDate, onSelect, onClose }: {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: THEME_CREAM,
     paddingTop: 60,
   },
   mainContainer: {
     flex: 1,
     flexDirection: "column",
   },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255,248,225,0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: THEME_TEXT_DARK,
+    fontFamily: "KotraHope",
+  },
+  toast: {
+    position: "absolute",
+    bottom: 100,
+    left: 24,
+    right: 24,
+    backgroundColor: THEME_TEXT_DARK,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: "center",
+    zIndex: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+  toastText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+    fontFamily: "KotraHope",
+  },
   calendarSection: {
-    flex: 0.53,
+    flex: 0.48,
     paddingHorizontal: 10,
     paddingTop: 5,
   },
   recordsSection: {
-    flex: 0.47,
-    backgroundColor: "#f5f5f5",
+    flex: 0.52,
+    backgroundColor: THEME_CREAM,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingTop: 15,
@@ -967,24 +1183,50 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 15,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingRight: 72,
+    gap: 8,
+  },
+  monthYearTouchable: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: "center",
+    justifyContent: "center",
   },
   monthYear: {
     fontSize: 22,
     fontWeight: "600",
-    color: "#333",
-  
-
-    fontFamily: 'KotraHope',},
+    color: THEME_TEXT_DARK,
+    fontFamily: "KotraHope",
+  },
+  todayButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "center",
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 213, 79, 0.25)",
+  },
+  todayButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: THEME_TEXT_DARK,
+    fontFamily: "KotraHope",
+  },
   calendar: {
     backgroundColor: "#fff",
     borderRadius: 15,
     padding: 10,
     marginHorizontal: 10,
     marginTop: 0,
+  },
+  todayDay: {
+    borderWidth: 2,
+    borderColor: THEME_YELLOW,
   },
   weekHeader: {
     flexDirection: "row",
@@ -995,11 +1237,10 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 16,
     fontWeight: "600",
-    color: "#666",
+    color: THEME_TEXT_DARK,
     paddingVertical: 6,
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
   sunday: {
     color: "#f44336",
   
@@ -1029,21 +1270,21 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   selectedDay: {
-    backgroundColor: "#E3F2FD",
+    backgroundColor: "#FFFDE7",
+    borderWidth: 2,
+    borderColor: THEME_YELLOW,
   },
   dayText: {
     fontSize: 18,
-    color: "#333",
+    color: THEME_TEXT_DARK,
     fontWeight: "500",
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
   selectedDayText: {
-    color: "#1976D2",
+    color: THEME_TEXT_DARK,
     fontWeight: "700",
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
   dotsContainer: {
     flexDirection: "row",
     justifyContent: "center",
@@ -1074,17 +1315,17 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalBottomSheet: {
-    backgroundColor: "#f0f0f0",
+    backgroundColor: THEME_CREAM,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: "50%",
     minHeight: "45%",
   },
   modalHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: "#ccc",
-    borderRadius: 2,
+    width: 44,
+    height: 5,
+    backgroundColor: "#9A8B6F",
+    borderRadius: 3,
     alignSelf: "center",
     marginTop: 8,
     marginBottom: 8,
@@ -1099,16 +1340,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 15,
+    backgroundColor: THEME_YELLOW,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomColor: "#EDE7D6",
   },
   modalTitle: {
     fontSize: 24,
     fontWeight: "600",
-    color: "#333",
-  
-
-    fontFamily: 'KotraHope',},
+    color: THEME_TEXT_DARK,
+    fontFamily: "KotraHope",
+  },
+  modalDateSubtitle: {
+    fontSize: 15,
+    color: THEME_TEXT_DARK,
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+    fontFamily: "KotraHope",
+  },
   modalContent: {
     paddingHorizontal: 20,
     paddingTop: 15,
@@ -1124,19 +1372,18 @@ const styles = StyleSheet.create({
   },
   editModalContent: {
     width: "90%",
-    backgroundColor: "#fff",
+    backgroundColor: THEME_CREAM,
     borderRadius: 20,
     overflow: "hidden",
   },
   label: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#333",
+    color: THEME_TEXT_DARK,
     marginBottom: 10,
     marginTop: 15,
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
   dateText: {
     fontSize: 20,
     color: "#666",
@@ -1159,33 +1406,35 @@ const styles = StyleSheet.create({
     borderColor: "#e0e0e0",
   },
   typeBtnActive: {
-    borderColor: "#1976D2",
-    backgroundColor: "#E3F2FD",
+    borderColor: THEME_YELLOW,
+    backgroundColor: "#FFFDE7",
   },
   aerobicTypeBtnActive: {
-    borderColor: "#4A90E2",
-    backgroundColor: "#E3F2FD",
+    borderColor: THEME_YELLOW,
+    backgroundColor: "#FFFDE7",
   },
   intervalTypeBtnActive: {
-    borderColor: "#FF9500",
-    backgroundColor: "#FFF3E0",
+    borderColor: THEME_YELLOW,
+    backgroundColor: "#FFFDE7",
   },
   otherTypeBtnActive: {
-    borderColor: "#9E9E9E",
-    backgroundColor: "#F0F0F0",
+    borderColor: THEME_YELLOW,
+    backgroundColor: "#FFFDE7",
+  },
+  weightTypeBtnActive: {
+    borderColor: THEME_YELLOW,
+    backgroundColor: "#FFFDE7",
   },
   typeBtnText: {
     fontSize: 18,
-    color: "#666",
-  
-
-    fontFamily: 'KotraHope',},
+    color: THEME_TEXT_DARK,
+    fontFamily: "KotraHope",
+  },
   typeBtnTextActive: {
-    color: "#1976D2",
+    color: THEME_TEXT_DARK,
     fontWeight: "600",
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
   input: {
     fontSize: 20,
     padding: 12,
@@ -1196,7 +1445,7 @@ const styles = StyleSheet.create({
 
     fontFamily: 'KotraHope',},
   saveBtn: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: THEME_YELLOW,
     padding: 15,
     marginHorizontal: 20,
     marginBottom: 20,
@@ -1204,13 +1453,22 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
   },
+  saveBtnDisabled: {
+    backgroundColor: "#E0E0E0",
+    opacity: 0.8,
+  },
+  saveBtnLoading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
   saveBtnText: {
-    color: "#fff",
+    color: THEME_TEXT_DARK,
     fontSize: 20,
     fontWeight: "600",
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
   emptyText: {
     textAlign: "center",
     color: "#999",
@@ -1251,24 +1509,29 @@ const styles = StyleSheet.create({
 
     fontFamily: 'KotraHope',},
   addRecordButton: {
-    backgroundColor: "#E0E0E0",
-    paddingVertical: 12,
+    backgroundColor: THEME_YELLOW,
+    paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 10,
+    borderRadius: 25,
     marginHorizontal: 20,
     marginBottom: 15,
     alignItems: "center",
+    shadowColor: THEME_YELLOW,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
   },
   addRecordButtonDisabled: {
     opacity: 0.5,
+    backgroundColor: "#E0E0E0",
   },
   addRecordButtonText: {
-    color: "#1976D2",
+    color: THEME_TEXT_DARK,
     fontSize: 20,
     fontWeight: "600",
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
   recordsScrollView: {
     flex: 1,
   },
@@ -1280,25 +1543,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#E3F2FD",
+    backgroundColor: "#FFFDE7",
     padding: 15,
     borderRadius: 10,
     marginBottom: 15,
+    borderLeftWidth: 4,
+    borderLeftColor: THEME_YELLOW,
   },
   recordSummaryText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "600",
-    color: "#333",
-  
-
-    fontFamily: 'KotraHope',},
+    color: THEME_TEXT_DARK,
+    fontFamily: "KotraHope",
+  },
+  recordSummaryDuration: {
+    fontWeight: "700",
+    fontFamily: "KotraHope",
+  },
   recordSummaryTime: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#666",
-  
-
-    fontFamily: 'KotraHope',},
+    color: THEME_TEXT_DARK,
+    fontFamily: "KotraHope",
+  },
   recordsList: {
     gap: 10,
   },
@@ -1312,52 +1579,64 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   autoRecordItem: {
-    backgroundColor: "#E3F2FD",
+    backgroundColor: "#FFFDE7",
+    borderLeftWidth: 4,
+    borderLeftColor: THEME_YELLOW,
   },
   manualRecordItem: {
-    backgroundColor: "#ECEFF1",
+    backgroundColor: "#fff",
+    borderLeftWidth: 4,
+    borderLeftColor: "#E0E0E0",
   },
   recordItemContent: {
     flex: 1,
   },
+  recordSourceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 6,
+  },
+  recordSourceLabel: {
+    fontSize: 11,
+    color: "#888",
+    fontFamily: "KotraHope",
+  },
   recordItemType: {
     fontSize: 20,
     fontWeight: "600",
-    marginBottom: 4,
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
   autoRecordType: {
-    color: "#0D47A1",
-  
-
-    fontFamily: 'KotraHope',},
+    color: THEME_TEXT_DARK,
+    fontFamily: "KotraHope",
+  },
   manualRecordType: {
-    color: "#37474F",
-  
-
-    fontFamily: 'KotraHope',},
+    color: THEME_TEXT_DARK,
+    fontFamily: "KotraHope",
+  },
   recordItemDuration: {
     fontSize: 18,
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
   autoRecordDuration: {
-    color: "#1565C0",
-  
-
-    fontFamily: 'KotraHope',},
+    color: "#666",
+    fontFamily: "KotraHope",
+  },
   manualRecordDuration: {
-    color: "#546E7A",
-  
-
-    fontFamily: 'KotraHope',},
+    color: "#666",
+    fontFamily: "KotraHope",
+  },
   recordActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 4,
   },
   actionButton: {
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: "center",
+    alignItems: "center",
     padding: 6,
   },
   emptyRecords: {
@@ -1366,12 +1645,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 40,
   },
+  emptyRecordsIconWrap: {
+    marginBottom: 12,
+  },
+  emptyRecordsTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: THEME_TEXT_DARK,
+    marginBottom: 6,
+    fontFamily: "KotraHope",
+  },
   emptyRecordsText: {
-    fontSize: 20,
-    color: "#999",
-  
-
-    fontFamily: 'KotraHope',},
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    fontFamily: "KotraHope",
+  },
   monthModalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -1379,7 +1668,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   monthModalContent: {
-    backgroundColor: "#fff",
+    backgroundColor: THEME_CREAM,
     borderRadius: 20,
     padding: 25,
     width: "80%",
@@ -1389,9 +1678,43 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
     marginBottom: 20,
-  
-
-    fontFamily: 'KotraHope',},
+    color: THEME_TEXT_DARK,
+    fontFamily: "KotraHope",
+  },
+  yearRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+    gap: 16,
+  },
+  yearArrow: {
+    padding: 8,
+  },
+  yearText: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: THEME_TEXT_DARK,
+    fontFamily: "KotraHope",
+    minWidth: 80,
+    textAlign: "center",
+  },
+  monthModalTodayBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    marginBottom: 12,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 213, 79, 0.3)",
+  },
+  monthModalTodayBtnText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: THEME_TEXT_DARK,
+    fontFamily: "KotraHope",
+  },
   monthGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1401,25 +1724,23 @@ const styles = StyleSheet.create({
     width: "23%",
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#fff",
     alignItems: "center",
     marginBottom: 10,
   },
   monthBtnActive: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: THEME_YELLOW,
   },
   monthBtnText: {
     fontSize: 18,
-    color: "#333",
-  
-
-    fontFamily: 'KotraHope',},
+    color: THEME_TEXT_DARK,
+    fontFamily: "KotraHope",
+  },
   monthBtnTextActive: {
-    color: "#fff",
+    color: THEME_TEXT_DARK,
     fontWeight: "600",
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
   monthModalButtons: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1429,7 +1750,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: "#4CAF50",
+    backgroundColor: THEME_YELLOW,
     alignItems: "center",
     marginHorizontal: 5,
   },
@@ -1437,10 +1758,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#999",
   },
   monthModalBtnText: {
-    color: "#fff",
+    color: THEME_TEXT_DARK,
     fontSize: 20,
     fontWeight: "600",
-  
-
-    fontFamily: 'KotraHope',},
+    fontFamily: "KotraHope",
+  },
 });

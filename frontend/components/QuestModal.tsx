@@ -13,15 +13,7 @@ import {
 } from "react-native";
 import AuthManager from "../utils/AuthManager";
 import API_BASE_URL from "../config/api";
-
-const QUEST_COLORS = {
-  ivory: "#FFFEF5",
-  ivoryDark: "#F5F0E0",
-  yellow: "#FFE566",
-  yellowDark: "#E6C94A",
-  brown: "#8B7355",
-  brownLight: "#A08060",
-};
+import { APP_COLORS } from "../constants/theme";
 
 type QuestType = "daily" | "weekly" | "challenge";
 
@@ -187,7 +179,7 @@ export default function QuestModal({ visible, onClose, onProfileRefresh }: Quest
 
           {isLoading ? (
             <View style={styles.loadingBox}>
-              <ActivityIndicator size="large" color={QUEST_COLORS.yellowDark} />
+              <ActivityIndicator size="large" color={APP_COLORS.yellowDark} />
               <Text style={styles.loadingText}>퀘스트를 불러오는 중...</Text>
             </View>
           ) : (
@@ -251,10 +243,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modal: {
-    backgroundColor: QUEST_COLORS.ivory,
+    backgroundColor: APP_COLORS.ivory,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: QUEST_COLORS.yellow,
+    borderColor: APP_COLORS.yellow,
     maxHeight: "80%",
     overflow: "hidden",
   },
@@ -264,14 +256,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: QUEST_COLORS.yellow,
+    backgroundColor: APP_COLORS.yellow,
     borderBottomWidth: 2,
-    borderBottomColor: QUEST_COLORS.yellowDark,
+    borderBottomColor: APP_COLORS.yellowDark,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    color: QUEST_COLORS.brown,
+    color: APP_COLORS.brown,
     fontFamily: "KotraHope",
   },
   closeBtn: {
@@ -284,12 +276,12 @@ const styles = StyleSheet.create({
   },
   closeText: {
     fontSize: 20,
-    color: QUEST_COLORS.brown,
+    color: APP_COLORS.brown,
     fontWeight: "600",
   },
   tabRow: {
     flexDirection: "row",
-    backgroundColor: QUEST_COLORS.ivoryDark,
+    backgroundColor: APP_COLORS.ivoryDark,
     paddingHorizontal: 8,
     paddingVertical: 8,
     gap: 8,
@@ -301,15 +293,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   tabActive: {
-    backgroundColor: QUEST_COLORS.yellow,
+    backgroundColor: APP_COLORS.yellow,
   },
   tabText: {
     fontSize: 16,
-    color: QUEST_COLORS.brownLight,
+    color: APP_COLORS.brownLight,
     fontFamily: "KotraHope",
   },
   tabTextActive: {
-    color: QUEST_COLORS.brown,
+    color: APP_COLORS.brown,
     fontWeight: "bold",
   },
   loadingBox: {
@@ -319,7 +311,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: QUEST_COLORS.brown,
+    color: APP_COLORS.brown,
     fontFamily: "KotraHope",
   },
   scroll: {
@@ -333,7 +325,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: 40,
     fontSize: 18,
-    color: QUEST_COLORS.brownLight,
+    color: APP_COLORS.brownLight,
     fontFamily: "KotraHope",
   },
   questCard: {
@@ -343,12 +335,12 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: QUEST_COLORS.ivoryDark,
+    borderColor: APP_COLORS.ivoryDark,
     alignItems: "center",
   },
   questCardDone: {
     backgroundColor: "#F0F8E8",
-    borderColor: QUEST_COLORS.yellow,
+    borderColor: APP_COLORS.yellow,
   },
   questBody: {
     flex: 1,
@@ -356,18 +348,18 @@ const styles = StyleSheet.create({
   questName: {
     fontSize: 16,
     fontWeight: "bold",
-    color: QUEST_COLORS.brown,
+    color: APP_COLORS.brown,
     fontFamily: "KotraHope",
   },
   questDesc: {
     fontSize: 14,
-    color: QUEST_COLORS.brownLight,
+    color: APP_COLORS.brownLight,
     marginTop: 2,
     fontFamily: "KotraHope",
   },
   progressText: {
     fontSize: 12,
-    color: QUEST_COLORS.yellowDark,
+    color: APP_COLORS.yellowDark,
     marginTop: 4,
     fontFamily: "KotraHope",
   },
@@ -376,7 +368,7 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   rewardBox: {
-    backgroundColor: QUEST_COLORS.yellow,
+    backgroundColor: APP_COLORS.yellow,
     borderRadius: 10,
     padding: 4,
     marginBottom: 6,
@@ -389,7 +381,7 @@ const styles = StyleSheet.create({
   rewardLabel: {
     fontSize: 11,
     fontWeight: "600",
-    color: QUEST_COLORS.brown,
+    color: APP_COLORS.brown,
     fontFamily: "KotraHope",
     textAlign: "center",
   },
@@ -404,7 +396,7 @@ const styles = StyleSheet.create({
     height: 48,
   },
   claimBtn: {
-    backgroundColor: QUEST_COLORS.yellowDark,
+    backgroundColor: APP_COLORS.yellowDark,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -416,7 +408,7 @@ const styles = StyleSheet.create({
     fontFamily: "KotraHope",
   },
   doneBadge: {
-    backgroundColor: QUEST_COLORS.yellowDark,
+    backgroundColor: APP_COLORS.yellowDark,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 4,

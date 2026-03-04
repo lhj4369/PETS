@@ -34,8 +34,8 @@ const formatSeconds = (value: number) => {
   return `${minutes}:${seconds}`;
 };
 
-const GLOW_COLOR = "#38BDF8";
-const GLOW_INTENSE = "#7DD3FC";
+const GLOW_COLOR = "#DC2626";
+const GLOW_INTENSE = "#F87171";
 
 export default function ChallengesScreen() {
   const [highestStage, setHighestStage] = useState(0);
@@ -151,7 +151,7 @@ export default function ChallengesScreen() {
     <ImageBackground
       source={require("../../assets/images/background/Dark.png")}
       style={styles.background}
-      resizeMode="cover"
+      resizeMode="stretch"
       imageStyle={styles.backgroundImage}
     >
       <SafeAreaView style={styles.safeArea}>
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
     height: "100%",
-    backgroundColor: "#0f172a",
+    backgroundColor: "#0a0505",
   },
   backgroundImage: {
     width: "100%",
@@ -418,12 +418,12 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
   stageSelectorCard: {
-    backgroundColor: "rgba(15, 23, 42, 0.85)",
+    backgroundColor: "rgba(20, 10, 10, 0.85)",
     borderRadius: 20,
     padding: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "rgba(56, 189, 248, 0.4)",
+    borderColor: "rgba(220, 38, 38, 0.5)",
     overflow: "hidden",
     position: "relative",
   },
@@ -460,11 +460,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   summaryCard: {
-    backgroundColor: "rgba(15, 23, 42, 0.9)",
+    backgroundColor: "rgba(20, 10, 10, 0.9)",
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
-    borderColor: "rgba(56, 189, 248, 0.35)",
+    borderColor: "rgba(220, 38, 38, 0.45)",
   },
   summaryTitle: {
     fontSize: 18,
@@ -475,13 +475,13 @@ const styles = StyleSheet.create({
   },
   summaryLevelBadge: {
     alignSelf: "flex-start",
-    backgroundColor: "rgba(56, 189, 248, 0.2)",
+    backgroundColor: "rgba(220, 38, 38, 0.3)",
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 6,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "rgba(56, 189, 248, 0.4)",
+    borderColor: "rgba(248, 113, 113, 0.5)",
   },
   summaryLevelText: {
     fontSize: 14,
@@ -523,12 +523,12 @@ const styles = StyleSheet.create({
     fontFamily: "KotraHope",
   },
   startButton: {
-    backgroundColor: "rgba(56, 189, 248, 0.3)",
+    backgroundColor: "rgba(220, 38, 38, 0.4)",
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(56, 189, 248, 0.6)",
+    borderColor: "rgba(248, 113, 113, 0.7)",
     position: "relative",
   },
   startButtonGlow: {
@@ -555,12 +555,12 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   runningTimerCard: {
-    backgroundColor: "rgba(15, 23, 42, 0.95)",
+    backgroundColor: "rgba(20, 10, 10, 0.95)",
     borderRadius: 24,
     paddingVertical: 32,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(56, 189, 248, 0.4)",
+    borderColor: "rgba(220, 38, 38, 0.5)",
   },
   timerGlow: {
     position: "absolute",
@@ -585,11 +585,11 @@ const styles = StyleSheet.create({
     textShadowRadius: 20,
   },
   runningMetricsCard: {
-    backgroundColor: "rgba(15, 23, 42, 0.9)",
+    backgroundColor: "rgba(20, 10, 10, 0.9)",
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
-    borderColor: "rgba(56, 189, 248, 0.35)",
+    borderColor: "rgba(220, 38, 38, 0.45)",
   },
   metricsGlow: {
     position: "absolute",
@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
   },
   progressFillDistance: {
     height: "100%",
-    backgroundColor: "#34D399",
+    backgroundColor: "#F97316",
     borderRadius: 6,
   },
   progressValue: {
@@ -637,13 +637,13 @@ const styles = StyleSheet.create({
   abortButton: {
     marginTop: 20,
     borderWidth: 1,
-    borderColor: "rgba(248, 113, 113, 0.6)",
+    borderColor: "rgba(248, 113, 113, 0.7)",
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: "center",
   },
   abortButtonText: {
-    color: "#F87171",
+    color: "#FCA5A5",
     fontWeight: "600",
     fontFamily: "KotraHope",
   },
@@ -666,12 +666,12 @@ const styles = StyleSheet.create({
     opacity: 0.06,
   },
   resultSuccess: {
-    backgroundColor: "rgba(34, 197, 94, 0.15)",
-    borderColor: "rgba(34, 197, 94, 0.5)",
+    backgroundColor: "rgba(234, 88, 12, 0.2)",
+    borderColor: "rgba(249, 115, 22, 0.6)",
   },
   resultFail: {
-    backgroundColor: "rgba(248, 113, 113, 0.15)",
-    borderColor: "rgba(248, 113, 113, 0.5)",
+    backgroundColor: "rgba(185, 28, 28, 0.2)",
+    borderColor: "rgba(220, 38, 38, 0.6)",
   },
   resultTitle: {
     fontSize: 24,
@@ -712,12 +712,12 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     flex: 1,
-    backgroundColor: "rgba(56, 189, 248, 0.3)",
+    backgroundColor: "rgba(220, 38, 38, 0.4)",
     borderRadius: 14,
     alignItems: "center",
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: "rgba(56, 189, 248, 0.5)",
+    borderColor: "rgba(248, 113, 113, 0.6)",
     position: "relative",
   },
   buttonGlow: {
@@ -756,13 +756,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   stageModalSheet: {
-    backgroundColor: "rgba(15, 23, 42, 0.98)",
+    backgroundColor: "rgba(20, 10, 10, 0.98)",
     borderRadius: 24,
     padding: 24,
     width: "100%",
     maxWidth: 400,
     borderWidth: 1,
-    borderColor: "rgba(56, 189, 248, 0.4)",
+    borderColor: "rgba(220, 38, 38, 0.5)",
     position: "relative",
   },
   modalGlow: {
@@ -799,10 +799,10 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     borderWidth: 2,
-    borderColor: "rgba(56, 189, 248, 0.5)",
+    borderColor: "rgba(220, 38, 38, 0.5)",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(15, 23, 42, 0.8)",
+    backgroundColor: "rgba(20, 10, 10, 0.8)",
   },
   stageNumButtonLocked: {
     borderColor: "rgba(255,255,255,0.15)",
@@ -810,12 +810,12 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   stageNumButtonCompleted: {
-    borderColor: "rgba(34, 197, 94, 0.6)",
-    backgroundColor: "rgba(34, 197, 94, 0.15)",
+    borderColor: "rgba(249, 115, 22, 0.7)",
+    backgroundColor: "rgba(234, 88, 12, 0.25)",
   },
   stageNumButtonActive: {
     borderColor: GLOW_COLOR,
-    backgroundColor: "rgba(56, 189, 248, 0.2)",
+    backgroundColor: "rgba(220, 38, 38, 0.3)",
   },
   stageNumText: {
     fontSize: 16,
@@ -827,17 +827,17 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.3)",
   },
   stageNumTextCompleted: {
-    color: "#22C55E",
+    color: "#FB923C",
   },
   stageNumTextActive: {
     color: GLOW_INTENSE,
   },
   stageDetailCard: {
     borderWidth: 1,
-    borderColor: "rgba(56, 189, 248, 0.3)",
+    borderColor: "rgba(220, 38, 38, 0.4)",
     borderRadius: 16,
     padding: 16,
-    backgroundColor: "rgba(0,0,0,0.2)",
+    backgroundColor: "rgba(0,0,0,0.3)",
     marginBottom: 20,
   },
   stageDetailTitle: {
@@ -865,8 +865,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   modalPrimaryButton: {
-    backgroundColor: "rgba(56, 189, 248, 0.3)",
-    borderColor: "rgba(56, 189, 248, 0.6)",
+    backgroundColor: "rgba(220, 38, 38, 0.4)",
+    borderColor: "rgba(248, 113, 113, 0.7)",
   },
   modalSecondaryButton: {
     backgroundColor: "transparent",

@@ -102,19 +102,20 @@ export default function ChattingScreen() {
 
   const [isLoadingResponse, setIsLoadingResponse] = useState(false);
 
-  const sendMessage = async () => {
-    if (inputText.trim() === "" || isLoadingResponse) return;
+  const sendMessage = async (overrideText?: string) => {
+    const textToSend = (overrideText ?? inputText).trim();
+    if (textToSend === "" || isLoadingResponse) return;
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
-      text: inputText,
+      text: textToSend,
       isUser: true,
       timestamp: new Date(),
     };
 
-    const userMessageText = inputText;
+    const userMessageText = textToSend;
     setMessages((prev) => [...prev, userMessage]);
-    setInputText("");
+    if (!overrideText) setInputText("");
     setIsLoadingResponse(true);
 
     try {
@@ -190,6 +191,20 @@ export default function ChattingScreen() {
     setViewMode("daily");
   }, []);
 
+  const INITIAL_MESSAGES: ChatMessage[] = [
+    {
+      id: "1",
+      text: "헬스 메이트예요! 어떤 운동을 할지 고민되면 편하게 물어보세요 :)",
+      isUser: false,
+      timestamp: new Date(),
+    },
+  ];
+
+  const handleResetChat = useCallback(() => {
+    setMessages(INITIAL_MESSAGES);
+    setInputText("");
+  }, []);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <HomeButton />
@@ -206,8 +221,10 @@ export default function ChattingScreen() {
           messages={messages}
           inputText={inputText}
           onChangeInput={setInputText}
-          onSend={sendMessage}
+          onSend={() => sendMessage()}
+          onSendWithText={sendMessage}
           onBackToDaily={handleSwitchToDaily}
+          onReset={handleResetChat}
           isLoadingResponse={isLoadingResponse}
         />
       )}
