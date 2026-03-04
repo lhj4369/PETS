@@ -39,6 +39,25 @@ import { getClockImageFromType } from "../../utils/customizationUtils";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WorkoutLocationTracker } from "../../utils/WorkoutLocationTracker";
 import LocationMapModal from "../../components/LocationMapModal";
+import * as Location from 'expo-location';
+
+// 웹 환경에서는 react-native-maps를 import하지 않음
+let MapView: any = null;
+let Polyline: any = null;
+let Marker: any = null;
+let PROVIDER_GOOGLE: any = null;
+
+if (Platform.OS !== 'web') {
+  try {
+    const maps = require('react-native-maps');
+    MapView = maps.default;
+    Polyline = maps.Polyline;
+    Marker = maps.Marker;
+    PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE;
+  } catch (error) {
+    console.warn('react-native-maps를 로드할 수 없습니다:', error);
+  }
+}
 
 type Mode = "aerobic" | "weight" | "interval";
 type Phase = "idle" | "running" | "summary";
@@ -59,6 +78,8 @@ type SummaryData = {
     completedRounds: number;
   };
   distance?: number; // 이동 거리 (미터)
+  aerobicWorkoutMode?: 'outdoor' | 'gym' | null; // 운동 모드
+  locationTracker?: WorkoutLocationTracker | null; // 위치 추적 데이터
 };
 
 export default function TimerScreen() {
@@ -86,6 +107,10 @@ export default function TimerScreen() {
   const workoutFrameRef = useRef<number | null>(null);
   const startWorkoutRef = useRef<(() => void) | null>(null);
   const startRestForIntervalRef = useRef<(() => void) | null>(null);
+  const [isWorkoutPaused, setIsWorkoutPaused] = useState(false);
+  const [isRestPaused, setIsRestPaused] = useState(false);
+  const workoutPausedTimeRef = useRef<number | null>(null);
+  const restPausedTimeRef = useRef<number | null>(null);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [pausedForConfirm, setPausedForConfirm] = useState(false);
   const [hasClaimedReward, setHasClaimedReward] = useState(false);
@@ -98,6 +123,17 @@ export default function TimerScreen() {
   const timer = useWorkoutTimer();
   const { loadCustomizationFromServer } = useCustomization();
   const locationTrackerRef = useRef<WorkoutLocationTracker | null>(null);
+  const [aerobicWorkoutMode, setAerobicWorkoutMode] = useState<'outdoor' | 'gym' | null>(null);
+  const [selectedGym, setSelectedGym] = useState<{
+    place_id: string;
+    name: string;
+    geometry: { location: { lat: number; lng: number } };
+  } | null>(null);
+  const gymDistanceCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [isOutOfGymRange, setIsOutOfGymRange] = useState(false);
+  const [lowIntensityWarning, setLowIntensityWarning] = useState(false);
+  const resumeTimeRef = useRef<number | null>(null); // 재개 시점 추적
+  const lowIntensityCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // 프로필에서 동물 정보 로드
   useFocusEffect(
@@ -122,11 +158,11 @@ export default function TimerScreen() {
   );
 
   const handleStart = () => {
-    // 웹 환경이거나 웨이트/인터벌 모드는 지도 모달 없이 바로 시작
-    if (Platform.OS === 'web' || mode !== "aerobic") {
+    // 웹 환경이거나 웨이트 모드는 지도 모달 없이 바로 시작
+    if (Platform.OS === 'web' || mode === "weight") {
       startWorkoutInternal();
     } else {
-      // 모바일 환경에서 유산소 모드일 때만 지도 모달 표시
+      // 모바일 환경에서 유산소 또는 인터벌 모드일 때 지도 모달 표시
       setShowLocationMap(true);
     }
   };
@@ -144,8 +180,8 @@ export default function TimerScreen() {
     setHasSavedRecord(false);
     setShowIntervalConfigurator(false);
     
-    // GPS 추적 시작 (유산소 모드일 때만)
-    if (mode === "aerobic") {
+    // GPS 추적 시작 (유산소 또는 인터벌 모드일 때)
+    if (mode === "aerobic" || mode === "interval") {
       try {
         if (!locationTrackerRef.current) {
           locationTrackerRef.current = new WorkoutLocationTracker();
@@ -155,6 +191,17 @@ export default function TimerScreen() {
       } catch (error) {
         console.error("GPS 추적 시작 실패:", error);
         // GPS 추적 실패해도 운동은 계속 진행
+      }
+
+      // 헬스장에서 운동 모드일 때 거리 확인 시작
+      if (aerobicWorkoutMode === 'gym' && selectedGym) {
+        startGymDistanceCheck();
+      }
+
+      // 밖에서 운동 모드일 때 운동 강도 확인 시작
+      if (aerobicWorkoutMode === 'outdoor') {
+        resumeTimeRef.current = Date.now(); // 운동 시작 시점
+        startLowIntensityCheck();
       }
     }
     
@@ -172,8 +219,10 @@ export default function TimerScreen() {
     setPhase("running");
   };
 
-  const handleLocationMapStart = () => {
+  const handleLocationMapStart = (workoutMode: 'outdoor' | 'gym' | null, gym?: any) => {
     setShowLocationMap(false);
+    setAerobicWorkoutMode(workoutMode);
+    setSelectedGym(gym || null);
     // 약간의 지연 후 운동 시작 (모달 애니메이션 완료 대기)
     setTimeout(() => {
       startWorkoutInternal();
@@ -182,14 +231,102 @@ export default function TimerScreen() {
 
   const handlePauseToggle = () => {
     if (mode === "interval") {
-      // 새로운 인터벌 타이머는 일시정지/재개 기능 없음 (자동으로 진행)
+      // 인터벌 모드: 운동 중이면 운동 시간 타이머 일시정지/재개
+      if (isWorking) {
+        if (isWorkoutPaused) {
+          // 재개: 일시정지된 시간만큼 종료 시간 연장
+          if (workoutPausedTimeRef.current && workoutEndTimeRef.current) {
+            const pausedDuration = Date.now() - workoutPausedTimeRef.current;
+            workoutEndTimeRef.current += pausedDuration;
+            workoutPausedTimeRef.current = null;
+          }
+          setIsWorkoutPaused(false);
+          // 재개 시점 기록 (밖에서 운동 모드일 때)
+          if (aerobicWorkoutMode === 'outdoor') {
+            resumeTimeRef.current = Date.now();
+          }
+          // 타이머 재시작
+          const tick = () => {
+            if (workoutEndTimeRef.current === null) {
+              return;
+            }
+            const remaining = Math.max(workoutEndTimeRef.current - Date.now(), 0);
+            setWorkoutRemainingMs(remaining);
+            if (remaining <= 0) {
+              stopWorkoutTimer();
+              setIsWorking(false);
+              setWorkoutRemainingMs(0);
+              setCompletedSets((prev) => prev + 1);
+              if (restDurationMs > 0 && startRestForIntervalRef.current) {
+                startRestForIntervalRef.current();
+              } else if (restDurationMs === 0 && startWorkoutRef.current) {
+                startWorkoutRef.current();
+              }
+            } else {
+              workoutFrameRef.current = requestAnimationFrame(tick);
+            }
+          };
+          workoutFrameRef.current = requestAnimationFrame(tick);
+        } else {
+          // 일시정지: 현재 시간 저장
+          workoutPausedTimeRef.current = Date.now();
+          setIsWorkoutPaused(true);
+          stopWorkoutTimer();
+        }
+      } 
+      // 휴식 중이면 휴식 시간 타이머 일시정지/재개
+      else if (isResting) {
+        if (isRestPaused) {
+          // 재개: 일시정지된 시간만큼 종료 시간 연장
+          if (restPausedTimeRef.current && restEndTimeRef.current) {
+            const pausedDuration = Date.now() - restPausedTimeRef.current;
+            restEndTimeRef.current += pausedDuration;
+            restPausedTimeRef.current = null;
+          }
+          setIsRestPaused(false);
+          // 재개 시점 기록 (밖에서 운동 모드일 때)
+          if (aerobicWorkoutMode === 'outdoor') {
+            resumeTimeRef.current = Date.now();
+          }
+          // 타이머 재시작
+          const tick = () => {
+            if (restEndTimeRef.current === null) {
+              return;
+            }
+            const remaining = Math.max(restEndTimeRef.current - Date.now(), 0);
+            setRestRemainingMs(remaining);
+            if (remaining <= 0) {
+              stopRestTimer();
+              setIsResting(false);
+              setRestRemainingMs(0);
+              if (startWorkoutRef.current) {
+                startWorkoutRef.current();
+              }
+            } else {
+              restFrameRef.current = requestAnimationFrame(tick);
+            }
+          };
+          restFrameRef.current = requestAnimationFrame(tick);
+        } else {
+          // 일시정지: 현재 시간 저장
+          restPausedTimeRef.current = Date.now();
+          setIsRestPaused(true);
+          stopRestTimer();
+        }
+      }
       return;
     }
+    
+    // 유산소/웨이트 모드
     if (!timer.isRunning) {
       return;
     }
     if (timer.isPaused) {
       timer.resume();
+      // 재개 시점 기록 (밖에서 운동 모드일 때)
+      if (mode === "aerobic" && aerobicWorkoutMode === 'outdoor') {
+        resumeTimeRef.current = Date.now();
+      }
     } else {
       timer.pause();
     }
@@ -239,11 +376,13 @@ export default function TimerScreen() {
   const startWorkout = useCallback(() => {
     stopWorkoutTimer();
     setIsWorking(true);
+    setIsWorkoutPaused(false);
+    workoutPausedTimeRef.current = null;
     setWorkoutRemainingMs(workoutDurationMs);
     workoutEndTimeRef.current = Date.now() + workoutDurationMs;
     
     const tick = () => {
-      if (workoutEndTimeRef.current === null) {
+      if (workoutEndTimeRef.current === null || isWorkoutPaused) {
         return;
       }
       const remaining = Math.max(workoutEndTimeRef.current - Date.now(), 0);
@@ -267,16 +406,18 @@ export default function TimerScreen() {
       }
     };
     workoutFrameRef.current = requestAnimationFrame(tick);
-  }, [workoutDurationMs, stopWorkoutTimer, restDurationMs]);
+  }, [workoutDurationMs, stopWorkoutTimer, restDurationMs, isWorkoutPaused]);
 
   // 새로운 인터벌 타이머: 휴식 시작
   const startRestForInterval = useCallback(() => {
     stopRestTimer();
     setIsResting(true);
+    setIsRestPaused(false);
+    restPausedTimeRef.current = null;
     setRestRemainingMs(restDurationMs);
     restEndTimeRef.current = Date.now() + restDurationMs;
     const tick = () => {
-      if (restEndTimeRef.current === null) {
+      if (restEndTimeRef.current === null || isRestPaused) {
         return;
       }
       const remaining = Math.max(restEndTimeRef.current - Date.now(), 0);
@@ -294,7 +435,7 @@ export default function TimerScreen() {
       }
     };
     restFrameRef.current = requestAnimationFrame(tick);
-  }, [restDurationMs, stopRestTimer]);
+  }, [restDurationMs, stopRestTimer, isRestPaused]);
 
   // ref 업데이트
   useEffect(() => {
@@ -381,10 +522,130 @@ export default function TimerScreen() {
     finishRest(true);
   }, [finishRest, isResting]);
 
+  // 헬스장 거리 계산 함수 (Haversine 공식)
+  const calculateDistance = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number => {
+    const R = 6371000; // 지구 반지름 (미터)
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  // 헬스장 거리 확인 시작
+  const startGymDistanceCheck = () => {
+    if (gymDistanceCheckIntervalRef.current) {
+      clearInterval(gymDistanceCheckIntervalRef.current);
+    }
+
+    gymDistanceCheckIntervalRef.current = setInterval(async () => {
+      if (!selectedGym || !locationTrackerRef.current) return;
+
+      try {
+        const lastLocation = locationTrackerRef.current.getLastLocation();
+        if (!lastLocation) return;
+
+        const distance = calculateDistance(
+          lastLocation.latitude,
+          lastLocation.longitude,
+          selectedGym.geometry.location.lat,
+          selectedGym.geometry.location.lng
+        );
+
+        if (distance > 10) {
+          // 10m 이상 벗어남
+          if (!isOutOfGymRange) {
+            setIsOutOfGymRange(true);
+            // 타이머 일시정지
+            if (timer.isRunning && !timer.isPaused) {
+              timer.pause();
+            }
+            Alert.alert(
+              '헬스장 범위를 벗어났습니다',
+              `헬스장에서 ${distance.toFixed(1)}m 떨어져 있습니다.\n10m 이내로 돌아와야 운동 시간이 카운트됩니다.`,
+              [{ text: '확인' }]
+            );
+          }
+        } else {
+          // 10m 이내로 돌아옴
+          if (isOutOfGymRange) {
+            setIsOutOfGymRange(false);
+            // 타이머 재개
+            if (timer.isRunning && timer.isPaused) {
+              timer.resume();
+            }
+          }
+        }
+      } catch (error) {
+        console.error('헬스장 거리 확인 실패:', error);
+      }
+    }, 2000); // 2초마다 확인
+  };
+
+  // 헬스장 거리 확인 중지
+  const stopGymDistanceCheck = () => {
+    if (gymDistanceCheckIntervalRef.current) {
+      clearInterval(gymDistanceCheckIntervalRef.current);
+      gymDistanceCheckIntervalRef.current = null;
+    }
+    setIsOutOfGymRange(false);
+  };
+
+  // 운동 강도 확인 시작 (밖에서 운동 모드)
+  const startLowIntensityCheck = () => {
+    if (lowIntensityCheckIntervalRef.current) {
+      clearInterval(lowIntensityCheckIntervalRef.current);
+    }
+
+    lowIntensityCheckIntervalRef.current = setInterval(() => {
+      if (!locationTrackerRef.current || aerobicWorkoutMode !== 'outdoor') return;
+
+      try {
+        // 재개 시점부터 최근 5분 동안의 거리 계산
+        const fromTime = resumeTimeRef.current || workoutStartTimeRef.current || Date.now();
+        const distance = locationTrackerRef.current.calculateDistanceInLastMinutes(fromTime, 5);
+
+        // 5분이 지났는지 확인
+        const timeSinceResume = Date.now() - fromTime;
+        const fiveMinutes = 5 * 60 * 1000;
+
+        if (timeSinceResume >= fiveMinutes && distance <= 300) {
+          setLowIntensityWarning(true);
+        } else {
+          setLowIntensityWarning(false);
+        }
+      } catch (error) {
+        console.error('운동 강도 확인 실패:', error);
+      }
+    }, 5000); // 5초마다 확인
+  };
+
+  // 운동 강도 확인 중지
+  const stopLowIntensityCheck = () => {
+    if (lowIntensityCheckIntervalRef.current) {
+      clearInterval(lowIntensityCheckIntervalRef.current);
+      lowIntensityCheckIntervalRef.current = null;
+    }
+    setLowIntensityWarning(false);
+    resumeTimeRef.current = null;
+  };
+
   useEffect(() => {
     return () => {
       stopRestTimer();
       stopWorkoutTimer();
+      stopGymDistanceCheck();
+      stopLowIntensityCheck();
       // GPS 추적 정리
       if (locationTrackerRef.current) {
         locationTrackerRef.current.stopTracking();
@@ -434,12 +695,27 @@ export default function TimerScreen() {
       Alert.alert("알림", "이미 보상을 수령하셨습니다.");
       return;
     }
+
+    // '밖에서 운동' 모드일 때 거리 확인 (300m 이상일 때만 보상 지급)
+    let shouldGiveReward = true;
+    if (aerobicWorkoutMode === 'outdoor' && summary.distance !== undefined) {
+      if (summary.distance < 300) {
+        shouldGiveReward = false;
+        Alert.alert(
+          "보상 지급 불가",
+          `이동 거리가 300m 미만입니다 (${summary.distance.toFixed(1)}m).\n보상은 지급되지 않지만 운동 기록은 저장됩니다.`,
+          [{ text: "확인" }]
+        );
+      }
+    }
     
     try {
-      await saveWorkoutRecord(summary, true);
+      await saveWorkoutRecord(summary, shouldGiveReward);
       setHasClaimedReward(true);
       setHasSavedRecord(true);
-      Alert.alert("완료", "보상이 지급되었고 운동 기록이 저장되었습니다.");
+      if (shouldGiveReward) {
+        Alert.alert("완료", "보상이 지급되었고 운동 기록이 저장되었습니다.");
+      }
     } catch (error: any) {
       Alert.alert("오류", error?.message ?? "운동 기록 저장 중 문제가 발생했습니다.");
     }
@@ -538,6 +814,9 @@ export default function TimerScreen() {
       locationTrackerRef.current.stopTracking();
       locationTrackerRef.current.reset();
     }
+
+    // 헬스장 거리 확인 중지
+    stopGymDistanceCheck();
     
     setSummary(null);
     setLaps([]);
@@ -545,6 +824,11 @@ export default function TimerScreen() {
     setHasClaimedReward(false);
     setHasSavedRecord(false);
     setShowIntervalConfigurator(false);
+    setAerobicWorkoutMode(null);
+    setSelectedGym(null);
+    setIsOutOfGymRange(false);
+    setLowIntensityWarning(false);
+    resumeTimeRef.current = null;
     setPhase("idle");
   };
 
@@ -559,6 +843,8 @@ export default function TimerScreen() {
   const handleStopConfirm = async () => {
     finishRest(false);
     stopWorkoutTimer();
+    stopGymDistanceCheck(); // 헬스장 거리 확인 중지
+    stopLowIntensityCheck(); // 운동 강도 확인 중지
     const finalElapsed = timer.stop();
     const endTime = Date.now();
     const startTime = workoutStartTimeRef.current || endTime - finalElapsed;
@@ -596,7 +882,13 @@ export default function TimerScreen() {
       completedSets,
       distance,
       heartRate: null, // 카메라 측정 후 업데이트
-    });
+    }) as SummaryData;
+    
+    // 운동 모드와 위치 추적 데이터 추가
+    if (mode === "aerobic" || mode === "interval") {
+      tempSummaryData.aerobicWorkoutMode = aerobicWorkoutMode;
+      tempSummaryData.locationTracker = locationTrackerRef.current;
+    }
     
     // 카메라 측정 모달 표시
     setPendingSummaryData(tempSummaryData);
@@ -723,6 +1015,7 @@ export default function TimerScreen() {
         />
       )}
 
+
       <StopConfirmModal
         visible={showStopConfirm}
         onConfirm={handleStopConfirm}
@@ -738,7 +1031,11 @@ export default function TimerScreen() {
       <LocationMapModal
         visible={showLocationMap}
         onStart={handleLocationMapStart}
-        onClose={() => setShowLocationMap(false)}
+        onClose={() => {
+          setShowLocationMap(false);
+          setAerobicWorkoutMode(null);
+          setSelectedGym(null);
+        }}
       />
     </SafeAreaView>
   );
@@ -1060,6 +1357,12 @@ function TimerRunning({
   isWorking,
   workoutRemainingMs,
   animalType,
+  aerobicWorkoutMode,
+  isOutOfGymRange,
+  lowIntensityWarning,
+  locationTracker,
+  isWorkoutPaused,
+  isRestPaused,
 }: {
   mode: Mode;
   elapsedMs: number;
@@ -1077,6 +1380,12 @@ function TimerRunning({
   isWorking?: boolean;
   workoutRemainingMs?: number;
   animalType?: string | null;
+  aerobicWorkoutMode?: 'outdoor' | 'gym' | null;
+  isOutOfGymRange?: boolean;
+  lowIntensityWarning?: boolean;
+  locationTracker?: WorkoutLocationTracker | null;
+  isWorkoutPaused?: boolean;
+  isRestPaused?: boolean;
 }) {
   const foxRunningFrames = useMemo(
     () => [
@@ -1249,9 +1558,13 @@ function TimerRunning({
 
   const timerStateLabel = isNewInterval
     ? isWorking
-      ? "운동 중"
+      ? isWorkoutPaused
+        ? "일시정지"
+        : "운동 중"
       : isResting
-      ? "휴식 중"
+      ? isRestPaused
+        ? "일시정지"
+        : "휴식 중"
       : isPaused
       ? "일시정지"
       : "진행 중"
@@ -1263,42 +1576,105 @@ function TimerRunning({
 
   const restButtonDisabled = !isResting && restDurationMs <= 0;
 
+  // 유산소 또는 인터벌 '밖에서 운동' 모드일 때는 지도 중심 UI
+  const isOutdoorAerobic = (mode === "aerobic" || mode === "interval") && aerobicWorkoutMode === 'outdoor';
+
   return (
     <View style={styles.runningContainer}>
-      {/* Track 배경 + 애니메이션 오버레이 */}
-      <View style={styles.trackWithAnimationWrapper}>
-        <Image
-          source={require("../../assets/images/background/Track.png")}
-          style={[StyleSheet.absoluteFillObject, styles.trackImage]}
-          resizeMode="cover"
-        />
-        <View style={styles.trackAnimationOverlay}>
-          <View style={[styles.animationContainer, { marginBottom: 0, position: "relative" }]}>
-            {animationFrames.map((frame, index) => (
-            <Image
-              key={index}
-              source={frame}
-              style={[
-                styles.runningAnimationImage,
-                {
-                  position: "absolute",
-                  opacity: framesReady && index === safeFrameIndex ? 1 : 0,
-                },
-              ]}
-              accessibilityRole="image"
-              accessibilityLabel="애니메이션"
-              fadeDuration={0}
-            />
-          ))}
-          </View>
+      {/* 상단: 타이머와 애니메이션 */}
+      <View style={styles.topSection}>
+        <View style={styles.timerDisplay}>
+          <Text style={styles.timerStateLabel}>{timerStateLabel}</Text>
+          <Text style={styles.timerDigits}>{formatDuration(elapsedMs)}</Text>
         </View>
-      </View>
-      <View style={styles.timerDisplay}>
-        <Text style={styles.timerDigits}>{formatDuration(elapsedMs)}</Text>
-        <Text style={styles.timerStateLabel}>{timerStateLabel}</Text>
+        {!isOutdoorAerobic && (
+          <View style={styles.trackWithAnimationWrapper}>
+            <Image
+              source={require("../../assets/images/background/Track.png")}
+              style={[StyleSheet.absoluteFillObject, styles.trackImage]}
+              resizeMode="cover"
+            />
+            <View style={styles.trackAnimationOverlay}>
+              <View style={[styles.animationContainer, { marginBottom: 0, position: "relative" }]}>
+                {animationFrames.map((frame, index) => (
+                <Image
+                  key={index}
+                  source={frame}
+                  style={[
+                    styles.runningAnimationImage,
+                    {
+                      position: "absolute",
+                      opacity: framesReady && index === safeFrameIndex ? 1 : 0,
+                    },
+                  ]}
+                  accessibilityRole="image"
+                  accessibilityLabel="애니메이션"
+                  fadeDuration={0}
+                />
+              ))}
+              </View>
+            </View>
+          </View>
+        )}
+        {isOutdoorAerobic && (
+          <View style={styles.compactAnimationContainer}>
+            {animationFrames.map((frame, index) => (
+              <Image
+                key={index}
+                source={frame}
+                style={[
+                  styles.compactAnimationImage,
+                  {
+                    position: "absolute",
+                    opacity: framesReady && index === safeFrameIndex ? 1 : 0,
+                  },
+                ]}
+                accessibilityRole="image"
+                accessibilityLabel="애니메이션"
+                fadeDuration={0}
+              />
+            ))}
+          </View>
+        )}
       </View>
 
-      {(mode === "weight" || mode === "interval") && (
+      {/* 헬스장 범위 벗어남 경고 */}
+      {(mode === "aerobic" || mode === "interval") && aerobicWorkoutMode === 'gym' && isOutOfGymRange && (
+        <View style={styles.outOfRangeWarning}>
+          <Ionicons name="warning" size={18} color="#e74c3c" />
+          <Text style={styles.outOfRangeWarningText}>
+            헬스장 범위를 벗어났습니다. 10m 이내로 돌아와주세요.
+          </Text>
+        </View>
+      )}
+
+      {/* 운동 강도 낮음 경고 (밖에서 운동 모드) */}
+      {(mode === "aerobic" || mode === "interval") && aerobicWorkoutMode === 'outdoor' && lowIntensityWarning && (
+        <View style={styles.lowIntensityWarning}>
+          <Ionicons name="alert-circle" size={18} color="#ff8a3d" />
+          <Text style={styles.lowIntensityWarningText}>
+            운동 강도가 너무 약해요. 조금 더 힘내 보아요.
+          </Text>
+        </View>
+      )}
+
+      {/* 운동 중에는 지도 표시하지 않음 */}
+
+      {/* 인터벌 모드: 지도 중심 UI일 때는 하단에 작은 패널 표시 */}
+      {mode === "interval" && isOutdoorAerobic && (
+        <IntervalPanel
+          isResting={isResting}
+          restRemainingMs={restRemainingMs}
+          restDurationMs={restDurationMs}
+          completedSets={completedSets}
+          isWorking={isWorking}
+          workoutRemainingMs={workoutRemainingMs}
+          compact={true}
+        />
+      )}
+
+      {/* 웨이트 모드 또는 인터벌 모드 (지도 없을 때) */}
+      {mode === "weight" || (mode === "interval" && !isOutdoorAerobic) ? (
         <>
           {isNewInterval ? (
             <IntervalPanel
@@ -1345,15 +1721,31 @@ function TimerRunning({
             </>
           )}
         </>
-      )}
+      ) : null}
 
       <View style={styles.controlRow}>
         <ControlButton
-          icon={isPaused ? "play" : "pause"}
-          label={isPaused ? "재개" : "일시정지"}
+          icon={
+            mode === "interval"
+              ? (isWorking && isWorkoutPaused) || (isResting && isRestPaused)
+                ? "play"
+                : "pause"
+              : isPaused
+              ? "play"
+              : "pause"
+          }
+          label={
+            mode === "interval"
+              ? (isWorking && isWorkoutPaused) || (isResting && isRestPaused)
+                ? "재개"
+                : "일시정지"
+              : isPaused
+              ? "재개"
+              : "일시정지"
+          }
           onPress={onPauseToggle}
           variant="primary"
-          disabled={isResting || mode === "interval"}
+          disabled={mode === "interval" ? !isWorking && !isResting : isResting}
         />
         <ControlButton
           icon="stop"
@@ -1363,7 +1755,7 @@ function TimerRunning({
         />
       </View>
 
-      {mode === "aerobic" && (
+      {(mode === "aerobic" || (mode === "interval" && isOutdoorAerobic)) && (
         <>
           <TouchableOpacity
             style={styles.lapButton}
@@ -1417,70 +1809,97 @@ function TimerSummary({
   onReturn: () => void;
   hasClaimedReward: boolean;
 }) {
+  const [showRouteMap, setShowRouteMap] = useState(false);
+
   return (
-    <View style={styles.summaryContainer}>
-      <Text style={styles.summaryTitle}>운동 완료</Text>
+    <>
+      <View style={styles.summaryContainer}>
+        <Text style={styles.summaryTitle}>운동 완료</Text>
 
-      <View style={styles.summaryCard}>
-        <SummaryRow label="총 운동 시간" value={formatDuration(data.elapsedMs)} />
-        {data.mode === "aerobic" && (
-          <>
-            <SummaryRow label="구간 수" value={`${data.laps?.length ?? 0}`} />
-            {data.distance !== undefined && data.distance > 0 && (
-              <SummaryRow 
-                label="이동 거리" 
-                value={data.distance >= 1000 
-                  ? `${(data.distance / 1000).toFixed(2)} km` 
-                  : `${Math.round(data.distance)} m`} 
-              />
-            )}
-          </>
-        )}
-        {(data.mode === "weight" || data.mode === "interval") && typeof data.restDurationMs === "number" && (
-          <SummaryRow
-            label="휴식 시간(세트당)"
-            value={formatDuration(data.restDurationMs)}
-          />
-        )}
-        {(data.mode === "weight" || data.mode === "interval") && data.intervalInfo && (
-          <SummaryRow
-            label="완료 세트"
-            value={`${data.intervalInfo.completedRounds}회`}
-          />
-        )}
-        <SummaryRow label="심박수" value={`${data.heartRate} bpm`} />
-      </View>
-
-      <View style={styles.summaryStats}>
-        {data.stats.map((stat) => (
-          <View key={stat.label} style={styles.summaryStatItem}>
-            <Text style={styles.summaryStatLabel}>{stat.label}</Text>
-            <Text style={styles.summaryStatValue}>{stat.value}</Text>
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.summaryActions}>
-        <SummaryButton 
-          label={hasClaimedReward ? "보상 수령 완료" : "보상 받기"} 
-          variant={hasClaimedReward ? "secondary" : "primary"} 
-          onPress={onClaim}
-          disabled={hasClaimedReward}
-        />
-        <SummaryButton label="확인" variant="secondary" onPress={onConfirm} />
-        <SummaryButton
-          label="기본 화면으로"
-          variant="ghost"
-          onPress={onReturn}
-          icon={
-            <Image
-              source={require("../../assets/images/back_icon.png")}
-              style={styles.backIcon}
+        <View style={styles.summaryCard}>
+          <SummaryRow label="총 운동 시간" value={formatDuration(data.elapsedMs)} />
+          {data.mode === "aerobic" && (
+            <>
+              <SummaryRow label="구간 수" value={`${data.laps?.length ?? 0}`} />
+              {data.distance !== undefined && data.distance > 0 && (
+                <SummaryRow 
+                  label="이동 거리" 
+                  value={data.distance >= 1000 
+                    ? `${(data.distance / 1000).toFixed(2)} km` 
+                    : `${Math.round(data.distance)} m`} 
+                />
+              )}
+            </>
+          )}
+          {(data.mode === "weight" || data.mode === "interval") && typeof data.restDurationMs === "number" && (
+            <SummaryRow
+              label="휴식 시간(세트당)"
+              value={formatDuration(data.restDurationMs)}
             />
-          }
-        />
+          )}
+          {(data.mode === "weight" || data.mode === "interval") && data.intervalInfo && (
+            <SummaryRow
+              label="완료 세트"
+              value={`${data.intervalInfo.completedRounds}회`}
+            />
+          )}
+          <SummaryRow label="심박수" value={`${data.heartRate} bpm`} />
+        </View>
+
+        <View style={styles.summaryStats}>
+          {data.stats.map((stat) => (
+            <View key={stat.label} style={styles.summaryStatItem}>
+              <Text style={styles.summaryStatLabel}>{stat.label}</Text>
+              <Text style={styles.summaryStatValue}>{stat.value}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* 밖에서 운동 모드일 때 경로 지도 보기 버튼 */}
+        {data.aerobicWorkoutMode === 'outdoor' && data.locationTracker && (
+          <TouchableOpacity
+            style={styles.routeMapButton}
+            onPress={() => setShowRouteMap(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="map" size={20} color="#2d98da" />
+            <Text style={styles.routeMapButtonText}>달린 경로 보기</Text>
+          </TouchableOpacity>
+        )}
+
+        <View style={styles.summaryActions}>
+          <SummaryButton 
+            label={hasClaimedReward ? "보상 수령 완료" : "보상 받기"} 
+            variant={hasClaimedReward ? "secondary" : "primary"} 
+            onPress={onClaim}
+            disabled={hasClaimedReward}
+          />
+          <SummaryButton label="확인" variant="secondary" onPress={onConfirm} />
+          <SummaryButton
+            label="기본 화면으로"
+            variant="ghost"
+            onPress={onReturn}
+            icon={
+              <Image
+                source={require("../../assets/images/back_icon.png")}
+                style={styles.backIcon}
+              />
+            }
+          />
+        </View>
       </View>
-    </View>
+
+      {/* 경로 지도 모달 */}
+      {data.aerobicWorkoutMode === 'outdoor' && data.locationTracker && (
+        <WorkoutRouteMapModal
+          visible={showRouteMap}
+          locationTracker={data.locationTracker}
+          distance={data.distance}
+          elapsedMs={data.elapsedMs}
+          onClose={() => setShowRouteMap(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -1550,7 +1969,7 @@ function ControlButton({
       activeOpacity={0.85}
       disabled={disabled}
     >
-      <Ionicons name={icon} size={24} color="#fff" />
+      <Ionicons name={icon} size={20} color="#fff" />
       <Text style={styles.controlButtonLabel}>{label}</Text>
     </TouchableOpacity>
   );
@@ -1563,6 +1982,7 @@ function IntervalPanel({
   completedSets,
   isWorking,
   workoutRemainingMs,
+  compact = false,
 }: {
   isResting: boolean;
   restRemainingMs: number;
@@ -1570,6 +1990,7 @@ function IntervalPanel({
   completedSets: number;
   isWorking?: boolean;
   workoutRemainingMs?: number;
+  compact?: boolean;
 }) {
   const isNewInterval = isWorking !== undefined;
   
@@ -1777,4 +2198,154 @@ function buildSummary(
     laps,
     distance: options?.distance,
   };
+}
+
+// 운동 종료 후 경로 지도 모달 컴포넌트
+function WorkoutRouteMapModal({
+  visible,
+  locationTracker,
+  distance,
+  elapsedMs,
+  onClose,
+}: {
+  visible: boolean;
+  locationTracker: WorkoutLocationTracker;
+  distance?: number;
+  elapsedMs: number;
+  onClose: () => void;
+}) {
+  const [region, setRegion] = useState<{
+    latitude: number;
+    longitude: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
+  } | null>(null);
+  const [pathCoordinates, setPathCoordinates] = useState<Array<{ latitude: number; longitude: number }>>([]);
+
+  useEffect(() => {
+    if (!visible || !locationTracker) return;
+
+    const locations = locationTracker.getLocations();
+    if (locations.length === 0) return;
+
+    // 경로 좌표 설정
+    const coordinates = locations.map(loc => ({
+      latitude: loc.latitude,
+      longitude: loc.longitude,
+    }));
+    setPathCoordinates(coordinates);
+
+    // 모든 경로를 포함하도록 지도 영역 계산
+    if (coordinates.length > 0) {
+      const lats = coordinates.map(c => c.latitude);
+      const lngs = coordinates.map(c => c.longitude);
+      const minLat = Math.min(...lats);
+      const maxLat = Math.max(...lats);
+      const minLng = Math.min(...lngs);
+      const maxLng = Math.max(...lngs);
+
+      const latDelta = Math.max((maxLat - minLat) * 1.5, 0.01);
+      const lngDelta = Math.max((maxLng - minLng) * 1.5, 0.01);
+
+      setRegion({
+        latitude: (minLat + maxLat) / 2,
+        longitude: (minLng + maxLng) / 2,
+        latitudeDelta: latDelta,
+        longitudeDelta: lngDelta,
+      });
+    }
+  }, [visible, locationTracker]);
+
+  if (!MapView || !region || Platform.OS === 'web') {
+    return (
+      <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
+        <View style={styles.routeMapModalContainer}>
+          <View style={styles.routeMapModalHeader}>
+            <Text style={styles.routeMapModalTitle}>달린 경로</Text>
+            <TouchableOpacity onPress={onClose} style={styles.routeMapModalCloseButton}>
+              <Ionicons name="close" size={24} color="#2d3436" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.mapPlaceholder}>
+            <Ionicons name="map-outline" size={48} color="#636e72" />
+            <Text style={styles.mapPlaceholderText}>지도는 모바일에서만 표시됩니다</Text>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
+      <View style={styles.routeMapModalContainer}>
+        {/* 헤더 */}
+        <View style={styles.routeMapModalHeader}>
+          <Text style={styles.routeMapModalTitle}>달린 경로</Text>
+          <TouchableOpacity onPress={onClose} style={styles.routeMapModalCloseButton}>
+            <Ionicons name="close" size={24} color="#2d3436" />
+          </TouchableOpacity>
+        </View>
+
+        {/* 통계 정보 */}
+        <View style={styles.routeMapStats}>
+          <View style={styles.routeMapStatItem}>
+            <Ionicons name="time-outline" size={20} color="#2d98da" />
+            <Text style={styles.routeMapStatLabel}>운동 시간</Text>
+            <Text style={styles.routeMapStatValue}>{formatDuration(elapsedMs)}</Text>
+          </View>
+          {distance !== undefined && distance > 0 && (
+            <View style={styles.routeMapStatItem}>
+              <Ionicons name="walk-outline" size={20} color="#27ae60" />
+              <Text style={styles.routeMapStatLabel}>이동 거리</Text>
+              <Text style={styles.routeMapStatValue}>
+                {distance >= 1000 
+                  ? `${(distance / 1000).toFixed(2)} km` 
+                  : `${Math.round(distance)} m`}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* 지도 */}
+        <View style={styles.routeMapContainer}>
+          <MapView
+            style={styles.routeMap}
+            provider={PROVIDER_GOOGLE}
+            initialRegion={region}
+            region={region}
+            showsUserLocation={false}
+            showsMyLocationButton={false}
+            followsUserLocation={false}
+          >
+            {/* 시작 지점 마커 */}
+            {pathCoordinates.length > 0 && Marker && (
+              <Marker
+                coordinate={pathCoordinates[0]}
+                title="시작 지점"
+                pinColor="#27ae60"
+              />
+            )}
+            {/* 종료 지점 마커 */}
+            {pathCoordinates.length > 1 && Marker && (
+              <Marker
+                coordinate={pathCoordinates[pathCoordinates.length - 1]}
+                title="종료 지점"
+                pinColor="#e74c3c"
+              />
+            )}
+            {/* 경로 선 */}
+            {pathCoordinates.length > 1 && Polyline && (
+              <Polyline
+                coordinates={pathCoordinates}
+                strokeColor="#2d98da"
+                strokeWidth={6}
+                lineCap="round"
+                lineJoin="round"
+              />
+            )}
+          </MapView>
+        </View>
+      </View>
+    </Modal>
+  );
 }
