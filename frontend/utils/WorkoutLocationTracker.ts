@@ -188,4 +188,38 @@ export class WorkoutLocationTracker {
       ? this.locations[this.locations.length - 1]
       : null;
   }
+
+  /**
+   * 특정 시점부터 최근 N분 동안의 이동 거리 계산 (미터)
+   * @param fromTimestamp 시작 시점 (밀리초). null이면 현재 시점에서 5분 전부터
+   * @param minutes 분 단위 (기본값: 5분)
+   */
+  calculateDistanceInLastMinutes(fromTimestamp: number | null = null, minutes: number = 5): number {
+    if (this.locations.length < 2) return 0;
+
+    const now = Date.now();
+    const targetTime = fromTimestamp 
+      ? fromTimestamp + (minutes * 60 * 1000) // fromTimestamp부터 minutes분 후까지
+      : now - (minutes * 60 * 1000); // 현재 시점에서 minutes분 전부터
+
+    // 타겟 시간 이후의 위치들만 필터링
+    const relevantLocations = this.locations.filter(
+      (loc) => loc.timestamp >= targetTime
+    );
+
+    if (relevantLocations.length < 2) return 0;
+
+    let totalDistance = 0;
+    for (let i = 1; i < relevantLocations.length; i++) {
+      const prev = relevantLocations[i - 1];
+      const curr = relevantLocations[i];
+      totalDistance += this.calculateDistance(
+        prev.latitude,
+        prev.longitude,
+        curr.latitude,
+        curr.longitude
+      );
+    }
+    return totalDistance;
+  }
 }
