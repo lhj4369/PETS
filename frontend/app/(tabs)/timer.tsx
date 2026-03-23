@@ -39,25 +39,8 @@ import { getClockImageFromType } from "../../utils/customizationUtils";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WorkoutLocationTracker } from "../../utils/WorkoutLocationTracker";
 import LocationMapModal from "../../components/LocationMapModal";
-import * as Location from 'expo-location';
-
-// 웹 환경에서는 react-native-maps를 import하지 않음
-let MapView: any = null;
-let Polyline: any = null;
-let Marker: any = null;
-let PROVIDER_GOOGLE: any = null;
-
-if (Platform.OS !== 'web') {
-  try {
-    const maps = require('react-native-maps');
-    MapView = maps.default;
-    Polyline = maps.Polyline;
-    Marker = maps.Marker;
-    PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE;
-  } catch (error) {
-    console.warn('react-native-maps를 로드할 수 없습니다:', error);
-  }
-}
+import * as Location from "expo-location";
+import { MapView, Marker, Polyline, PROVIDER_GOOGLE } from "../../components/NativeMapView";
 
 type Mode = "aerobic" | "weight" | "interval";
 type Phase = "idle" | "running" | "summary";

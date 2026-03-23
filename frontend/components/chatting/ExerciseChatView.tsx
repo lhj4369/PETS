@@ -20,7 +20,7 @@ interface ExerciseChatViewProps {
   onSend: () => void;
   /** 추천 질문 칩 탭 시 해당 문구로 바로 전송 */
   onSendWithText?: (text: string) => void;
-  onBackToDaily: () => void;
+  onBackToDaily?: () => void;
   /** 대화 초기화 */
   onReset?: () => void;
   isLoadingResponse?: boolean;
@@ -139,9 +139,11 @@ export default function ExerciseChatView({
               <Ionicons name="refresh-outline" size={22} color={THEME_TEXT_DARK} />
             </TouchableOpacity>
           ) : null}
-          <TouchableOpacity style={styles.headerButton} onPress={onBackToDaily}>
-            <Text style={styles.headerButtonText}>일상 대화 보기</Text>
-          </TouchableOpacity>
+          {onBackToDaily ? (
+            <TouchableOpacity style={styles.headerButton} onPress={onBackToDaily}>
+              <Text style={styles.headerButtonText}>일상 대화 보기</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
 
