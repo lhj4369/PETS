@@ -1,13 +1,7 @@
 import { Tabs } from "expo-router";
 import { View } from "react-native";
-import Navigator from "../../components/Navigator";
-import { ENABLE_NAVIGATOR } from "../../config/navigator";
-import { SettingsModalProvider } from "../../context/SettingsModalContext";
-import { NavigatorVisibilityProvider, useNavigatorVisibility } from "../../context/NavigatorVisibilityContext";
-import SettingsModal from "../../components/SettingsModal";
 
 function TabsContent() {
-  const { isVisible } = useNavigatorVisibility();
   return (
     <View style={{ flex: 1 }}>
       <Tabs
@@ -24,19 +18,11 @@ function TabsContent() {
         <Tabs.Screen name="chatting" options={{ title: "채팅" }} />
         <Tabs.Screen name="customize" options={{ title: "커스터마이징" }} />
       </Tabs>
-      {ENABLE_NAVIGATOR && isVisible && <Navigator />}
-      <SettingsModal />
     </View>
   );
 }
 
 export default function TabsLayout() {
-  return (
-    <SettingsModalProvider>
-      <NavigatorVisibilityProvider>
-        <TabsContent />
-      </NavigatorVisibilityProvider>
-    </SettingsModalProvider>
-  );
+  return <TabsContent />;
 }
 

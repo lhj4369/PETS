@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   Modal,
   View,
@@ -8,31 +8,17 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
+import { MapView, Marker, PROVIDER_GOOGLE } from "./NativeMapView";
 
-// 웹 환경에서는 react-native-maps를 import하지 않음
-let MapView: any = null;
-let Marker: any = null;
-let PROVIDER_GOOGLE: any = null;
 type Region = {
   latitude: number;
   longitude: number;
   latitudeDelta: number;
   longitudeDelta: number;
 };
-
-if (Platform.OS !== 'web') {
-  try {
-    const maps = require('react-native-maps');
-    MapView = maps.default;
-    Marker = maps.Marker;
-    PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE;
-  } catch (error) {
-    console.warn('react-native-maps를 로드할 수 없습니다:', error);
-  }
-}
 
 type AerobicWorkoutMode = 'outdoor' | 'gym' | null;
 
@@ -90,8 +76,8 @@ export default function LocationMapModal({
 
       // 위치 권한 요청
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setError('위치 권한이 필요합니다.');
+      if (status !== "granted") {
+        setError("위치 권한이 필요합니다.");
         setLoading(false);
         return;
       }
@@ -99,7 +85,7 @@ export default function LocationMapModal({
       // 위치 서비스 활성화 확인
       const isEnabled = await Location.hasServicesEnabledAsync();
       if (!isEnabled) {
-        setError('위치 서비스가 비활성화되어 있습니다.');
+        setError("위치 서비스가 비활성화되어 있습니다.");
         setLoading(false);
         return;
       }
@@ -122,8 +108,8 @@ export default function LocationMapModal({
       
       // 주변 헬스장 검색은 나중에 '헬스장에서 운동' 모드를 선택했을 때만 수행
     } catch (err: any) {
-      console.error('위치 로드 실패:', err);
-      setError('위치를 가져올 수 없습니다.');
+      console.error("위치 로드 실패:", err);
+      setError("위치를 가져올 수 없습니다.");
     } finally {
       setLoading(false);
     }
@@ -135,12 +121,12 @@ export default function LocationMapModal({
       
       // Google Places API 키 (AndroidManifest.xml에서 가져오거나 환경변수에서)
       // 실제로는 환경변수나 설정에서 가져와야 합니다
-      const apiKey = 'AIzaSyDpUsPiMR85NF8fcZDxQ6ublS505AGBPT8'; // TODO: 환경변수로 이동
+      const apiKey = "AIzaSyDpUsPiMR85NF8fcZDxQ6ublS505AGBPT8"; // TODO: 환경변수로 이동
       
       // Google Places Nearby Search API 호출
       // 헬스장 관련 키워드: gym, fitness_center, health_club
       const radius = 5000; // 5km 반경
-      const types = ['gym', 'fitness_center', 'health_club'];
+      const types = ["gym", "fitness_center", "health_club"];
       
       const allGyms: GymPlace[] = [];
       
@@ -167,7 +153,7 @@ export default function LocationMapModal({
       
       setGyms(allGyms);
     } catch (err: any) {
-      console.error('헬스장 검색 실패:', err);
+      console.error("헬스장 검색 실패:", err);
       // 헬스장 검색 실패는 에러로 표시하지 않음 (선택적 기능)
     } finally {
       setLoadingGyms(false);
@@ -209,35 +195,35 @@ export default function LocationMapModal({
     if (distance <= 10) {
       setSelectedGym(gym);
       Alert.alert(
-        '헬스장 선택됨',
+        "헬스장 선택됨",
         `${gym.name}\n거리: ${distance.toFixed(1)}m\n\n이 헬스장에서 운동을 시작합니다.`,
-        [{ text: '확인' }]
+        [{ text: "확인" }]
       );
     } else {
       Alert.alert(
-        '거리가 너무 멉니다',
+        "거리가 너무 멉니다",
         `${gym.name}\n거리: ${distance.toFixed(1)}m\n\n헬스장에서 10m 이내에 있어야 운동을 시작할 수 있습니다.`,
-        [{ text: '확인' }]
+        [{ text: "확인" }]
       );
     }
   };
 
   const handleStart = () => {
     if (!location) {
-      Alert.alert('알림', '위치 정보를 불러오는 중입니다. 잠시만 기다려주세요.');
+      Alert.alert("알림", "위치 정보를 불러오는 중입니다. 잠시만 기다려주세요.");
       return;
     }
 
     // 운동 모드 선택 확인
     if (!workoutMode) {
-      Alert.alert('알림', '운동 방식을 선택해주세요.');
+      Alert.alert("알림", "운동 방식을 선택해주세요.");
       return;
     }
 
     // '헬스장에서 운동' 모드일 때만 헬스장 선택 확인
     if (workoutMode === 'gym') {
       if (!selectedGym) {
-        Alert.alert('알림', '헬스장을 선택해주세요.');
+        Alert.alert("알림", "헬스장을 선택해주세요.");
         return;
       }
 
@@ -251,10 +237,10 @@ export default function LocationMapModal({
 
       if (distance > 10) {
         Alert.alert(
-          '거리 확인',
-          '선택한 헬스장에서 10m 이내에 있어야 운동을 시작할 수 있습니다. 현재 거리: ' +
+          "거리 확인",
+          "선택한 헬스장에서 10m 이내에 있어야 운동을 시작할 수 있습니다. 현재 거리: " +
             distance.toFixed(1) +
-            'm'
+            "m"
         );
         return;
       }
@@ -331,7 +317,7 @@ export default function LocationMapModal({
                 <Text style={styles.retryButtonText}>다시 시도</Text>
               </TouchableOpacity>
             </View>
-          ) : region && MapView ? (
+          ) : region && Platform.OS !== "web" ? (
             <>
               <MapView
                 style={styles.map}
