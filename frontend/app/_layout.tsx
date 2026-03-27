@@ -4,6 +4,25 @@ import { useEffect } from "react";
 import { useFonts } from "expo-font";
 import { CustomizationProvider } from "../context/CustomizationContext";
 import API_BASE_URL from "../config/api";
+import Navigator from "../components/Navigator";
+import SettingsModal from "../components/SettingsModal";
+import { SettingsModalProvider } from "../context/SettingsModalContext";
+import {
+  NavigatorVisibilityProvider,
+  useNavigatorVisibility,
+} from "../context/NavigatorVisibilityContext";
+import { ENABLE_NAVIGATOR } from "../config/navigator";
+import { View } from "react-native";
+
+function RootOverlays() {
+  const { isVisible } = useNavigatorVisibility();
+  return (
+    <>
+      {ENABLE_NAVIGATOR && isVisible && <Navigator />}
+      <SettingsModal />
+    </>
+  );
+}
 
 export default function RootLayout() {
   // KotraHope 폰트 로드
@@ -50,11 +69,18 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <CustomizationProvider>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-          }}
-        />
+        <SettingsModalProvider>
+          <NavigatorVisibilityProvider>
+            <View style={{ flex: 1 }}>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                }}
+              />
+              <RootOverlays />
+            </View>
+          </NavigatorVisibilityProvider>
+        </SettingsModalProvider>
       </CustomizationProvider>
     </SafeAreaProvider>
   );
