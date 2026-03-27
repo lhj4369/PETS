@@ -36,10 +36,16 @@ type Props = {
   /** 커마: 배치 모드가 아닐 때 탭하면 해당 오브젝트 배치 모드 진입 */
   onRequestPlaceAnimal?: () => void;
   onRequestPlaceDecoration?: (id: DecorationId) => void;
+  /** 홈: 머리·주변까지 터치(쓰다듬기) 영역 확장 — 시각 크기는 petSize 유지 */
+  expandPetTouchPad?: boolean;
 };
 
 /** 장식 표시 크기 — petSize 대비 (동물보다 살짝 키움) */
 const DECORATION_DISPLAY_SCALE = 0.58;
+
+/** 위쪽·좌우로 터치만 넓힘 (비율은 petSize 기준) */
+const TOUCH_PAD_TOP = 0.38;
+const TOUCH_PAD_SIDE = 0.12;
 
 export default function HomePlayScene({
   layout,
@@ -58,6 +64,7 @@ export default function HomePlayScene({
   onDecorationDragTo,
   onRequestPlaceAnimal,
   onRequestPlaceDecoration,
+  expandPetTouchPad = false,
 }: Props) {
   const [box, setBox] = useState({ w: 0, h: 0 });
   const dragOrigin = useRef({ x: 0, y: 0 });
@@ -137,11 +144,16 @@ export default function HomePlayScene({
     const baseTop = cy(layout.animal.y) - petSize / 2;
     const usePickup = petOffsetX != null && petOffsetY != null;
 
-    const baseStyle = [
+    const padTop = expandPetTouchPad ? petSize * TOUCH_PAD_TOP : 0;
+    const padSide = expandPetTouchPad ? petSize * TOUCH_PAD_SIDE : 0;
+    const touchW = petSize + padSide * 2;
+    const touchH = petSize + padTop;
+
+    const petInnerStyle = [
       styles.abs,
       {
-        left: baseLeft,
-        top: baseTop,
+        left: padSide,
+        top: padTop,
         width: petSize,
         height: petSize,
       },
@@ -191,29 +203,56 @@ export default function HomePlayScene({
       img
     );
 
-    if (placementTarget === "animal" && animalPlacementPan) {
-      return (
-        <Animated.View {...animalPlacementPan.panHandlers} style={[baseStyle]}>
+    const innerNode =
+      placementTarget === "animal" && animalPlacementPan ? (
+        <Animated.View {...animalPlacementPan.panHandlers} style={[petInnerStyle]}>
           {petContent}
         </Animated.View>
-      );
-    }
-
-    if (onRequestPlaceAnimal) {
-      return (
+      ) : onRequestPlaceAnimal ? (
         <Pressable
           onPress={onRequestPlaceAnimal}
-          style={({ pressed }) => [baseStyle, pressed && styles.pressedDim]}
+          style={({ pressed }) => [petInnerStyle, pressed && styles.pressedDim]}
         >
           {petContent}
         </Pressable>
+      ) : (
+        <Animated.View {...animalHandlers} style={petInnerStyle}>
+          {petContent}
+        </Animated.View>
+      );
+
+    if (expandPetTouchPad && !placementTarget && !onRequestPlaceAnimal) {
+      return (
+        <View
+          style={[
+            styles.abs,
+            {
+              left: baseLeft - padSide,
+              top: baseTop - padTop,
+              width: touchW,
+              height: touchH,
+            },
+          ]}
+        >
+          {innerNode}
+        </View>
       );
     }
 
     return (
-      <Animated.View {...animalHandlers} style={baseStyle}>
-        {petContent}
-      </Animated.View>
+      <View
+        style={[
+          styles.abs,
+          {
+            left: baseLeft,
+            top: baseTop,
+            width: petSize,
+            height: petSize,
+          },
+        ]}
+      >
+        {innerNode}
+      </View>
     );
   };
 

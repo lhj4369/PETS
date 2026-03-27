@@ -113,6 +113,13 @@ type ProfileResponse = {
 
 const EXP_PER_LEVEL = 100;
 
+/** 이 시간(ms) 동안 가만히 누른 뒤에만 들어 올리기 가능 */
+const PICKUP_ARM_MS = 420;
+/** 가로 쓰다듬기로 인정하는 최소 이동(px) */
+const STROKE_MIN_DX = 10;
+/** 길게 누르기 전 움직임 허용치 — 초과 시 들기 취소(쓰다듬기 제외) */
+const PRE_ARM_MOVE_CANCEL = 18;
+
 const HomeScreen = () => {
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
@@ -131,12 +138,17 @@ const HomeScreen = () => {
   const petTranslateX = useRef(new Animated.Value(0)).current;
   const petTranslateY = useRef(new Animated.Value(0)).current;
   const pickupShadowAnim = useRef(new Animated.Value(0)).current;
-  const [isDragging, setIsDragging] = useState(false);
+  /** 들어 올리기 모드(길게 누른 뒤)에서만 true — 말풍선이 동물을 따라감 */
+  const [isLiftDragging, setIsLiftDragging] = useState(false);
   const [isHeldTooLong, setIsHeldTooLong] = useState(false);
   const [heldTooLongText, setHeldTooLongText] = useState("");
   const [injectScript, setInjectScript] = useState<string | null>(null);
   const heldTooLongTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasHeldTooLongRef = useRef(false);
+  const pickupArmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pickupArmedRef = useRef(false);
+  const strokeActiveRef = useRef(false);
+  const heldTooLongStartedRef = useRef(false);
 
   // 위로 올라갈수록(translateY 음수) 그림자가 작아지는 인터폴레이션
   const shadowScale = petTranslateY.interpolate({
@@ -202,6 +214,30 @@ const HomeScreen = () => {
   const petSize = Math.min(178, screenWidth * 0.43);
   const rightIconSize = Math.max(68, Math.min(76, screenWidth * 0.17));
   const bottomIconSize = 84;
+
+  const [floorLayout, setFloorLayout] = useState({ w: 0, h: 0 });
+
+  /** 동물 머리 위(바닥 슬롯 좌표계) — 말풍선 앵커 */
+  const speechAnchorStyle = useMemo(() => {
+    if (floorLayout.w <= 0 || floorLayout.h <= 0) {
+      return { opacity: 0, pointerEvents: "none" as const };
+    }
+    const ax = homeLayout.animal.x * floorLayout.w;
+    const ay = homeLayout.animal.y * floorLayout.h;
+    const bubbleW = 280;
+    const bubbleStackH = 108;
+    const top = ay - petSize * 0.5 - bubbleStackH;
+    const left = Math.max(8, Math.min(ax - bubbleW / 2, floorLayout.w - bubbleW - 8));
+    return {
+      position: "absolute" as const,
+      left,
+      top,
+      width: bubbleW,
+      zIndex: 21,
+      alignItems: "center" as const,
+      pointerEvents: "none" as const,
+    };
+  }, [floorLayout.w, floorLayout.h, homeLayout.animal.x, homeLayout.animal.y, petSize]);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -319,6 +355,7 @@ const HomeScreen = () => {
     return () => {
       if (scriptTimerRef.current) clearTimeout(scriptTimerRef.current);
       if (heldTooLongTimerRef.current) clearTimeout(heldTooLongTimerRef.current);
+      if (pickupArmTimerRef.current) clearTimeout(pickupArmTimerRef.current);
     };
   }, []);
 
@@ -436,7 +473,7 @@ const HomeScreen = () => {
   const setIsScriptVisibleRef = useRef(setIsScriptVisible);
   const setInjectScriptRef = useRef(setInjectScript);
 
-  const snapBack = () => {
+  const snapLiftBack = () => {
     Animated.parallel([
       Animated.spring(petTranslateX, { toValue: 0, tension: 180, friction: 8, useNativeDriver: true }),
       Animated.spring(petTranslateY, { toValue: 0, tension: 220, friction: 7, useNativeDriver: true }),
@@ -449,86 +486,183 @@ const HomeScreen = () => {
     ]).start();
   };
 
-  const setIsDraggingRef = useRef(setIsDragging);
-  useEffect(() => {
-    setIsDraggingRef.current = setIsDragging;
-  }, [setIsDragging]);
+  const resetAfterStroke = () => {
+    petTranslateX.setValue(0);
+    petTranslateY.setValue(0);
+    Animated.parallel([
+      Animated.timing(pickupShadowAnim, { toValue: 0, duration: 120, useNativeDriver: true }),
+      Animated.timing(petScaleAnim, { toValue: 1, duration: 120, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const cancelPickupArmTimer = () => {
+    if (pickupArmTimerRef.current) {
+      clearTimeout(pickupArmTimerRef.current);
+      pickupArmTimerRef.current = null;
+    }
+  };
 
   const petPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, g) =>
-        Math.abs(g.dx) > 4 || Math.abs(g.dy) > 4,
+        Math.abs(g.dx) > 3 || Math.abs(g.dy) > 3,
 
       onPanResponderGrant: () => {
-        setIsDraggingRef.current(true);
+        pickupArmedRef.current = false;
+        strokeActiveRef.current = false;
+        heldTooLongStartedRef.current = false;
         setIsPetStroking(false);
+        setIsLiftDragging(false);
         setIsScriptVisibleRef.current(false);
         setInjectScriptRef.current(null);
         wasHeldTooLongRef.current = false;
-        heldTooLongTimerRef.current = setTimeout(() => {
-          const text =
-            HELD_TOO_LONG_DURING_SCRIPTS[
-              Math.floor(Math.random() * HELD_TOO_LONG_DURING_SCRIPTS.length)
-            ];
-          setIsHeldTooLongRef.current(true);
-          setHeldTooLongTextRef.current(text);
-          wasHeldTooLongRef.current = true;
-        }, 5000);
-        Animated.parallel([
-          Animated.spring(petScaleAnim, {
-            toValue: 1.15,
-            tension: 200,
-            friction: 10,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pickupShadowAnim, { toValue: 1, duration: 180, useNativeDriver: true }),
-        ]).start();
+        setIsHeldTooLongRef.current(false);
+        cancelPickupArmTimer();
+        if (heldTooLongTimerRef.current) {
+          clearTimeout(heldTooLongTimerRef.current);
+          heldTooLongTimerRef.current = null;
+        }
+
+        pickupArmTimerRef.current = setTimeout(() => {
+          if (strokeActiveRef.current) return;
+          pickupArmedRef.current = true;
+          setIsLiftDragging(true);
+          Animated.parallel([
+            Animated.spring(petScaleAnim, {
+              toValue: 1.12,
+              tension: 200,
+              friction: 10,
+              useNativeDriver: true,
+            }),
+            Animated.timing(pickupShadowAnim, { toValue: 1, duration: 180, useNativeDriver: true }),
+          ]).start();
+        }, PICKUP_ARM_MS);
       },
 
       onPanResponderMove: (_, g) => {
-        const stroke = Math.abs(g.dx) > 8 && Math.abs(g.dx) >= Math.abs(g.dy);
-        setIsPetStroking(stroke);
+        const stroke =
+          Math.abs(g.dx) > STROKE_MIN_DX &&
+          Math.abs(g.dx) >= Math.abs(g.dy) * 1.05;
+
         if (stroke) {
+          strokeActiveRef.current = true;
+          cancelPickupArmTimer();
+          pickupArmedRef.current = false;
+          setIsLiftDragging(false);
+          setIsPetStroking(true);
           petTranslateX.setValue(0);
           petTranslateY.setValue(0);
-        } else {
-          petTranslateX.setValue(g.dx);
-          petTranslateY.setValue(g.dy - 30);
+          Animated.parallel([
+            Animated.timing(pickupShadowAnim, { toValue: 0, duration: 80, useNativeDriver: true }),
+            Animated.timing(petScaleAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
+          ]).start();
+          return;
+        }
+
+        if (!pickupArmedRef.current) {
+          if (Math.abs(g.dx) + Math.abs(g.dy) > PRE_ARM_MOVE_CANCEL) {
+            cancelPickupArmTimer();
+          }
+          return;
+        }
+
+        petTranslateX.setValue(g.dx);
+        petTranslateY.setValue(g.dy - 30);
+
+        if (!heldTooLongStartedRef.current && (Math.abs(g.dx) > 6 || Math.abs(g.dy) > 6)) {
+          heldTooLongStartedRef.current = true;
+          heldTooLongTimerRef.current = setTimeout(() => {
+            const text =
+              HELD_TOO_LONG_DURING_SCRIPTS[
+                Math.floor(Math.random() * HELD_TOO_LONG_DURING_SCRIPTS.length)
+              ];
+            setIsHeldTooLongRef.current(true);
+            setHeldTooLongTextRef.current(text);
+            wasHeldTooLongRef.current = true;
+          }, 5000);
         }
       },
 
       onPanResponderRelease: (_, g) => {
-        setIsDraggingRef.current(false);
+        cancelPickupArmTimer();
+        if (heldTooLongTimerRef.current) {
+          clearTimeout(heldTooLongTimerRef.current);
+          heldTooLongTimerRef.current = null;
+        }
+
+        setIsLiftDragging(false);
         setIsPetStroking(false);
         setIsHeldTooLongRef.current(false);
-        if (heldTooLongTimerRef.current) clearTimeout(heldTooLongTimerRef.current);
+
         const heldLong = wasHeldTooLongRef.current;
-        snapBack();
-        const tap = Math.abs(g.dx) < 8 && Math.abs(g.dy) < 8;
-        if (heldLong) {
-          const text =
-            HELD_TOO_LONG_AFTER_SCRIPTS[
-              Math.floor(Math.random() * HELD_TOO_LONG_AFTER_SCRIPTS.length)
-            ];
-          showInjectScriptRef.current(text);
-          wasHeldTooLongRef.current = false;
-        } else if (tap) {
-          showNextScriptRef.current();
+        wasHeldTooLongRef.current = false;
+        heldTooLongStartedRef.current = false;
+
+        const tap = Math.abs(g.dx) < 10 && Math.abs(g.dy) < 10;
+        const hadStroke = strokeActiveRef.current;
+        strokeActiveRef.current = false;
+
+        const hadLift = pickupArmedRef.current;
+        pickupArmedRef.current = false;
+
+        const tapBounce = () => {
           Animated.sequence([
             Animated.timing(petScaleAnim, { toValue: 1.08, duration: 80, useNativeDriver: true }),
             Animated.timing(petScaleAnim, { toValue: 1, duration: 120, useNativeDriver: true }),
           ]).start();
+        };
+
+        if (hadStroke) {
+          resetAfterStroke();
+          return;
+        }
+
+        if (hadLift) {
+          snapLiftBack();
+          if (heldLong) {
+            const text =
+              HELD_TOO_LONG_AFTER_SCRIPTS[
+                Math.floor(Math.random() * HELD_TOO_LONG_AFTER_SCRIPTS.length)
+              ];
+            showInjectScriptRef.current(text);
+          } else if (tap) {
+            showNextScriptRef.current();
+            tapBounce();
+          }
+          return;
+        }
+
+        petTranslateX.setValue(0);
+        petTranslateY.setValue(0);
+        Animated.parallel([
+          Animated.timing(pickupShadowAnim, { toValue: 0, duration: 80, useNativeDriver: true }),
+          Animated.timing(petScaleAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
+        ]).start();
+        if (tap) {
+          showNextScriptRef.current();
+          tapBounce();
         }
       },
 
       onPanResponderTerminate: () => {
-        setIsDraggingRef.current(false);
-        setIsPetStroking(false);
-        setIsHeldTooLongRef.current(false);
-        if (heldTooLongTimerRef.current) clearTimeout(heldTooLongTimerRef.current);
+        cancelPickupArmTimer();
+        if (heldTooLongTimerRef.current) {
+          clearTimeout(heldTooLongTimerRef.current);
+          heldTooLongTimerRef.current = null;
+        }
+        const hadStroke = strokeActiveRef.current;
+        const hadLift = pickupArmedRef.current;
+        strokeActiveRef.current = false;
+        pickupArmedRef.current = false;
         wasHeldTooLongRef.current = false;
-        snapBack();
+        heldTooLongStartedRef.current = false;
+        setIsLiftDragging(false);
+        setIsPetStroking(false);
+        setIsHeldTooLong(false);
+        if (hadStroke) resetAfterStroke();
+        else if (hadLift) snapLiftBack();
+        else resetAfterStroke();
       },
     }),
   ).current;
@@ -623,17 +757,44 @@ const HomeScreen = () => {
 
         {/* 메인: 캐릭터 + 우측 세로 버튼 3개 + 햄버거 */}
         <View style={styles.mainArea}>
-          <View style={[styles.floorPlaceSlot, { height: `${FLOOR_PLACE_RATIO * 100}%` }]}>
+          <View
+            style={[styles.floorPlaceSlot, { height: `${FLOOR_PLACE_RATIO * 100}%` }]}
+            onLayout={(e) => {
+              const { width, height } = e.nativeEvent.layout;
+              setFloorLayout({ w: width, h: height });
+            }}
+          >
+            <View
+              style={[
+                styles.homePlaySceneWrap,
+                Platform.OS === "web" && ({ touchAction: "none" } as object),
+              ]}
+            >
+              <HomePlayScene
+                layout={homeLayout}
+                animalSource={mainPetImage}
+                petSize={petSize}
+                petPanHandlers={petPanResponder.panHandlers}
+                petScaleAnim={petScaleAnim}
+                petOffsetX={petTranslateX}
+                petOffsetY={petTranslateY}
+                pickupShadowAnim={pickupShadowAnim}
+                shadowScale={shadowScale}
+                shadowTranslateY={shadowTranslateY}
+                expandPetTouchPad
+              />
+            </View>
+            {/* 말풍선·플레이스홀더는 씬 위에 그려야 동물 좌표와 맞고, pointerEvents none으로 터치는 씬으로 통과 */}
             <View style={styles.speechOverlay} pointerEvents="box-none">
               <Animated.View
                 style={[
-                  styles.speechRegion,
-                  isDragging && {
+                  speechAnchorStyle,
+                  isLiftDragging && {
                     transform: [{ translateX: petTranslateX }, { translateY: petTranslateY }],
                   },
                 ]}
               >
-                {isDragging && isHeldTooLong ? (
+                {isLiftDragging && isHeldTooLong ? (
                   <Animated.View
                     style={[
                       styles.homeSpeechBubble,
@@ -653,32 +814,13 @@ const HomeScreen = () => {
                     <Text style={styles.homeSpeechText}>{injectScript ?? currentScript}</Text>
                     <View style={styles.homeSpeechTail} />
                   </Animated.View>
-                ) : !isDragging ? (
+                ) : !isLiftDragging ? (
                   <View style={styles.homeSpeechPlaceholderBubble}>
                     <Text style={styles.homeSpeechPlaceholderText}>{placeholderPhrase}</Text>
                     <View style={[styles.homeSpeechTail, styles.homeSpeechPlaceholderTail]} />
                   </View>
                 ) : null}
               </Animated.View>
-            </View>
-            <View
-              style={[
-                styles.homePlaySceneWrap,
-                Platform.OS === "web" && ({ touchAction: "none" } as object),
-              ]}
-            >
-              <HomePlayScene
-                layout={homeLayout}
-                animalSource={mainPetImage}
-                petSize={petSize}
-                petPanHandlers={petPanResponder.panHandlers}
-                petScaleAnim={petScaleAnim}
-                petOffsetX={petTranslateX}
-                petOffsetY={petTranslateY}
-                pickupShadowAnim={pickupShadowAnim}
-                shadowScale={shadowScale}
-                shadowTranslateY={shadowTranslateY}
-              />
             </View>
           </View>
 
@@ -1120,21 +1262,12 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   speechOverlay: {
-    position: "absolute",
-    top: 6,
-    left: 0,
-    right: 0,
-    zIndex: 20,
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 30,
+    elevation: 28,
     pointerEvents: "box-none",
   },
-  homePlaySceneWrap: { flex: 1 },
-  speechRegion: {
-    minHeight: 110,
-    justifyContent: "flex-end",
-    alignItems: "center",
-    width: "100%",
-    paddingHorizontal: 16,
-  },
+  homePlaySceneWrap: { flex: 1, zIndex: 0 },
   homeSpeechBubble: {
     backgroundColor: "rgba(255,255,255,0.97)",
     paddingHorizontal: 22,
