@@ -23,6 +23,12 @@ type Props = {
   petSize: number;
   petPanHandlers?: ReturnType<typeof PanResponder.create>["panHandlers"];
   petScaleAnim?: Animated.Value;
+  /** 홈: 들어 올리기 드래그 시 오프셋(배치 모드에서는 미전달) */
+  petOffsetX?: Animated.Value;
+  petOffsetY?: Animated.Value;
+  pickupShadowAnim?: Animated.Value;
+  shadowScale?: Animated.AnimatedInterpolation<number>;
+  shadowTranslateY?: Animated.AnimatedInterpolation<number>;
   placementTarget?: PlacementTarget;
   placementValid?: boolean;
   onAnimalDragTo?: (x: number, y: number) => void;
@@ -41,6 +47,11 @@ export default function HomePlayScene({
   petSize,
   petPanHandlers,
   petScaleAnim,
+  petOffsetX,
+  petOffsetY,
+  pickupShadowAnim,
+  shadowScale,
+  shadowTranslateY,
   placementTarget,
   placementValid = true,
   onAnimalDragTo,
@@ -122,24 +133,68 @@ export default function HomePlayScene({
   const renderAnimal = () => {
     if (box.w <= 0) return null;
 
+    const baseLeft = cx(layout.animal.x) - petSize / 2;
+    const baseTop = cy(layout.animal.y) - petSize / 2;
+    const usePickup = petOffsetX != null && petOffsetY != null;
+
     const baseStyle = [
       styles.abs,
       {
-        left: cx(layout.animal.x) - petSize / 2,
-        top: cy(layout.animal.y) - petSize / 2,
+        left: baseLeft,
+        top: baseTop,
         width: petSize,
         height: petSize,
       },
-      petScaleAnim ? { transform: [{ scale: petScaleAnim }] } : null,
+      !usePickup && petScaleAnim ? { transform: [{ scale: petScaleAnim }] } : null,
       placementTarget === "animal" ? borderStyle : null,
     ];
 
     const img = <Image source={animalSource} style={styles.img} resizeMode="contain" />;
 
+    const petContent = usePickup ? (
+      <>
+        <Animated.View
+          style={{
+            width: petSize,
+            height: petSize,
+            justifyContent: "center",
+            alignItems: "center",
+            transform: [
+              { translateX: petOffsetX },
+              { translateY: petOffsetY },
+              ...(petScaleAnim ? [{ scale: petScaleAnim }] : []),
+            ],
+          }}
+        >
+          {img}
+        </Animated.View>
+        {pickupShadowAnim && shadowScale && shadowTranslateY ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.petShadow,
+              {
+                width: petSize * 0.65,
+                opacity: pickupShadowAnim,
+                transform: [
+                  { translateX: petOffsetX },
+                  { translateY: shadowTranslateY },
+                  { scaleX: shadowScale },
+                  { scaleY: shadowScale },
+                ],
+              },
+            ]}
+          />
+        ) : null}
+      </>
+    ) : (
+      img
+    );
+
     if (placementTarget === "animal" && animalPlacementPan) {
       return (
         <Animated.View {...animalPlacementPan.panHandlers} style={[baseStyle]}>
-          {img}
+          {petContent}
         </Animated.View>
       );
     }
@@ -150,14 +205,14 @@ export default function HomePlayScene({
           onPress={onRequestPlaceAnimal}
           style={({ pressed }) => [baseStyle, pressed && styles.pressedDim]}
         >
-          {img}
+          {petContent}
         </Pressable>
       );
     }
 
     return (
       <Animated.View {...animalHandlers} style={baseStyle}>
-        {img}
+        {petContent}
       </Animated.View>
     );
   };
@@ -222,5 +277,13 @@ const styles = StyleSheet.create({
   fill: { flex: 1, width: "100%", position: "relative" },
   abs: { position: "absolute", justifyContent: "center", alignItems: "center" },
   img: { width: "100%", height: "100%" },
+  petShadow: {
+    position: "absolute",
+    bottom: -6,
+    alignSelf: "center",
+    height: 18,
+    borderRadius: 999,
+    backgroundColor: "rgba(0,0,0,0.18)",
+  },
   pressedDim: { opacity: 0.85 },
 });
