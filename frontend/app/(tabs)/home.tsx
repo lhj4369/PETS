@@ -1,12 +1,11 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   ActivityIndicator,
   Animated,
   Image,
-  ImageBackground,
   ImageSourcePropType,
-  InteractionManager,
   Modal,
+  PanResponder,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -29,9 +28,11 @@ import RankingButton from "../../components/RankingButton";
 import { useSettingsModal } from "../../context/SettingsModalContext";
 import QuestModal from "../../components/QuestModal";
 import ItemModal from "../../components/ItemModal";
+import HomePlayScene from "../../components/HomePlayScene";
 import { useCustomization, DEFAULT_ANIMAL_IMAGE, DEFAULT_BACKGROUND_IMAGE } from "../../context/CustomizationContext";
 import { APP_COLORS } from "../../constants/theme";
 import { getBackgroundTypeFromImage, getClockTypeFromImage, getBackgroundImageFromType, getClockImageFromType } from "../../utils/customizationUtils";
+import { parseHomeLayout, getHouseOverlaySource, FLOOR_PLACE_RATIO } from "../../utils/homeLayout";
 
 // 홈/하단 메뉴 아이콘 – home-icons 폴더의 AI 커스텀 이미지 사용
 // 상단 메뉴용 (퀘스트 / AI CHAT / 랭킹)
@@ -59,6 +60,9 @@ const HOME_ICONS = {
   settings: HOME_SETTING_ICON,
 };
 
+/** 홈 메인 캐릭터를 좌우로 쓰다듬을 때 표시 */
+const STROKE_DOG_IMAGE = require("../../assets/images/stroke/stroke_dog.png");
+
 const ANIMAL_OPTIONS = [
   { id: "dog", label: "강아지", image: require("../../assets/images/animals/dog.png") },
   { id: "capybara", label: "카피바라", image: require("../../assets/images/animals/capibara.png") },
@@ -84,6 +88,7 @@ type ProfileResponse = {
     concentration?: number | null;
     backgroundType?: string | null;
     clockType?: string | null;
+    homeLayout?: unknown;
   } | null;
 };
 
@@ -103,6 +108,7 @@ const HomeScreen = () => {
   const [showItemModal, setShowItemModal] = useState(false);
   const [showExpDetailModal, setShowExpDetailModal] = useState(false);
   const petScaleAnim = useRef(new Animated.Value(1)).current;
+  const [isPetStroking, setIsPetStroking] = useState(false);
   const { openSettings } = useSettingsModal();
 
   const [selectedAnimalId, setSelectedAnimalId] = useState<AnimalId | null>(null);
@@ -116,7 +122,7 @@ const HomeScreen = () => {
   const [agility, setAgility] = useState(0);
   const [stamina, setStamina] = useState(0);
   const [concentration, setConcentration] = useState(0);
-  const { selectedAnimal, selectedBackground, selectedClock, setCustomization, loadCustomizationFromServer } = useCustomization();
+  const { selectedAnimal, selectedBackground, selectedClock, setCustomization, loadCustomizationFromServer, homeLayout, setHomeLayout } = useCustomization();
 
   const getAnimalImage = (animalId: AnimalId | null): ImageSourcePropType => {
     if (!animalId) return DEFAULT_ANIMAL_IMAGE;
@@ -124,7 +130,7 @@ const HomeScreen = () => {
     return animal?.image ?? DEFAULT_ANIMAL_IMAGE;
   };
 
-  const petSize = Math.min(220, screenWidth * 0.55);
+  const petSize = Math.min(178, screenWidth * 0.43);
   const rightIconSize = Math.max(68, Math.min(76, screenWidth * 0.17));
   const bottomIconSize = 84;
 
@@ -166,8 +172,9 @@ const HomeScreen = () => {
         if (hasAnimal) {
           const animalImage = getAnimalImage(animalType);
           setCustomization(animalImage, serverBackground, serverClock);
+          setHomeLayout(parseHomeLayout(data.profile?.homeLayout));
         } else {
-          loadCustomizationFromServer(data.profile?.backgroundType, data.profile?.clockType);
+          loadCustomizationFromServer(data.profile?.backgroundType, data.profile?.clockType, data.profile?.homeLayout);
         }
         setShowAnimalModal(!hasAnimal);
         setShowProfileModal(hasAnimal && !hasNickname);
@@ -191,7 +198,7 @@ const HomeScreen = () => {
     } finally {
       setIsLoadingProfile(false);
     }
-  }, [setCustomization, loadCustomizationFromServer]);
+  }, [setCustomization, loadCustomizationFromServer, setHomeLayout]);
 
   useFocusEffect(useCallback(() => { fetchProfile(); }, [fetchProfile]));
 
@@ -235,6 +242,7 @@ const HomeScreen = () => {
       weight: weight ? Number(weight) : null,
       backgroundType,
       clockType,
+      homeLayout,
     };
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
@@ -277,20 +285,50 @@ const HomeScreen = () => {
     setShowAnimalConfirm(false);
   };
 
-  const onPetPress = () => {
-    Animated.sequence([
-      Animated.timing(petScaleAnim, { toValue: 1.08, duration: 80, useNativeDriver: true }),
-      Animated.timing(petScaleAnim, { toValue: 1, duration: 120, useNativeDriver: true }),
-    ]).start();
-    navigateToCustomize();
-  };
+  const petPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderMove: (_, g) => {
+          if (Math.abs(g.dx) > 8) setIsPetStroking(true);
+        },
+        onPanResponderRelease: (_, g) => {
+          setIsPetStroking(false);
+          const tap = Math.abs(g.dx) < 10 && Math.abs(g.dy) < 10;
+          if (tap) {
+            Animated.sequence([
+              Animated.timing(petScaleAnim, { toValue: 1.08, duration: 80, useNativeDriver: true }),
+              Animated.timing(petScaleAnim, { toValue: 1, duration: 120, useNativeDriver: true }),
+            ]).start();
+          }
+        },
+        onPanResponderTerminate: () => setIsPetStroking(false),
+      }),
+    [petScaleAnim],
+  );
+
+  const mainPetImage = isPetStroking ? STROKE_DOG_IMAGE : (selectedAnimal ?? DEFAULT_ANIMAL_IMAGE);
 
   const currentExp = Math.max(0, experience - (level - 1) * EXP_PER_LEVEL);
   const expProgress = Math.min(1, currentExp / EXP_PER_LEVEL);
   const nextLevelExp = EXP_PER_LEVEL;
 
+  const houseOverlay = useMemo(
+    () => getHouseOverlaySource(homeLayout.houseType),
+    [homeLayout.houseType],
+  );
+
   return (
-    <ImageBackground source={selectedBackground ?? DEFAULT_BACKGROUND_IMAGE} style={styles.background} resizeMode="cover">
+    <View style={styles.background}>
+      <Image
+        source={selectedBackground ?? DEFAULT_BACKGROUND_IMAGE}
+        style={styles.fullBleedLayer}
+        resizeMode="stretch"
+      />
+      {houseOverlay ? (
+        <Image source={houseOverlay} style={styles.fullBleedLayer} resizeMode="stretch" />
+      ) : null}
       <SafeAreaView style={styles.safeArea}>
         {isLoadingProfile && (
           <View style={styles.loadingOverlay}>
@@ -360,11 +398,15 @@ const HomeScreen = () => {
 
         {/* 메인: 캐릭터 + 우측 세로 버튼 3개 + 햄버거 */}
         <View style={styles.mainArea}>
-          <TouchableOpacity activeOpacity={1} onPress={onPetPress} style={styles.petTouchArea}>
-            <Animated.View style={[styles.petWrap, { transform: [{ scale: petScaleAnim }] }]}>
-              <Image source={selectedAnimal ?? DEFAULT_ANIMAL_IMAGE} style={[styles.petImage, { width: petSize, height: petSize }]} resizeMode="contain" />
-            </Animated.View>
-          </TouchableOpacity>
+          <View style={[styles.floorPlaceSlot, { height: `${FLOOR_PLACE_RATIO * 100}%` }]}>
+            <HomePlayScene
+              layout={homeLayout}
+              animalSource={mainPetImage}
+              petSize={petSize}
+              petPanHandlers={petPanResponder.panHandlers}
+              petScaleAnim={petScaleAnim}
+            />
+          </View>
 
           {/* 우측 세로 배치: 퀘스트 / 채팅 / 랭킹 (메뉴명 원 안 아래, 아이콘과 약간 겹침) */}
           <View style={[styles.rightFloatingColumn, { top: 16 }]}>
@@ -499,7 +541,7 @@ const HomeScreen = () => {
         <QuestModal visible={showQuestModal} onClose={() => setShowQuestModal(false)} onProfileRefresh={fetchProfile} />
         <ItemModal visible={showItemModal} onClose={() => setShowItemModal(false)} />
       </SafeAreaView>
-    </ImageBackground>
+    </View>
   );
 };
 
@@ -516,7 +558,13 @@ const pastel = {
 };
 
 const styles = StyleSheet.create({
-  background: { flex: 1, width: "100%", height: "100%" },
+  background: { flex: 1, width: "100%", height: "100%", backgroundColor: "#FFF8E1" },
+  fullBleedLayer: {
+    ...StyleSheet.absoluteFillObject,
+    width: "100%",
+    height: "100%",
+    ...(Platform.OS === "web" && ({ objectPosition: "center center" } as object)),
+  },
   safeArea: { flex: 1, backgroundColor: "transparent" },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -710,6 +758,8 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     alignItems: "center",
     gap: 8,
+    zIndex: 6,
+    elevation: 6,
   },
   rightFloatingBtn: {
     width: 52,
@@ -787,10 +837,15 @@ const styles = StyleSheet.create({
     borderColor: pastel.lavender,
   },
   topIcon: {},
-  mainArea: { flex: 1, justifyContent: "center", alignItems: "center" },
-  petTouchArea: { justifyContent: "center", alignItems: "center" },
-  petWrap: {},
-  petImage: {},
+  mainArea: { flex: 1, width: "100%", position: "relative" },
+  /** 방 바닥에 해당하는 하단 영역만 드래그·배치 가능 */
+  floorPlaceSlot: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+  },
   bottomBarWrapper: {
     width: "100%",
   },

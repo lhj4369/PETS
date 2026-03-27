@@ -9,6 +9,46 @@ dotenv.config();
 
 const router = express.Router();
 
+const DECORATION_IDS = ['bench', 'dumbbell', 'treadmill'];
+
+function clampNum(x, lo, hi) {
+  if (typeof x !== 'number' || Number.isNaN(x)) return (lo + hi) / 2;
+  return Math.min(hi, Math.max(lo, x));
+}
+
+/** 클라이언트에서 보낸 홈 레이아웃 JSON 검증 */
+function sanitizeHomeLayout(input) {
+  if (input == null) return null;
+  try {
+    const o = typeof input === 'string' ? JSON.parse(input) : input;
+    if (!o || typeof o !== 'object') return null;
+    if (!o.animal || typeof o.animal !== 'object') return null;
+    const ax = clampNum(o.animal.x, 0, 1);
+    const ay = clampNum(o.animal.y, 0, 1);
+    const decs = [];
+    const seen = new Set();
+    const MAX_DECORATIONS = 2;
+    if (Array.isArray(o.decorations)) {
+      for (const d of o.decorations) {
+        if (decs.length >= MAX_DECORATIONS) break;
+        if (!d || typeof d !== 'object') continue;
+        if (!DECORATION_IDS.includes(d.id)) continue;
+        if (seen.has(d.id)) continue;
+        seen.add(d.id);
+        decs.push({
+          id: d.id,
+          x: clampNum(d.x, 0, 1),
+          y: clampNum(d.y, 0, 1),
+        });
+      }
+    }
+    const houseType = o.houseType === 'standard' ? 'standard' : 'none';
+    return { animal: { x: ax, y: ay }, decorations: decs, houseType };
+  } catch {
+    return null;
+  }
+}
+
 // 회원가입 API
 router.post('/register', async (req, res) => {
     try {
@@ -64,7 +104,7 @@ router.post('/login', async (req, res) => {
     );
 
     const [profileRows] = await db.query(
-      'SELECT animal_type AS animalType, nickname, height, weight, level, experience, strength, agility, stamina, concentration, background_type AS backgroundType, clock_type AS clockType FROM user_profiles WHERE user_id = ? LIMIT 1',
+      'SELECT animal_type AS animalType, nickname, height, weight, level, experience, strength, agility, stamina, concentration, background_type AS backgroundType, clock_type AS clockType, home_layout AS homeLayout FROM user_profiles WHERE user_id = ? LIMIT 1',
       [account.id]
     );
 
@@ -176,7 +216,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     );
 
     const [profileRows] = await db.query(
-      'SELECT animal_type AS animalType, nickname, height, weight, level, experience, strength, agility, stamina, concentration, background_type AS backgroundType, clock_type AS clockType FROM user_profiles WHERE user_id = ? LIMIT 1',
+      'SELECT animal_type AS animalType, nickname, height, weight, level, experience, strength, agility, stamina, concentration, background_type AS backgroundType, clock_type AS clockType, home_layout AS homeLayout FROM user_profiles WHERE user_id = ? LIMIT 1',
       [req.user.id]
     );
 
@@ -233,7 +273,7 @@ router.post('/google', async (req, res) => {
 
     // 프로필 정보 조회
     const [profileRows] = await db.query(
-      'SELECT animal_type AS animalType, nickname, height, weight, level, experience, strength, agility, stamina, concentration, background_type AS backgroundType, clock_type AS clockType FROM user_profiles WHERE user_id = ? LIMIT 1',
+      'SELECT animal_type AS animalType, nickname, height, weight, level, experience, strength, agility, stamina, concentration, background_type AS backgroundType, clock_type AS clockType, home_layout AS homeLayout FROM user_profiles WHERE user_id = ? LIMIT 1',
       [account.id]
     );
 
@@ -256,7 +296,7 @@ router.post('/google', async (req, res) => {
 // 사용자 프로필 생성/업데이트
 router.post('/profile', authMiddleware, async (req, res) => {
   try {
-    const { animalType, nickname, height, weight, backgroundType, clockType } = req.body;
+    const { animalType, nickname, height, weight, backgroundType, clockType, homeLayout: homeLayoutBody } = req.body;
     const allowedAnimals = ['dog', 'capybara', 'fox', 'red_panda', 'guinea_pig'];
     const allowedBackgrounds = ['home', 'spring', 'summer', 'fall', 'winter', 'city', 'city_1', 'healthclub'];
     const allowedClocks = ['cute', 'alarm', 'sand', 'mini'];
@@ -279,20 +319,36 @@ router.post('/profile', authMiddleware, async (req, res) => {
     // 배경과 시계 타입 검증 (선택사항)
     const validBackgroundType = backgroundType && allowedBackgrounds.includes(backgroundType) ? backgroundType : 'home';
     const validClockType = clockType && allowedClocks.includes(clockType) ? clockType : 'alarm';
+    const homeLayoutJson =
+      homeLayoutBody !== undefined ? sanitizeHomeLayout(homeLayoutBody) : undefined;
 
     const [existing] = await db.query('SELECT id FROM user_profiles WHERE user_id = ?', [req.user.id]);
 
     if (existing.length > 0) {
-      await db.query(
-        'UPDATE user_profiles SET animal_type = ?, nickname = ?, height = ?, weight = ?, background_type = ?, clock_type = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
-        [animalType, nickname, numericHeight, numericWeight, validBackgroundType, validClockType, req.user.id]
-      );
+      if (homeLayoutJson !== undefined && homeLayoutJson !== null) {
+        await db.query(
+          'UPDATE user_profiles SET animal_type = ?, nickname = ?, height = ?, weight = ?, background_type = ?, clock_type = ?, home_layout = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
+          [animalType, nickname, numericHeight, numericWeight, validBackgroundType, validClockType, JSON.stringify(homeLayoutJson), req.user.id]
+        );
+      } else {
+        await db.query(
+          'UPDATE user_profiles SET animal_type = ?, nickname = ?, height = ?, weight = ?, background_type = ?, clock_type = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
+          [animalType, nickname, numericHeight, numericWeight, validBackgroundType, validClockType, req.user.id]
+        );
+      }
     } else {
       // 프로필 생성 시 스탯 초기화: 레벨 1, 경험치 0, 힘 0, 민첩 0
-      await db.query(
-        'INSERT INTO user_profiles (user_id, animal_type, nickname, height, weight, level, experience, strength, agility, stamina, concentration, background_type, clock_type) VALUES (?, ?, ?, ?, ?, 1, 0, 0, 0, 0, 0, ?, ?)',
-        [req.user.id, animalType, nickname, numericHeight, numericWeight, validBackgroundType, validClockType]
-      );
+      if (homeLayoutJson !== undefined && homeLayoutJson !== null) {
+        await db.query(
+          'INSERT INTO user_profiles (user_id, animal_type, nickname, height, weight, level, experience, strength, agility, stamina, concentration, background_type, clock_type, home_layout) VALUES (?, ?, ?, ?, ?, 1, 0, 0, 0, 0, 0, ?, ?, ?)',
+          [req.user.id, animalType, nickname, numericHeight, numericWeight, validBackgroundType, validClockType, JSON.stringify(homeLayoutJson)]
+        );
+      } else {
+        await db.query(
+          'INSERT INTO user_profiles (user_id, animal_type, nickname, height, weight, level, experience, strength, agility, stamina, concentration, background_type, clock_type) VALUES (?, ?, ?, ?, ?, 1, 0, 0, 0, 0, 0, ?, ?)',
+          [req.user.id, animalType, nickname, numericHeight, numericWeight, validBackgroundType, validClockType]
+        );
+      }
     }
 
     res.json({ message: '프로필이 저장되었습니다.' });
@@ -302,10 +358,10 @@ router.post('/profile', authMiddleware, async (req, res) => {
   }
 });
 
-// 커스터마이징 정보만 업데이트 (동물, 배경, 시계)
+// 커스터마이징 정보만 업데이트 (동물, 배경, 시계, 홈 레이아웃)
 router.post('/customization', authMiddleware, async (req, res) => {
   try {
-    const { animalType, backgroundType, clockType } = req.body;
+    const { animalType, backgroundType, clockType, homeLayout: homeLayoutBody } = req.body;
     const allowedAnimals = ['dog', 'capybara', 'fox', 'red_panda', 'guinea_pig'];
     const allowedBackgrounds = ['home', 'spring', 'summer', 'fall', 'winter', 'city', 'city_1', 'healthclub'];
     const allowedClocks = ['cute', 'alarm', 'sand', 'mini'];
@@ -337,6 +393,14 @@ router.post('/customization', authMiddleware, async (req, res) => {
     if (validClockType) {
       updateFields.push('clock_type = ?');
       updateValues.push(validClockType);
+    }
+
+    if (homeLayoutBody !== undefined) {
+      const hl = sanitizeHomeLayout(homeLayoutBody);
+      if (hl) {
+        updateFields.push('home_layout = ?');
+        updateValues.push(JSON.stringify(hl));
+      }
     }
 
     if (updateFields.length === 0) {

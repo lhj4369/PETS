@@ -36,6 +36,7 @@ import HeartRateCamera from "../../components/HeartRateCamera";
 import { useCustomization } from "../../context/CustomizationContext";
 import { useFocusEffect } from "@react-navigation/native";
 import { getClockImageFromType } from "../../utils/customizationUtils";
+import { appendDecorationBonuses } from "../../utils/decorationBonuses";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WorkoutLocationTracker } from "../../utils/WorkoutLocationTracker";
 import LocationMapModal from "../../components/LocationMapModal";
@@ -121,7 +122,7 @@ export default function TimerScreen() {
   const workoutStartTimeRef = useRef<number | null>(null);
   const [animalType, setAnimalType] = useState<string | null>("dog");
   const timer = useWorkoutTimer();
-  const { loadCustomizationFromServer } = useCustomization();
+  const { loadCustomizationFromServer, homeLayout } = useCustomization();
   const locationTrackerRef = useRef<WorkoutLocationTracker | null>(null);
   const [aerobicWorkoutMode, setAerobicWorkoutMode] = useState<'outdoor' | 'gym' | null>(null);
   const [selectedGym, setSelectedGym] = useState<{
@@ -146,7 +147,7 @@ export default function TimerScreen() {
           const response = await fetch(`${API_BASE_URL}/api/auth/me`, { headers });
           if (response.ok) {
             const data = await response.json();
-            loadCustomizationFromServer(data.profile?.backgroundType, data.profile?.clockType);
+            loadCustomizationFromServer(data.profile?.backgroundType, data.profile?.clockType, data.profile?.homeLayout);
             setAnimalType(data.profile?.animalType ?? "dog");
           }
         } catch (error) {
@@ -760,6 +761,9 @@ export default function TimerScreen() {
       : summaryData.mode === "weight" ? "웨이트"
       : "인터벌";
 
+    const placedDecorIds = homeLayout.decorations.map((d) => d.id);
+    const statsWithDecor = appendDecorationBonuses(summaryData.stats, summaryData.mode, placedDecorIds);
+
     const payload = {
       workoutDate: today,
       workoutType,
@@ -767,7 +771,7 @@ export default function TimerScreen() {
       heartRate: summaryData.heartRate,
       hasReward,
       notes: null,
-      stats: summaryData.stats, // 스탯 정보 전송
+      stats: statsWithDecor,
     };
     
     // 유효성 검사
@@ -1071,7 +1075,6 @@ function TimerLanding({
   const isWeight = mode === "weight";
   const isInterval = mode === "interval";
 
-  const { selectedClock } = useCustomization();
   const insets = useSafeAreaInsets();
 
   return (
