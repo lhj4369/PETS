@@ -13,6 +13,7 @@ import {
 } from "../context/NavigatorVisibilityContext";
 import { ENABLE_NAVIGATOR } from "../config/navigator";
 import { View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 function RootOverlays() {
   const { isVisible } = useNavigatorVisibility();
@@ -67,21 +68,23 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <CustomizationProvider>
-        <SettingsModalProvider>
-          <NavigatorVisibilityProvider>
-            <View style={{ flex: 1 }}>
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                }}
-              />
-              <RootOverlays />
-            </View>
-          </NavigatorVisibilityProvider>
-        </SettingsModalProvider>
-      </CustomizationProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <CustomizationProvider>
+          <SettingsModalProvider>
+            <NavigatorVisibilityProvider>
+              <View style={{ flex: 1 }}>
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                  }}
+                />
+                <RootOverlays />
+              </View>
+            </NavigatorVisibilityProvider>
+          </SettingsModalProvider>
+        </CustomizationProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
