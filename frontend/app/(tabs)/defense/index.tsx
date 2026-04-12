@@ -1,16 +1,25 @@
-import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  useWindowDimensions,
+  Alert,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import HomeButton from "../../../components/HomeButton";
 import { APP_COLORS } from "../../../constants/theme";
+import { DEFENSE_CHALLENGE_MODE_LOCKED } from "../../../data/defenseStub";
 
 /**
- * 집 지키기 진입 — 모드 선택 (시나리오 / 도전).
+ * 디펜스 모드 선택 (시나리오 / 도전).
  */
 export default function DefenseIndexScreen() {
   const { height: windowHeight } = useWindowDimensions();
-  const modeCardRowHeight = Math.min(292, Math.max(224, Math.round(windowHeight * 0.32)));
+  /** 기존 대비 ~1.35–1.45배 — 하단 여밉 완화·시각적 균형 */
+  const modeCardRowHeight = Math.min(460, Math.max(350, Math.round(windowHeight * 0.46)));
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
@@ -18,8 +27,8 @@ export default function DefenseIndexScreen() {
 
       <View style={styles.pickRoot}>
         <View style={styles.pickHeader}>
-          <Text style={styles.title}>집 지키기</Text>
-          <Text style={styles.pickHint}>플레이할 모드를 선택해 주세요</Text>
+          <Text style={styles.titleHero}>디펜스!</Text>
+          <Text style={styles.titleSub}>PETS 방범대</Text>
         </View>
 
         <View style={styles.modeCardsWrap}>
@@ -30,25 +39,59 @@ export default function DefenseIndexScreen() {
               activeOpacity={0.85}
             >
               <View style={styles.modeCardIconCircle}>
-                <Ionicons name="book-outline" size={36} color={APP_COLORS.brown} />
+                <Ionicons name="book-outline" size={44} color={APP_COLORS.brown} />
               </View>
               <Text style={styles.modeCardTitle}>시나리오</Text>
-              <Text style={styles.modeCardDesc}>
-                스테이지를 순서대로 진행하는 캠페인 모드
+              <Text
+                style={styles.modeCardHint}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.82}
+              >
+                적을 물리치세요
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.modeCard, styles.modeCardChallenge]}
-              onPress={() => router.push("/(tabs)/defense/challenge" as any)}
-              activeOpacity={0.85}
+              style={[
+                styles.modeCard,
+                styles.modeCardChallenge,
+                DEFENSE_CHALLENGE_MODE_LOCKED && styles.modeCardChallengeLocked,
+              ]}
+              onPress={() => {
+                if (DEFENSE_CHALLENGE_MODE_LOCKED) {
+                  Alert.alert("잠금", "도전 모드는 준비 중입니다.");
+                  return;
+                }
+                router.push("/(tabs)/defense/challenge" as any);
+              }}
+              activeOpacity={DEFENSE_CHALLENGE_MODE_LOCKED ? 1 : 0.85}
             >
               <View style={[styles.modeCardIconCircle, styles.modeCardIconCircleAlt]}>
-                <Ionicons name="trophy-outline" size={36} color={APP_COLORS.brown} />
+                <Ionicons
+                  name={DEFENSE_CHALLENGE_MODE_LOCKED ? "lock-closed" : "trophy-outline"}
+                  size={44}
+                  color={DEFENSE_CHALLENGE_MODE_LOCKED ? APP_COLORS.brownLight : APP_COLORS.brown}
+                />
               </View>
-              <Text style={styles.modeCardTitle}>도전</Text>
-              <Text style={styles.modeCardDesc}>
-                한계에 도전하는 도전 모드
+              <Text
+                style={[
+                  styles.modeCardTitle,
+                  DEFENSE_CHALLENGE_MODE_LOCKED && styles.modeCardTitleMuted,
+                ]}
+              >
+                도전
+              </Text>
+              <Text
+                style={[
+                  styles.modeCardHint,
+                  DEFENSE_CHALLENGE_MODE_LOCKED && styles.modeCardHintMuted,
+                ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.82}
+              >
+                {DEFENSE_CHALLENGE_MODE_LOCKED ? "추후 오픈 예정" : "한계에 도전"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -70,24 +113,30 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   pickHeader: {
-    marginBottom: 16,
+    marginBottom: 12,
+    paddingRight: 58,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
+  titleHero: {
+    fontSize: 36,
+    fontWeight: "800",
     color: APP_COLORS.brown,
     fontFamily: "KotraHope",
-    marginBottom: 8,
+    lineHeight: 42,
+    letterSpacing: 0.5,
+    marginBottom: 6,
   },
-  pickHint: {
-    fontSize: 17,
+  titleSub: {
+    fontSize: 19,
+    fontWeight: "700",
     color: APP_COLORS.brownLight,
     fontFamily: "KotraHope",
+    letterSpacing: 0.3,
   },
   modeCardsWrap: {
     flex: 1,
     justifyContent: "center",
-    paddingVertical: 20,
+    paddingVertical: 8,
+    paddingBottom: 32,
   },
   modeCards: {
     flexDirection: "row",
@@ -98,8 +147,8 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     borderRadius: 24,
-    paddingVertical: 18,
-    paddingHorizontal: 14,
+    paddingVertical: 28,
+    paddingHorizontal: 12,
     borderWidth: 3,
     justifyContent: "center",
     alignItems: "center",
@@ -112,14 +161,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8F5F0",
     borderColor: "#7CB8A8",
   },
+  modeCardChallengeLocked: {
+    opacity: 0.78,
+    backgroundColor: "#D5E8E0",
+    borderColor: "#9BBFB3",
+  },
+  modeCardTitleMuted: {
+    color: APP_COLORS.brownLight,
+  },
   modeCardIconCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
     backgroundColor: "rgba(255,255,255,0.85)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: 16,
     borderWidth: 2,
     borderColor: APP_COLORS.ivoryDark,
   },
@@ -127,19 +184,25 @@ const styles = StyleSheet.create({
     borderColor: "#B8E0D2",
   },
   modeCardTitle: {
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: "800",
     color: APP_COLORS.brown,
     fontFamily: "KotraHope",
-    marginBottom: 8,
     textAlign: "center",
+    marginBottom: 6,
   },
-  modeCardDesc: {
+  modeCardHint: {
     fontSize: 13,
-    lineHeight: 19,
+    fontWeight: "600",
     color: APP_COLORS.brownLight,
     fontFamily: "KotraHope",
     textAlign: "center",
+    lineHeight: 18,
     paddingHorizontal: 2,
+    width: "100%",
+    maxWidth: "100%",
+  },
+  modeCardHintMuted: {
+    opacity: 0.92,
   },
 });
