@@ -40,6 +40,7 @@ import {
 } from "../../utils/homeLayout";
 import AuthManager from "../../utils/AuthManager";
 import API_BASE_URL from "../../config/api";
+import { useSession } from "../../context/SessionContext";
 
 const THEME_YELLOW = "#FFD54F";
 const THEME_CREAM = "#FFF8E1";
@@ -54,8 +55,8 @@ const ANIMALS = [
 ] as const;
 
 const BACKGROUNDS: { name: string; src: ImageSourcePropType; type: string }[] = [
-  { name: "기본", src: require("../../assets/images/background/home.png"), type: "home" },
   { name: "봄", src: require("../../assets/images/background/spring.png"), type: "spring" },
+  { name: "집", src: require("../../assets/images/background/home.png"), type: "home" },
   { name: "여름", src: require("../../assets/images/background/summer.png"), type: "summer" },
   { name: "도시", src: require("../../assets/images/background/city.png"), type: "city" },
   { name: "도시2", src: require("../../assets/images/background/city-1.png"), type: "city_1" },
@@ -66,20 +67,21 @@ const BACKGROUNDS: { name: string; src: ImageSourcePropType; type: string }[] = 
 
 const DECORATION_IDS: DecorationId[] = ["bench", "dumbbell", "treadmill"];
 
+/** 집: '없음' 제거 — 기본(standard)만 선택 가능 */
+const HOUSE_OPTIONS: { id: HouseType; label: string; thumb: ImageSourcePropType }[] = [
+  { id: "standard", label: "기본", thumb: STANDARD_HOUSE_IMAGE },
+];
+
 function cloneLayout(layout: HomeLayout): HomeLayout {
   return {
     animal: { ...layout.animal },
     decorations: layout.decorations.map((d) => ({ ...d })),
-    houseType: layout.houseType ?? "none",
+    houseType: "standard",
   };
 }
 
-const HOUSE_OPTIONS: { id: HouseType; label: string; thumb: ImageSourcePropType | null }[] = [
-  { id: "none", label: "없음", thumb: null },
-  { id: "standard", label: "기본", thumb: STANDARD_HOUSE_IMAGE },
-];
-
 export default function CustomizeScreen() {
+  const { isUnlocked, isMaster } = useSession();
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const {
@@ -100,13 +102,21 @@ export default function CustomizeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      setDraftLayout(cloneLayout(homeLayout));
+      const base = cloneLayout(homeLayout);
+      const layoutFiltered =
+        !isMaster
+          ? {
+              ...base,
+              decorations: base.decorations.filter((d) => isUnlocked(`decor:${d.id}`)),
+            }
+          : base;
+      setDraftLayout(layoutFiltered);
       setDraftAnimalId(selectedAnimalId ?? "dog");
       setDraftBg(selectedBackground ?? DEFAULT_BACKGROUND_IMAGE);
       setPlacementTarget(null);
       setSheet(null);
       setDecorDetail(null);
-    }, [homeLayout, selectedAnimalId, selectedBackground])
+    }, [homeLayout, selectedAnimalId, selectedBackground, isMaster, isUnlocked])
   );
 
   const petSize = Math.min(178, screenWidth * 0.43);
@@ -118,7 +128,7 @@ export default function CustomizeScreen() {
 
   const placementValid = !layoutHasOverlap(draftLayout);
   const currentBgType = getBackgroundTypeFromImage(draftBg);
-  const draftHouseType = draftLayout.houseType ?? "none";
+  const draftHouseType = draftLayout.houseType ?? "standard";
   const houseOverlay = getHouseOverlaySource(draftHouseType);
 
   const sheetHeight = Math.min(screenHeight * 0.52, 420);
@@ -158,10 +168,15 @@ export default function CustomizeScreen() {
   }, []);
 
   const selectAnimal = (id: string) => {
+    if (!isMaster && !isUnlocked(`animal:${id}`)) {
+      Alert.alert("잠김", "업적·퀘스트 보상으로 해금된 동물만 선택할 수 있어요.");
+      return;
+    }
     setDraftAnimalId(id);
     setDraftLayout((prev) => ({
       ...prev,
       animal: { x: 0.5, y: 0.58 },
+      houseType: "standard",
     }));
     setPlacementTarget("animal");
     closeSheetAnimated();
@@ -186,6 +201,10 @@ export default function CustomizeScreen() {
   }, []);
 
   const startPlaceDecoration = (id: DecorationId) => {
+    if (!isMaster && !isUnlocked(`decor:${id}`)) {
+      Alert.alert("잠김", "업적·퀘스트 보상으로 해금된 장식품만 배치할 수 있어요.");
+      return;
+    }
     if (!canPlaceNewDecoration(id)) {
       Alert.alert("안내", `장식품은 최대 ${MAX_DECORATIONS}개까지 배치할 수 있어요.`);
       return;
@@ -217,7 +236,8 @@ export default function CustomizeScreen() {
     setIsLoading(true);
     const clockImg = getClockImageFromType("alarm");
     setCustomization(animalData.src, draftBg, clockImg, draftAnimalId);
-    setHomeLayout(draftLayout);
+    const layoutToSave: HomeLayout = { ...draftLayout, houseType: "standard" };
+    setHomeLayout(layoutToSave);
 
     try {
       const headers = await AuthManager.getAuthHeader();
@@ -234,7 +254,7 @@ export default function CustomizeScreen() {
           animalType: draftAnimalId,
           backgroundType: getBackgroundTypeFromImage(draftBg),
           clockType: "alarm",
-          homeLayout: draftLayout,
+          homeLayout: layoutToSave,
         }),
       });
       const data = await response.json();
@@ -379,17 +399,35 @@ export default function CustomizeScreen() {
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetScroll}>
                 <Text style={styles.sheetTitle}>동물 선택</Text>
                 <View style={styles.grid}>
-                  {ANIMALS.map((a) => (
-                    <TouchableOpacity
-                      key={a.id}
-                      style={[styles.optionItem, draftAnimalId === a.id && styles.optionSelected]}
-                      onPress={() => selectAnimal(a.id)}
-                      activeOpacity={0.8}
-                    >
-                      <Image source={a.src} style={styles.optImg} resizeMode="contain" />
-                      <Text style={styles.optLabel}>{a.label}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  {ANIMALS.map((a) => {
+                    const locked = !isMaster && !isUnlocked(`animal:${a.id}`);
+                    return (
+                      <TouchableOpacity
+                        key={a.id}
+                        style={[
+                          styles.optionItem,
+                          draftAnimalId === a.id && styles.optionSelected,
+                          locked && styles.optionLocked,
+                        ]}
+                        onPress={() => selectAnimal(a.id)}
+                        activeOpacity={0.8}
+                      >
+                        <View style={styles.optImgWrap}>
+                          <Image
+                            source={a.src}
+                            style={[styles.optImg, locked && styles.optImgDimmed]}
+                            resizeMode="contain"
+                          />
+                          {locked ? (
+                            <View style={styles.optLockOverlay}>
+                              <Text style={styles.optLockIcon}>🔒</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <Text style={[styles.optLabel, locked && styles.optLabelLocked]}>{a.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </ScrollView>
             )}
@@ -397,20 +435,42 @@ export default function CustomizeScreen() {
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetScroll}>
                 <Text style={styles.sheetTitle}>배경 선택</Text>
                 <View style={styles.grid}>
-                  {BACKGROUNDS.map((bg) => (
-                    <TouchableOpacity
-                      key={bg.name}
-                      style={[styles.optionItem, currentBgType === bg.type && styles.optionSelected]}
-                      onPress={() => {
-                        setDraftBg(bg.src);
-                        closeSheetAnimated();
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Image source={bg.src} style={styles.bgThumb} resizeMode="cover" />
-                      <Text style={styles.optLabel}>{bg.name}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  {BACKGROUNDS.map((bg) => {
+                    const locked = !isMaster && !isUnlocked(`bg:${bg.type}`);
+                    return (
+                      <TouchableOpacity
+                        key={bg.name}
+                        style={[
+                          styles.optionItem,
+                          currentBgType === bg.type && styles.optionSelected,
+                          locked && styles.optionLocked,
+                        ]}
+                        onPress={() => {
+                          if (locked) {
+                            Alert.alert("잠김", "업적·퀘스트 보상으로 해금된 배경만 선택할 수 있어요.");
+                            return;
+                          }
+                          setDraftBg(bg.src);
+                          closeSheetAnimated();
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <View style={styles.bgThumbWrap}>
+                          <Image
+                            source={bg.src}
+                            style={[styles.bgThumb, locked && styles.optImgDimmed]}
+                            resizeMode="cover"
+                          />
+                          {locked ? (
+                            <View style={styles.optLockOverlay}>
+                              <Text style={styles.optLockIcon}>🔒</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <Text style={[styles.optLabel, locked && styles.optLabelLocked]}>{bg.name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </ScrollView>
             )}
@@ -419,26 +479,43 @@ export default function CustomizeScreen() {
                 <Text style={styles.sheetTitle}>집 선택</Text>
                 <Text style={styles.sheetHint}>창문 뒤 배경은 집 PNG의 창 영역을 투명(알파)으로 두면 보입니다.</Text>
                 <View style={styles.grid}>
-                  {HOUSE_OPTIONS.map((h) => (
-                    <TouchableOpacity
-                      key={h.id}
-                      style={[styles.optionItem, draftHouseType === h.id && styles.optionSelected]}
-                      onPress={() => {
-                        setDraftLayout((prev) => ({ ...prev, houseType: h.id }));
-                        closeSheetAnimated();
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      {h.thumb ? (
-                        <Image source={h.thumb} style={styles.bgThumb} resizeMode="cover" />
-                      ) : (
-                        <View style={styles.houseNoneThumb}>
-                          <Text style={styles.houseNoneThumbText}>—</Text>
+                  {HOUSE_OPTIONS.map((h) => {
+                    const houseLocked = !isMaster && !isUnlocked("house:standard");
+                    const selected = draftHouseType === h.id;
+                    return (
+                      <TouchableOpacity
+                        key={h.id}
+                        style={[
+                          styles.optionItem,
+                          selected && styles.optionSelected,
+                          houseLocked && styles.optionLocked,
+                        ]}
+                        onPress={() => {
+                          if (houseLocked) {
+                            Alert.alert("잠김", "업적·퀘스트 보상으로 해금된 집만 선택할 수 있어요.");
+                            return;
+                          }
+                          setDraftLayout((prev) => ({ ...prev, houseType: h.id }));
+                          closeSheetAnimated();
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <View style={styles.bgThumbWrap}>
+                          <Image
+                            source={h.thumb}
+                            style={[styles.bgThumb, houseLocked && styles.optImgDimmed]}
+                            resizeMode="cover"
+                          />
+                          {houseLocked ? (
+                            <View style={styles.optLockOverlay}>
+                              <Text style={styles.optLockIcon}>🔒</Text>
+                            </View>
+                          ) : null}
                         </View>
-                      )}
-                      <Text style={styles.optLabel}>{h.label}</Text>
-                    </TouchableOpacity>
-                  ))}
+                        <Text style={[styles.optLabel, houseLocked && styles.optLabelLocked]}>{h.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </ScrollView>
             )}
@@ -447,12 +524,21 @@ export default function CustomizeScreen() {
                 <Text style={styles.sheetTitle}>장식품</Text>
                 <View style={styles.grid}>
                   {DECORATION_IDS.map((id) => {
+                    const decorLocked = !isMaster && !isUnlocked(`decor:${id}`);
                     const canTap = canPlaceNewDecoration(id) || draftLayout.decorations.some((d) => d.id === id);
                     return (
                     <TouchableOpacity
                       key={id}
-                      style={[styles.optionItem, !canTap && styles.optionDisabled]}
+                      style={[
+                        styles.optionItem,
+                        !canTap && styles.optionDisabled,
+                        decorLocked && styles.optionLocked,
+                      ]}
                       onPress={() => {
+                        if (decorLocked) {
+                          Alert.alert("잠김", "업적·퀘스트 보상으로 해금된 장식품만 배치할 수 있어요.");
+                          return;
+                        }
                         if (!canTap) {
                           Alert.alert("안내", `장식품은 최대 ${MAX_DECORATIONS}개까지 배치할 수 있어요.`);
                           return;
@@ -461,8 +547,19 @@ export default function CustomizeScreen() {
                       }}
                       activeOpacity={0.8}
                     >
-                      <Image source={DECORATION_ASSETS[id]} style={styles.optImg} resizeMode="contain" />
-                      <Text style={styles.optLabel}>{DECORATION_LABELS[id]}</Text>
+                      <View style={styles.optImgWrap}>
+                        <Image
+                          source={DECORATION_ASSETS[id]}
+                          style={[styles.optImg, decorLocked && styles.optImgDimmed]}
+                          resizeMode="contain"
+                        />
+                        {decorLocked ? (
+                          <View style={styles.optLockOverlay}>
+                            <Text style={styles.optLockIcon}>🔒</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <Text style={[styles.optLabel, decorLocked && styles.optLabelLocked]}>{DECORATION_LABELS[id]}</Text>
                     </TouchableOpacity>
                   );
                   })}
@@ -527,15 +624,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: "100%",
   },
-  houseNoneThumb: {
-    width: 72,
-    height: 72,
-    borderRadius: 8,
-    backgroundColor: "#E8E4DC",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  houseNoneThumbText: { fontSize: 28, color: "#999", fontFamily: "KotraHope" },
   sheetHint: {
     fontSize: 13,
     color: "#666",
@@ -640,9 +728,27 @@ const styles = StyleSheet.create({
   },
   optionSelected: { borderColor: THEME_YELLOW, borderWidth: 3, backgroundColor: "#FFFDE7" },
   optionDisabled: { opacity: 0.45 },
+  optionLocked: { backgroundColor: "#E8E8E8", borderColor: "#D0D0D0" },
+  optImgWrap: { width: 64, height: 64, position: "relative", alignItems: "center", justifyContent: "center" },
+  bgThumbWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 8,
+    overflow: "hidden",
+    position: "relative",
+  },
   optImg: { width: 64, height: 64 },
+  optImgDimmed: { opacity: 0.42 },
+  optLockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(90,90,90,0.38)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  optLockIcon: { fontSize: 20 },
   bgThumb: { width: 72, height: 72, borderRadius: 8 },
   optLabel: { fontSize: 14, marginTop: 6, textAlign: "center", fontFamily: "KotraHope", color: THEME_TEXT_DARK },
+  optLabelLocked: { color: "#888" },
   detailBox: { paddingVertical: 8, alignItems: "center" },
   detailImageWrap: {
     width: 120,

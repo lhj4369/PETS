@@ -33,11 +33,17 @@ const ITEM_DESCRIPTIONS: Record<string, string> = {
   protein_big: "운동 이후 얻는 능력치 2배, 10회 사용가능 아이템",
 };
 
+/** 프로틴 소모품은 잠금 표시 없이 보유 수량만 (서버 플래그와 무관하게 UI 고정) */
+function isProteinConsumableId(id: string): boolean {
+  return id === "protein_small" || id === "protein_big";
+}
+
 type Accessory = {
   id: string;
   name: string;
   imageKey: string;
   owned: boolean;
+  locked?: boolean;
 };
 
 type Consumable = {
@@ -45,6 +51,7 @@ type Consumable = {
   name: string;
   imageKey: string;
   quantity: number;
+  locked?: boolean;
 };
 
 interface ItemModalProps {
@@ -151,21 +158,26 @@ export default function ItemModal({ visible, onClose }: ItemModalProps) {
                         {accessories.map((a) => (
                           <TouchableOpacity
                             key={a.id}
-                            style={[styles.itemCard, !a.owned && styles.itemCardLocked]}
+                            style={[styles.itemCard, a.locked && styles.itemCardLocked]}
                             onPress={() => openDetail(a, "accessory")}
                           >
                             <View style={styles.itemImageWrap}>
                               {ACCESSORY_IMAGES[a.imageKey] ? (
                                 <Image
                                   source={ACCESSORY_IMAGES[a.imageKey]}
-                                  style={[styles.itemImage, !a.owned && styles.itemImageLocked]}
+                                  style={[styles.itemImage, a.locked && styles.itemImageLocked]}
                                   resizeMode="cover"
                                 />
                               ) : (
                                 <Text style={styles.itemPlaceholder}>?</Text>
                               )}
+                              {a.locked ? (
+                                <View style={styles.lockOverlay}>
+                                  <Text style={styles.lockIcon}>🔒</Text>
+                                </View>
+                              ) : null}
                             </View>
-                            <Text style={styles.itemName}>{a.name}</Text>
+                            <Text style={[styles.itemName, a.locked && styles.itemNameLocked]}>{a.name}</Text>
                             <View style={[styles.badge, a.owned ? styles.badgeOwned : styles.badgeUnowned]}>
                               <Text style={styles.badgeText}>{a.owned ? "보유" : "미보유"}</Text>
                             </View>
@@ -181,29 +193,37 @@ export default function ItemModal({ visible, onClose }: ItemModalProps) {
                       <Text style={styles.emptyText}>소모품이 없습니다.</Text>
                     ) : (
                       <View style={styles.grid}>
-                        {consumables.map((c) => (
+                        {consumables.map((c) => {
+                          const showConsumableLock = Boolean(c.locked) && !isProteinConsumableId(c.id);
+                          return (
                           <TouchableOpacity
                             key={c.id}
-                            style={styles.itemCard}
+                            style={[styles.itemCard, showConsumableLock && styles.itemCardLocked]}
                             onPress={() => openDetail(c, "consumable")}
                           >
                             <View style={styles.itemImageWrap}>
                               {CONSUMABLE_IMAGES[c.imageKey] ? (
                                 <Image
                                   source={CONSUMABLE_IMAGES[c.imageKey]}
-                                  style={styles.itemImage}
+                                  style={[styles.itemImage, showConsumableLock && styles.itemImageLocked]}
                                   resizeMode="cover"
                                 />
                               ) : (
                                 <Text style={styles.itemPlaceholder}>?</Text>
                               )}
+                              {showConsumableLock ? (
+                                <View style={styles.lockOverlay}>
+                                  <Text style={styles.lockIcon}>🔒</Text>
+                                </View>
+                              ) : null}
                             </View>
-                            <Text style={styles.itemName}>{c.name}</Text>
+                            <Text style={[styles.itemName, showConsumableLock && styles.itemNameLocked]}>{c.name}</Text>
                             <View style={styles.quantityBadge}>
                               <Text style={styles.quantityText}>보유 {c.quantity}개</Text>
                             </View>
                           </TouchableOpacity>
-                        ))}
+                          );
+                        })}
                       </View>
                     )}
                   </>
@@ -268,7 +288,13 @@ export default function ItemModal({ visible, onClose }: ItemModalProps) {
                   </Text>
                 )}
                 <Text style={styles.detailDesc}>
-                  {ITEM_DESCRIPTIONS[selectedItem.id] ?? "퀘스트와 도전과제를 완료하여 획득할 수 있어요."}
+                  {((selectedItemType === "accessory" && (selectedItem as Accessory).locked) ||
+                    (selectedItemType === "consumable" &&
+                      (selectedItem as Consumable).locked &&
+                      !isProteinConsumableId(selectedItem.id))
+                    ? "업적·퀘스트 보상으로 해금된 뒤 사용할 수 있어요.\n\n"
+                    : "") +
+                    (ITEM_DESCRIPTIONS[selectedItem.id] ?? "퀘스트와 도전과제를 완료하여 획득할 수 있어요.")}
                 </Text>
                 <TouchableOpacity style={styles.detailCloseBtn} onPress={closeDetail}>
                   <Text style={styles.detailCloseText}>닫기</Text>
@@ -391,8 +417,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   itemCardLocked: {
-    backgroundColor: "#F5F5F5",
-    opacity: 0.9,
+    backgroundColor: "#E8E8E8",
+    opacity: 0.92,
+  },
+  lockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(120,120,120,0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+  },
+  lockIcon: {
+    fontSize: 22,
+  },
+  itemNameLocked: {
+    color: "#888",
   },
   itemImageWrap: {
     width: 64,

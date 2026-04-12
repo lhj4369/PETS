@@ -5,6 +5,12 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import { db } from '../db.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
+import {
+  seedStarterUnlocks,
+  getUnlockKeys,
+  isUserMaster,
+  assertCustomizationAllowed,
+} from '../lib/unlocks.js';
 dotenv.config();
 
 const router = express.Router();
@@ -42,7 +48,8 @@ function sanitizeHomeLayout(input) {
         });
       }
     }
-    const houseType = o.houseType === 'standard' ? 'standard' : 'none';
+    // "없음" 제거: 항상 standard 집만 허용
+    const houseType = 'standard';
     return { animal: { x: ax, y: ay }, decorations: decs, houseType };
   } catch {
     return null;
@@ -108,6 +115,9 @@ router.post('/login', async (req, res) => {
       [account.id]
     );
 
+    const isMaster = Number(account.is_master) === 1;
+    const unlocks = isMaster ? [] : await getUnlockKeys(account.id);
+
     res.json({
       message: '로그인 성공',
       token,
@@ -117,6 +127,8 @@ router.post('/login', async (req, res) => {
         email: account.email,
       },
       profile: profileRows.length > 0 ? profileRows[0] : null,
+      isMaster,
+      unlocks,
     });
   } catch (err) {
     console.error('로그인 에러:', err);
@@ -220,9 +232,22 @@ router.get('/me', authMiddleware, async (req, res) => {
       [req.user.id]
     );
 
+    const isMaster = await isUserMaster(req.user.id);
+    let unlocks = isMaster ? [] : await getUnlockKeys(req.user.id);
+    // 프로필은 있는데 해금 행이 없는 레거시/오류 계정: 스타터 해금 보강
+    if (!isMaster && profileRows.length > 0 && unlocks.length === 0) {
+      const at = profileRows[0].animalType;
+      if (at) {
+        await seedStarterUnlocks(req.user.id, at);
+        unlocks = await getUnlockKeys(req.user.id);
+      }
+    }
+
     res.json({
       account: userRows[0],
       profile: profileRows.length > 0 ? profileRows[0] : null,
+      isMaster,
+      unlocks,
     });
   } catch (err) {
     console.error('사용자 정보 조회 에러:', err);
@@ -277,6 +302,9 @@ router.post('/google', async (req, res) => {
       [account.id]
     );
 
+    const isMaster = Number(account.is_master) === 1;
+    const unlocks = isMaster ? [] : await getUnlockKeys(account.id);
+
     res.json({
       message: '구글 로그인 성공',
       token,
@@ -286,6 +314,8 @@ router.post('/google', async (req, res) => {
         email: account.email,
       },
       profile: profileRows.length > 0 ? profileRows[0] : null,
+      isMaster,
+      unlocks,
     });
   } catch (err) {
     console.error('구글 로그인 에러:', err);
@@ -316,8 +346,8 @@ router.post('/profile', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: '키와 몸무게는 숫자로 입력해주세요.' });
     }
 
-    // 배경과 시계 타입 검증 (선택사항)
-    const validBackgroundType = backgroundType && allowedBackgrounds.includes(backgroundType) ? backgroundType : 'home';
+    // 기본 배경: 봄(spring). 시계: 알람
+    const validBackgroundType = backgroundType && allowedBackgrounds.includes(backgroundType) ? backgroundType : 'spring';
     const validClockType = clockType && allowedClocks.includes(clockType) ? clockType : 'alarm';
     const homeLayoutJson =
       homeLayoutBody !== undefined ? sanitizeHomeLayout(homeLayoutBody) : undefined;
@@ -325,6 +355,15 @@ router.post('/profile', authMiddleware, async (req, res) => {
     const [existing] = await db.query('SELECT id FROM user_profiles WHERE user_id = ?', [req.user.id]);
 
     if (existing.length > 0) {
+      const chk = await assertCustomizationAllowed(req.user.id, {
+        animalType,
+        backgroundType: validBackgroundType,
+        clockType: validClockType,
+        homeLayout: homeLayoutJson,
+      });
+      if (!chk.ok) {
+        return res.status(403).json({ error: chk.error });
+      }
       if (homeLayoutJson !== undefined && homeLayoutJson !== null) {
         await db.query(
           'UPDATE user_profiles SET animal_type = ?, nickname = ?, height = ?, weight = ?, background_type = ?, clock_type = ?, home_layout = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
@@ -349,6 +388,7 @@ router.post('/profile', authMiddleware, async (req, res) => {
           [req.user.id, animalType, nickname, numericHeight, numericWeight, validBackgroundType, validClockType]
         );
       }
+      await seedStarterUnlocks(req.user.id, animalType);
     }
 
     res.json({ message: '프로필이 저장되었습니다.' });
@@ -373,10 +413,43 @@ router.post('/customization', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: '프로필을 먼저 생성해주세요.' });
     }
 
-    // 동물, 배경, 시계 타입 검증
+    const [curRows] = await db.query(
+      'SELECT animal_type, background_type, clock_type, home_layout FROM user_profiles WHERE user_id = ? LIMIT 1',
+      [req.user.id]
+    );
+    const cur = curRows[0];
+    let curHl = null;
+    try {
+      curHl = typeof cur.home_layout === 'string' ? JSON.parse(cur.home_layout) : cur.home_layout;
+    } catch {
+      curHl = null;
+    }
+
+    // 동물, 배경, 시계 타입 검증 (일부 필드만 보낸 경우 기존 값과 병합 후 잠금 검사)
     const validAnimalType = animalType && allowedAnimals.includes(animalType) ? animalType : null;
-    const validBackgroundType = backgroundType && allowedBackgrounds.includes(backgroundType) ? backgroundType : 'home';
-    const validClockType = clockType && allowedClocks.includes(clockType) ? clockType : 'alarm';
+    const mergedAnimal = validAnimalType || cur.animal_type;
+    const mergedBg =
+      backgroundType && allowedBackgrounds.includes(backgroundType) ? backgroundType : cur.background_type || 'spring';
+    const mergedClock = clockType && allowedClocks.includes(clockType) ? clockType : cur.clock_type || 'alarm';
+
+    let hl = null;
+    if (homeLayoutBody !== undefined) {
+      hl = sanitizeHomeLayout(homeLayoutBody);
+    }
+    const mergedLayout = hl ?? (curHl && typeof curHl === 'object' ? curHl : null);
+
+    const chk = await assertCustomizationAllowed(req.user.id, {
+      animalType: mergedAnimal,
+      backgroundType: mergedBg,
+      clockType: mergedClock,
+      homeLayout: mergedLayout ?? undefined,
+    });
+    if (!chk.ok) {
+      return res.status(403).json({ error: chk.error });
+    }
+
+    const validBackgroundType = backgroundType && allowedBackgrounds.includes(backgroundType) ? backgroundType : null;
+    const validClockTypeForUpdate = clockType && allowedClocks.includes(clockType) ? clockType : null;
 
     // 업데이트할 필드와 값 구성
     const updateFields = [];
@@ -390,17 +463,14 @@ router.post('/customization', authMiddleware, async (req, res) => {
       updateFields.push('background_type = ?');
       updateValues.push(validBackgroundType);
     }
-    if (validClockType) {
+    if (validClockTypeForUpdate) {
       updateFields.push('clock_type = ?');
-      updateValues.push(validClockType);
+      updateValues.push(validClockTypeForUpdate);
     }
 
-    if (homeLayoutBody !== undefined) {
-      const hl = sanitizeHomeLayout(homeLayoutBody);
-      if (hl) {
-        updateFields.push('home_layout = ?');
-        updateValues.push(JSON.stringify(hl));
-      }
+    if (homeLayoutBody !== undefined && hl) {
+      updateFields.push('home_layout = ?');
+      updateValues.push(JSON.stringify(hl));
     }
 
     if (updateFields.length === 0) {

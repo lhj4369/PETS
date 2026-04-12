@@ -20,6 +20,7 @@ import { deleteAccount } from "../api/auth";
 import { APP_COLORS } from "../constants/theme";
 import { useSettingsModal } from "../context/SettingsModalContext";
 import { useNavigatorVisibility } from "../context/NavigatorVisibilityContext";
+import { useSession } from "../context/SessionContext";
 
 type ProfileResponse = {
   account?: { id: number; name: string; email: string } | null;
@@ -28,6 +29,7 @@ type ProfileResponse = {
 
 export default function SettingsModal() {
   const { isOpen, closeSettings } = useSettingsModal();
+  const { isMaster } = useSession();
   const { isVisible: isNavigatorVisible, setIsVisible: setNavigatorVisible } = useNavigatorVisibility();
   const { width } = useWindowDimensions();
   const modalWidth = Math.min(width - 40, 360);
@@ -191,20 +193,22 @@ export default function SettingsModal() {
               </View>
             ) : (
               <>
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>개발자용</Text>
-                  <View style={styles.infoCard}>
-                    <View style={styles.navigatorToggleRow}>
-                      <Text style={styles.infoLabel}>개발자 내비게이터</Text>
-                      <Switch
-                        value={isNavigatorVisible}
-                        onValueChange={setNavigatorVisible}
-                        trackColor={{ false: APP_COLORS.ivoryDark, true: APP_COLORS.yellow }}
-                        thumbColor={isNavigatorVisible ? APP_COLORS.brown : "#f4f3f4"}
-                      />
+                {isMaster ? (
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>개발자용</Text>
+                    <View style={styles.infoCard}>
+                      <View style={styles.navigatorToggleRow}>
+                        <Text style={styles.infoLabel}>개발자 내비게이터</Text>
+                        <Switch
+                          value={isNavigatorVisible}
+                          onValueChange={setNavigatorVisible}
+                          trackColor={{ false: APP_COLORS.ivoryDark, true: APP_COLORS.yellow }}
+                          thumbColor={isNavigatorVisible ? APP_COLORS.brown : "#f4f3f4"}
+                        />
+                      </View>
                     </View>
                   </View>
-                </View>
+                ) : null}
 
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>내 계정</Text>

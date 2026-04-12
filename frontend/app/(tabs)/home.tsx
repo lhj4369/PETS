@@ -34,6 +34,7 @@ import { APP_COLORS } from "../../constants/theme";
 import { getBackgroundTypeFromImage, getClockTypeFromImage, getBackgroundImageFromType, getClockImageFromType } from "../../utils/customizationUtils";
 import { parseHomeLayout, getHouseOverlaySource, FLOOR_PLACE_RATIO } from "../../utils/homeLayout";
 import { getDailyScripts, getPlaceholderPhrase } from "../../utils/dailyScripts";
+import { useSession } from "../../context/SessionContext";
 
 // 홈/하단 메뉴 아이콘 – home-icons 폴더의 AI 커스텀 이미지 사용
 // 상단 메뉴용 (퀘스트 / AI CHAT / 랭킹)
@@ -61,9 +62,6 @@ const HOME_ICONS = {
   settings: HOME_SETTING_ICON,
 };
 
-/** 홈 메인 캐릭터를 좌우로 쓰다듬을 때 표시 */
-const STROKE_DOG_IMAGE = require("../../assets/images/stroke/stroke_dog.png");
-
 const ANIMAL_OPTIONS = [
   { id: "dog", label: "강아지", image: require("../../assets/images/animals/dog.png") },
   { id: "capybara", label: "카피바라", image: require("../../assets/images/animals/capibara.png") },
@@ -73,6 +71,22 @@ const ANIMAL_OPTIONS = [
 ] as const;
 
 type AnimalId = (typeof ANIMAL_OPTIONS)[number]["id"];
+
+/** 홈 메인 캐릭터를 좌우로 쓰다듬을 때 표시 (동물별) */
+const STROKE_IMAGES: Record<AnimalId, ImageSourcePropType> = {
+  dog: require("../../assets/images/stroke/stroke_dog.png"),
+  capybara: require("../../assets/images/stroke/stroke_capibara.png"),
+  fox: require("../../assets/images/stroke/stroke_fox.png"),
+  red_panda: require("../../assets/images/stroke/stroke_redpanda.png"),
+  guinea_pig: require("../../assets/images/stroke/stroke_ginipig.png"),
+};
+
+function getStrokeImageForAnimal(animalId: AnimalId | null | undefined): ImageSourcePropType {
+  if (animalId && animalId in STROKE_IMAGES) {
+    return STROKE_IMAGES[animalId];
+  }
+  return STROKE_IMAGES.dog;
+}
 
 const HELD_TOO_LONG_DURING_SCRIPTS = [
   "어지러워! 제발 내려줘...",
@@ -94,6 +108,8 @@ const HELD_TOO_LONG_AFTER_SCRIPTS = [
 
 type ProfileResponse = {
   account?: { id: number; name: string; email: string } | null;
+  isMaster?: boolean;
+  unlocks?: string[];
   profile?: {
     animalType: AnimalId | null;
     nickname: string | null;
@@ -165,6 +181,7 @@ const HomeScreen = () => {
     extrapolate: "clamp",
   });
   const { openSettings } = useSettingsModal();
+  const { setSessionFromLogin, refreshSession } = useSession();
 
   const [selectedAnimalId, setSelectedAnimalId] = useState<AnimalId | null>(null);
   const [nickname, setNickname] = useState("");
@@ -255,6 +272,10 @@ const HomeScreen = () => {
       }
       if (!response.ok) throw new Error("사용자 정보를 불러오지 못했습니다.");
       const data = (await response.json()) as ProfileResponse;
+      setSessionFromLogin({
+        isMaster: !!data.isMaster,
+        unlocks: Array.isArray(data.unlocks) ? data.unlocks : [],
+      });
       setAccountName(data.account?.name ?? "");
       if (data.profile) {
         const animalType = data.profile.animalType ?? null;
@@ -303,7 +324,7 @@ const HomeScreen = () => {
     } finally {
       setIsLoadingProfile(false);
     }
-  }, [setCustomization, loadCustomizationFromServer, setHomeLayout]);
+  }, [setCustomization, loadCustomizationFromServer, setHomeLayout, setSessionFromLogin]);
 
   useFocusEffect(useCallback(() => {
     fetchProfile();
@@ -414,6 +435,7 @@ const HomeScreen = () => {
       }
       const animalImage = getAnimalImage(selectedAnimalId);
       setCustomization(animalImage, selectedBackground, selectedClock, selectedAnimalId ?? null);
+      await refreshSession();
       Alert.alert("완료", "프로필이 저장되었습니다.");
       setShowProfileModal(false);
     } catch (error) {
@@ -667,7 +689,10 @@ const HomeScreen = () => {
     }),
   ).current;
 
-  const mainPetImage = isPetStroking ? STROKE_DOG_IMAGE : (selectedAnimal ?? DEFAULT_ANIMAL_IMAGE);
+  const strokeAnimalId = (ctxAnimalId ?? selectedAnimalId) as AnimalId | null;
+  const mainPetImage = isPetStroking
+    ? getStrokeImageForAnimal(strokeAnimalId)
+    : (selectedAnimal ?? DEFAULT_ANIMAL_IMAGE);
 
   const currentExp = Math.max(0, experience - (level - 1) * EXP_PER_LEVEL);
   const expProgress = Math.min(1, currentExp / EXP_PER_LEVEL);
@@ -1205,14 +1230,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF9CC",
   },
   animalImage: {
-    width: 80,
-    height: 80,
+    width: 44,
+    height: 44,
   },
   animalLabel: {
-    fontSize: 18,
+    fontSize: 11,
     color: APP_COLORS.brown,
     fontWeight: "600",
     fontFamily: "KotraHope",
+    textAlign: "center",
   },
   animalConfirmBox: {
     marginTop: 16,
@@ -1437,8 +1463,27 @@ const styles = StyleSheet.create({
   expDetailSub: { fontSize: 13, color: pastel.textLight, marginTop: 4, fontFamily: "KotraHope" },
   expDetailClose: { marginTop: 20, backgroundColor: pastel.mint, paddingVertical: 14, borderRadius: 16, alignItems: "center" },
   expDetailCloseText: { fontSize: 16, fontWeight: "700", color: pastel.text, fontFamily: "KotraHope" },
-  animalOptions: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 12 },
-  animalOption: { flexBasis: "48%", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 16, borderRadius: 16, backgroundColor: pastel.bg, borderWidth: 2, borderColor: pastel.lavender },
+  animalOptions: {
+    flexDirection: "row",
+    flexWrap: "nowrap",
+    justifyContent: "space-between",
+    alignItems: "stretch",
+    gap: 6,
+    width: "100%",
+  },
+  animalOption: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
+    borderRadius: 12,
+    backgroundColor: pastel.bg,
+    borderWidth: 2,
+    borderColor: pastel.lavender,
+  },
   selectedAnimalImage: { width: 56, height: 56 },
   selectedAnimalLabel: { fontSize: 18, fontWeight: "600", color: pastel.text, fontFamily: "KotraHope" },
   input: { width: "100%", backgroundColor: pastel.bg, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 18, marginBottom: 14, borderWidth: 2, borderColor: pastel.lavender },
