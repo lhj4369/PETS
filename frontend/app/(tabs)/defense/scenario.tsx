@@ -1,15 +1,32 @@
+import { useCallback, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import HomeButton from "../../../components/HomeButton";
 import DefenseSubHeader from "../../../components/defense/DefenseSubHeader";
 import { APP_COLORS } from "../../../constants/theme";
 import { STUB_SCENARIO_STAGES } from "../../../data/defenseStub";
+import { loadClearedScenarioStageIds } from "../../../utils/defenseScenarioProgress";
 
 /**
  * 시나리오 스테이지 목록 뼈대.
  */
 export default function DefenseScenarioScreen() {
+  const [clearedStageIds, setClearedStageIds] = useState<Set<string>>(() => new Set());
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      loadClearedScenarioStageIds().then((ids) => {
+        if (active) setClearedStageIds(ids);
+      });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+
   const openStage = (id: string, locked: boolean) => {
     if (locked) {
       Alert.alert("잠금", "이전 스테이지를 먼저 클리어해 주세요. (뼈대)");
@@ -33,7 +50,11 @@ export default function DefenseScenarioScreen() {
         {STUB_SCENARIO_STAGES.map((s) => (
           <TouchableOpacity
             key={s.id}
-            style={[styles.stageRow, s.locked && styles.stageRowLocked]}
+            style={[
+              styles.stageRow,
+              s.locked && styles.stageRowLocked,
+              clearedStageIds.has(s.id) && styles.stageRowCleared,
+            ]}
             onPress={() => openStage(s.id, s.locked)}
             activeOpacity={0.85}
           >
@@ -82,6 +103,10 @@ const styles = StyleSheet.create({
   },
   stageRowLocked: {
     opacity: 0.55,
+  },
+  stageRowCleared: {
+    backgroundColor: "rgba(200, 230, 201, 0.72)",
+    borderColor: "rgba(129, 199, 132, 0.75)",
   },
   stageMeta: {
     gap: 4,

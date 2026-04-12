@@ -6,12 +6,14 @@ export type StubScenarioStage = {
   /** 난이도 라벨 (쉬움/보통/어려움 등) */
   tier: string;
   locked: boolean;
+  /** 이 스테이지에서 진행되는 웨이브 수(이후 웨이브 없음) */
+  totalWaves: number;
 };
 
 export const STUB_SCENARIO_STAGES: StubScenarioStage[] = [
-  { id: "1-1", area: "베란다", tier: "쉬움", locked: false },
-  { id: "1-2", area: "거실", tier: "쉬움", locked: false },
-  { id: "2-1", area: "주방", tier: "보통", locked: true },
+  { id: "1-1", area: "베란다", tier: "쉬움", locked: false, totalWaves: 3 },
+  { id: "1-2", area: "거실", tier: "쉬움", locked: false, totalWaves: 3 },
+  { id: "2-1", area: "주방", tier: "보통", locked: true, totalWaves: 3 },
 ];
 
 const DIALOGUE_BY_STAGE: Record<string, string[]> = {

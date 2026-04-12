@@ -9,20 +9,23 @@ import { ScrollView, Gesture, GestureDetector } from "react-native-gesture-handl
 import { useRef, useMemo } from "react";
 import { APP_COLORS } from "../../constants/theme";
 import type { DragUnit } from "./defenseTypes";
+import { getTowerPlaceCost } from "./defenseTowerEconomy";
 
 // ─── Data ──────────────────────────────────────────────────────────────────────
 
 export type TowerUnit = {
   id: string;
   image: ImageSourcePropType;
+  /** 배치 시 소모 자원 (타워별 상수에서 결정) */
+  cost: number;
 };
 
 export const TOWER_UNITS: TowerUnit[] = [
-  { id: "dog",       image: require("../../assets/images/animals/dog.png") },
-  { id: "capybara",  image: require("../../assets/images/animals/capibara.png") },
-  { id: "fox",       image: require("../../assets/images/animals/fox.png") },
-  { id: "red_panda", image: require("../../assets/images/animals/red_panda.png") },
-  { id: "ginipig",   image: require("../../assets/images/animals/ginipig.png") },
+  { id: "dog",       image: require("../../assets/images/animals/dog.png"),       cost: getTowerPlaceCost("dog") },
+  { id: "capybara",  image: require("../../assets/images/animals/capibara.png"),  cost: getTowerPlaceCost("capybara") },
+  { id: "fox",       image: require("../../assets/images/animals/fox.png"),       cost: getTowerPlaceCost("fox") },
+  { id: "red_panda", image: require("../../assets/images/animals/red_panda.png"), cost: getTowerPlaceCost("red_panda") },
+  { id: "ginipig",   image: require("../../assets/images/animals/ginipig.png"),   cost: getTowerPlaceCost("ginipig") },
 ];
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -37,19 +40,23 @@ export type DragCallbacks = {
 type Props = {
   currency?: number;
   dragCallbacks?: DragCallbacks;
+  /** 배치 칸 한 변의 2/3 권장 — 미전달 시 기본 80 */
+  chipSize?: number;
 };
 
 // ─── Draggable chip ────────────────────────────────────────────────────────────
 
-type ChipProps = { unit: TowerUnit; dragCallbacks?: DragCallbacks };
+type ChipProps = {
+  unit: TowerUnit;
+  chipSize: number;
+  dragCallbacks?: DragCallbacks;
+  canAfford: boolean;
+};
 
-function DraggableChip({ unit, dragCallbacks }: ChipProps) {
-  // always hold latest callbacks — Gesture.Pan is created once (useMemo) and
-  // reads cbRef.current at call time, so it always sees the freshest callbacks
+function DraggableChip({ unit, chipSize, dragCallbacks, canAfford }: ChipProps) {
   const cbRef = useRef(dragCallbacks);
   cbRef.current = dragCallbacks;
 
-  // stable gesture object — recreating on every render causes RNGH to miss events
   const pan = useMemo(
     () =>
       Gesture.Pan()
@@ -71,23 +78,43 @@ function DraggableChip({ unit, dragCallbacks }: ChipProps) {
         .onFinalize((_e, success) => {
           if (!success) cbRef.current?.onDragCancel();
         }),
-    // unit is stable (from module-level constant); cbRef.current always fresh
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
+  const pad = Math.max(4, Math.round(chipSize * 0.1));
+  const radius = Math.max(12, Math.round(chipSize * 0.22));
+
   return (
-    <GestureDetector gesture={pan}>
-      <View style={styles.chip}>
-        <Image source={unit.image} style={styles.chipImage} resizeMode="contain" />
-      </View>
-    </GestureDetector>
+    <View style={[styles.chipColumn, { opacity: canAfford ? 1 : 0.42 }]}>
+      <GestureDetector gesture={pan}>
+        <View
+          style={[
+            styles.chip,
+            {
+              width: chipSize,
+              height: chipSize,
+              borderRadius: radius,
+              padding: pad,
+            },
+          ]}
+        >
+          <Image source={unit.image} style={styles.chipImage} resizeMode="contain" />
+        </View>
+      </GestureDetector>
+      <Text style={styles.costText}>비용 {unit.cost}</Text>
+    </View>
   );
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
 
-export default function DefenseDeployBarPlaceholder({ currency, dragCallbacks }: Props) {
+export default function DefenseDeployBarPlaceholder({
+  currency,
+  dragCallbacks,
+  chipSize: chipSizeProp,
+}: Props) {
+  const chipSize = chipSizeProp ?? 80;
+
   return (
     <View style={styles.dock}>
       <View style={styles.topRow}>
@@ -100,15 +127,23 @@ export default function DefenseDeployBarPlaceholder({ currency, dragCallbacks }:
         )}
       </View>
 
-      {/* RNGH ScrollView respects GestureDetector priority */}
       <ScrollView
         horizontal
-        showsHorizontalScrollIndicator={false}
+        showsHorizontalScrollIndicator
         contentContainerStyle={styles.scrollRow}
       >
-        {TOWER_UNITS.map((unit) => (
-          <DraggableChip key={unit.id} unit={unit} dragCallbacks={dragCallbacks} />
-        ))}
+        {TOWER_UNITS.map((unit) => {
+          const canAfford = currency === undefined || currency >= unit.cost;
+          return (
+            <DraggableChip
+              key={unit.id}
+              unit={unit}
+              chipSize={chipSize}
+              dragCallbacks={dragCallbacks}
+              canAfford={canAfford}
+            />
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -119,15 +154,16 @@ export default function DefenseDeployBarPlaceholder({ currency, dragCallbacks }:
 const styles = StyleSheet.create({
   dock: {
     width: "100%",
-    paddingTop: 14,
-    paddingBottom: 16,
-    paddingHorizontal: 8,
-    gap: 12,
+    flexShrink: 0,
+    paddingTop: 22,
+    paddingBottom: 22,
+    paddingHorizontal: 12,
+    gap: 16,
     borderTopWidth: 2,
     borderTopColor: APP_COLORS.ivoryDark,
     backgroundColor: APP_COLORS.ivory,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
   },
   topRow: {
     flexDirection: "row",
@@ -136,7 +172,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   dockTitle: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: "800",
     color: APP_COLORS.brown,
     fontFamily: "KotraHope",
@@ -144,42 +180,49 @@ const styles = StyleSheet.create({
   resourcePill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
     backgroundColor: "#fff",
-    borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
+    borderRadius: 24,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
     borderWidth: 2,
     borderColor: APP_COLORS.yellowDark,
   },
   resourceLabel: {
-    fontSize: 12,
+    fontSize: 16,
     color: APP_COLORS.brownLight,
     fontFamily: "KotraHope",
   },
   resourceValue: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: "800",
     color: APP_COLORS.brown,
     fontFamily: "KotraHope",
   },
   scrollRow: {
     flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    paddingRight: 24,
+  },
+  chipColumn: {
     alignItems: "center",
-    gap: 10,
-    paddingVertical: 4,
-    paddingHorizontal: 4,
+    gap: 6,
+  },
+  costText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: APP_COLORS.brown,
+    fontFamily: "KotraHope",
   },
   chip: {
-    width: 80,
-    height: 80,
-    borderRadius: 18,
     backgroundColor: "#fff",
     borderWidth: 2,
     borderColor: APP_COLORS.yellowDark,
     alignItems: "center",
     justifyContent: "center",
-    padding: 8,
   },
   chipImage: {
     width: "100%",

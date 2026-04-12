@@ -113,7 +113,10 @@ const EXP_PER_LEVEL = 100;
 const HomeScreen = () => {
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
-  const { openQuest } = useLocalSearchParams<{ openQuest?: string }>();
+  const { openQuest, devNav } = useLocalSearchParams<{
+    openQuest?: string;
+    devNav?: string;
+  }>();
 
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [showAnimalModal, setShowAnimalModal] = useState(false);
@@ -193,6 +196,34 @@ const HomeScreen = () => {
   const fetchProfile = useCallback(async () => {
     try {
       setIsLoadingProfile(true);
+
+      const isDevNavigatorHome =
+        devNav === "1" || devNav === "true";
+      if (isDevNavigatorHome) {
+        setAccountName("개발자");
+        setSelectedAnimalId("dog");
+        setNickname("");
+        setHeight("");
+        setWeight("");
+        setLevel(1);
+        setExperience(0);
+        setStrength(0);
+        setAgility(0);
+        setStamina(0);
+        setConcentration(0);
+        loadCustomizationFromServer(null, null);
+        const dogImg = getAnimalImage("dog");
+        setCustomization(
+          dogImg,
+          getBackgroundImageFromType(null),
+          getClockImageFromType(null),
+          "dog"
+        );
+        setShowAnimalModal(false);
+        setShowProfileModal(false);
+        return;
+      }
+
       const headers = await AuthManager.getAuthHeader();
       if (!headers.Authorization) {
         router.replace("/" as any);
@@ -253,7 +284,7 @@ const HomeScreen = () => {
     } finally {
       setIsLoadingProfile(false);
     }
-  }, [setCustomization, loadCustomizationFromServer]);
+  }, [devNav, setCustomization, loadCustomizationFromServer]);
 
   useFocusEffect(useCallback(() => {
     fetchProfile();

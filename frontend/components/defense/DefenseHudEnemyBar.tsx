@@ -15,18 +15,15 @@ export default function DefenseHudEnemyBar({ onFieldEnemies }: Props) {
   const ratio = max > 0 ? Math.min(1, current / max) : 0;
   const pct = ratio * 100;
 
-  // 채움이 많을수록 위험 → 주황→빨강
   const fillColor =
     ratio >= 0.85 ? "#C0392B" : ratio >= 0.55 ? "#E67E22" : "#E74C3C";
 
   return (
     <View style={styles.panel}>
-      {/* 해골 아이콘 — 레퍼런스와 동일한 원형 뱃지 */}
       <View style={styles.iconCircle}>
-        <Ionicons name="skull" size={20} color="#fff" />
+        <Ionicons name="skull" size={36} color="#fff" />
       </View>
 
-      {/* 레드 채움 바 + 개체수 텍스트 오버레이 */}
       <View style={styles.barWrap}>
         <View style={styles.barBg}>
           <View
@@ -35,9 +32,12 @@ export default function DefenseHudEnemyBar({ onFieldEnemies }: Props) {
               { width: `${pct}%`, backgroundColor: fillColor },
             ]}
           />
+          {/* 7/10(70%) 위치 기준선 */}
+          <View style={styles.thresholdLine} pointerEvents="none" />
         </View>
-        {/* 텍스트는 바 위에 절대 위치 — 레퍼런스처럼 바 안에 표기 */}
-        <Text style={styles.countText}>{current} / {max}</Text>
+        <Text style={styles.countText}>
+          {current} / {max}
+        </Text>
       </View>
     </View>
   );
@@ -47,16 +47,16 @@ const styles = StyleSheet.create({
   panel: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 18,
     backgroundColor: "#3D2E20",
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    borderRadius: 22,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
   },
   iconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: "#2A1E14",
     borderWidth: 2,
     borderColor: "rgba(255,255,255,0.25)",
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
   },
   barWrap: {
     flex: 1,
-    height: 32,
+    height: 60,
     justifyContent: "center",
   },
   barBg: {
@@ -75,16 +75,27 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: "hidden",
   },
   barFill: {
     height: "100%",
-    borderRadius: 8,
+    borderRadius: 12,
+  },
+  thresholdLine: {
+    position: "absolute",
+    left: "70%",
+    top: 0,
+    bottom: 0,
+    width: 3,
+    marginLeft: -1.5,
+    backgroundColor: "rgba(255, 255, 255, 0.92)",
+    borderRadius: 1,
+    zIndex: 2,
   },
   countText: {
     textAlign: "center",
-    fontSize: 15,
+    fontSize: 28,
     fontWeight: "800",
     color: "#fff",
     fontFamily: "KotraHope",

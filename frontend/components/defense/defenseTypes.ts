@@ -4,10 +4,10 @@ export type PlacedTowerData = {
   id: string;
   unitId: string;
   image: ImageSourcePropType;
-  /** 유닛 존 안에서의 중심 x 좌표 (px) */
-  x: number;
-  /** 유닛 존 안에서의 중심 y 좌표 (px) */
-  y: number;
+  /** 그리드 열 0 ~ GRID_COLS-1 */
+  col: number;
+  /** 그리드 행 0 ~ GRID_ROWS-1 */
+  row: number;
 };
 
 export type DragUnit = {
