@@ -18,6 +18,7 @@ import {
   Platform,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import AuthManager from "../../utils/AuthManager";
@@ -391,6 +392,7 @@ const HomeScreen = () => {
   const navigateToTimer = () => router.push("/(tabs)/timer" as any);
   const navigateToRecords = () => router.push("/(tabs)/records" as any);
   const navigateToRanking = () => router.push("/(tabs)/ranking" as any);
+  const navigateToDefense = () => router.push("/(tabs)/defense" as any);
   const navigateToCustomize = () => router.push("/(tabs)/customize" as any);
   const navigateToChallenges = () => router.push("/(tabs)/challenges" as any);
   const navigateToChatting = () => router.push("/(tabs)/chatting" as any);
@@ -870,6 +872,18 @@ const HomeScreen = () => {
               <Text style={styles.rightFloatingLabel}>랭킹</Text>
             </TouchableOpacity>
           </View>
+
+          {/* 우측 중단: 디펜스 (퀘스트/채팅/랭킹과 동일 버튼 스타일) */}
+          <TouchableOpacity
+            style={[styles.rightFloatingBtn, styles.defenseFloatingBtn]}
+            onPress={navigateToDefense}
+            activeOpacity={0.7}
+          >
+            <View style={styles.rightFloatingIconWrap}>
+              <Ionicons name="shield" size={rightIconSize * 0.42} color={APP_COLORS.brown} />
+            </View>
+            <Text style={styles.rightFloatingLabel}>디펜스</Text>
+          </TouchableOpacity>
         </View>
 
         {/* 하단 고정 메뉴: 하단에 딱 붙음, 아이콘 크고 아래로 */}
@@ -1224,6 +1238,13 @@ const styles = StyleSheet.create({
     color: pastel.text,
     fontFamily: "KotraHope",
     marginTop: -6,
+  },
+  /** 우측 세로 메뉴와 동일 원형 버튼, 세로 위치만 화면 중단 쪽으로 */
+  defenseFloatingBtn: {
+    position: "absolute",
+    right: 16,
+    top: "38%",
+    zIndex: 6,
   },
   animalOptionSelected: {
     borderColor: APP_COLORS.yellowDark,

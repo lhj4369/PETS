@@ -317,16 +317,16 @@ export default function LocationMapModal({
                 <Text style={styles.retryButtonText}>다시 시도</Text>
               </TouchableOpacity>
             </View>
-          ) : region && Platform.OS !== "web" ? (
-            <>
+          ) : region && location && Platform.OS !== "web" ? (
+            <View style={styles.mapInner}>
               <MapView
                 style={styles.map}
                 provider={PROVIDER_GOOGLE}
                 initialRegion={region}
-                region={region}
                 showsUserLocation={true}
                 showsMyLocationButton={true}
                 followsUserLocation={false}
+                collapsable={false}
               >
                 {location && Marker && (
                   <Marker
@@ -421,12 +421,12 @@ export default function LocationMapModal({
                   </TouchableOpacity>
                 </View>
               )}
-            </>
-          ) : region && Platform.OS === 'web' ? (
+            </View>
+          ) : region && location && Platform.OS === "web" ? (
             <View style={styles.webMapPlaceholder}>
               <Ionicons name="map-outline" size={64} color="#2d98da" />
               <Text style={styles.webMapText}>
-                위치: {location?.coords.latitude.toFixed(6)}, {location?.coords.longitude.toFixed(6)}
+                위치: {location.coords.latitude.toFixed(6)}, {location.coords.longitude.toFixed(6)}
               </Text>
               <Text style={styles.webMapSubtext}>
                 지도는 모바일 앱에서만 표시됩니다
@@ -561,6 +561,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f6fa',
   },
+  mapInner: {
+    flex: 1,
+    position: "relative",
+  },
   map: {
     flex: 1,
   },
@@ -634,23 +638,23 @@ const styles = StyleSheet.create({
   },
   webMapPlaceholder: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f6fa',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f5f6fa",
     paddingHorizontal: 40,
   },
   webMapText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#2d3436',
-    fontWeight: '600',
-    textAlign: 'center',
+    color: "#2d3436",
+    fontWeight: "600",
+    textAlign: "center",
   },
   webMapSubtext: {
     marginTop: 8,
     fontSize: 14,
-    color: '#636e72',
-    textAlign: 'center',
+    color: "#636e72",
+    textAlign: "center",
   },
   loadingSubText: {
     marginTop: 8,

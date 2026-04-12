@@ -3,7 +3,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useEffect } from "react";
 import { useFonts } from "expo-font";
 import { CustomizationProvider } from "../context/CustomizationContext";
-import { SessionProvider } from "../context/SessionContext";
+import { SessionProvider, useSession } from "../context/SessionContext";
 import API_BASE_URL from "../config/api";
 import Navigator from "../components/Navigator";
 import SettingsModal from "../components/SettingsModal";
@@ -14,7 +14,7 @@ import {
 } from "../context/NavigatorVisibilityContext";
 import { ENABLE_NAVIGATOR } from "../config/navigator";
 import { View } from "react-native";
-import { useSession } from "../context/SessionContext";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 function RootOverlays() {
   const { isVisible } = useNavigatorVisibility();
@@ -70,23 +70,25 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <SessionProvider>
-        <CustomizationProvider>
-          <SettingsModalProvider>
-            <NavigatorVisibilityProvider>
-              <View style={{ flex: 1 }}>
-                <Stack
-                  screenOptions={{
-                    headerShown: false,
-                  }}
-                />
-                <RootOverlays />
-              </View>
-            </NavigatorVisibilityProvider>
-          </SettingsModalProvider>
-        </CustomizationProvider>
-      </SessionProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <SessionProvider>
+          <CustomizationProvider>
+            <SettingsModalProvider>
+              <NavigatorVisibilityProvider>
+                <View style={{ flex: 1 }}>
+                  <Stack
+                    screenOptions={{
+                      headerShown: false,
+                    }}
+                  />
+                  <RootOverlays />
+                </View>
+              </NavigatorVisibilityProvider>
+            </SettingsModalProvider>
+          </CustomizationProvider>
+        </SessionProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
