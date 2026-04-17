@@ -1,10 +1,10 @@
 import { ImageSourcePropType } from "react-native";
 import { createContext, ReactNode, useContext, useMemo, useState } from "react";
-import { getBackgroundImageFromType, getClockImageFromType } from "../utils/customizationUtils";
+import { getBackgroundImageFromType, getClockImageFromType, BACKGROUND_IMAGES } from "../utils/customizationUtils";
 import { DEFAULT_HOME_LAYOUT, HomeLayout, parseHomeLayout } from "../utils/homeLayout";
 
 export const DEFAULT_ANIMAL_IMAGE = require("../assets/images/animals/dog.png");
-export const DEFAULT_BACKGROUND_IMAGE = require("../assets/images/background_test.png");
+export const DEFAULT_BACKGROUND_IMAGE = BACKGROUND_IMAGES.spring;
 export const DEFAULT_CLOCK_IMAGE = require("../assets/images/clocks/alarm.png");
 
 /** 채팅/스크립트 확장용 동물 식별자 (예: "dog", "capybara") */

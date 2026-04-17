@@ -17,6 +17,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AuthManager from "../utils/AuthManager";
+import { useSession } from "../context/SessionContext";
 import { APP_COLORS } from "../constants/theme";
 import * as authApi from "../api/auth";
 
@@ -25,7 +26,12 @@ WebBrowser.maybeCompleteAuthSession();
 const LOADING_MESSAGE = "귀여운 동물 친구들이 모이고 있어요!";
 const LOAD_PROGRESS_STEPS = [25, 50, 75, 100];
 
+/** 개발자 모드 버튼 — DB 시드 마스터 계정(backend/sql/reset_and_seed_master.sql) */
+const DEV_MASTER_EMAIL = "master@pets.test";
+const DEV_MASTER_PASSWORD = "1234";
+
 export default function Index() {
+  const { setSessionFromLogin } = useSession();
   const insets = useSafeAreaInsets();
   const { height: screenHeight } = useWindowDimensions();
 
@@ -329,7 +335,14 @@ export default function Index() {
     setIsSubmitting(true);
     try {
       const data = await authApi.login(email, password);
-      await AuthManager.login(data.token, data.account);
+      await AuthManager.login(data.token, {
+        ...data.account,
+        isMaster: data.isMaster,
+      });
+      setSessionFromLogin({
+        isMaster: !!data.isMaster,
+        unlocks: data.unlocks ?? [],
+      });
       router.replace("/(tabs)/home" as any);
     } catch (error) {
       alert(error instanceof Error ? error.message : "로그인에 실패했습니다.");
@@ -372,7 +385,14 @@ export default function Index() {
         name: googleUserInfo.name,
         picture: googleUserInfo.picture,
       });
-      await AuthManager.login(data.token, data.account);
+      await AuthManager.login(data.token, {
+        ...data.account,
+        isMaster: data.isMaster,
+      });
+      setSessionFromLogin({
+        isMaster: !!data.isMaster,
+        unlocks: data.unlocks ?? [],
+      });
       router.replace("/(tabs)/home" as any);
     } catch (error) {
       alert(error instanceof Error ? error.message : "구글 로그인에 실패했습니다.");
@@ -419,11 +439,18 @@ export default function Index() {
   const handleDevLogin = async () => {
     setIsSubmitting(true);
     try {
-      const data = await authApi.login("Developer@test.net", "1234");
-      await AuthManager.login(data.token, data.account);
+      const data = await authApi.login(DEV_MASTER_EMAIL, DEV_MASTER_PASSWORD);
+      await AuthManager.login(data.token, {
+        ...data.account,
+        isMaster: data.isMaster,
+      });
+      setSessionFromLogin({
+        isMaster: !!data.isMaster,
+        unlocks: data.unlocks ?? [],
+      });
       router.replace("/(tabs)/home" as any);
     } catch (error) {
-      alert(error instanceof Error ? error.message : "개발자 로그인에 실패했습니다.");
+      alert(error instanceof Error ? error.message : "마스터(개발자) 로그인에 실패했습니다.");
     } finally {
       setIsSubmitting(false);
     }

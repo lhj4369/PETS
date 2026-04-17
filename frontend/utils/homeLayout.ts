@@ -2,8 +2,8 @@ import { ImageSourcePropType } from "react-native";
 
 export type DecorationId = "bench" | "dumbbell" | "treadmill";
 
-/** 집 오버레이: none = 미사용, standard = 기본 방(창은 PNG 알파로 배경 비침) */
-export type HouseType = "none" | "standard";
+/** 집 오버레이: standard만 사용(없음 옵션 제거) */
+export type HouseType = "standard";
 
 export type HomeLayout = {
   animal: { x: number; y: number };
@@ -17,14 +17,14 @@ export const FLOOR_PLACE_RATIO = 0.5;
 export const STANDARD_HOUSE_IMAGE: ImageSourcePropType = require("../assets/images/house/standard.png");
 
 export function getHouseOverlaySource(houseType: HouseType | undefined | null): ImageSourcePropType | null {
-  if (houseType === "standard") return STANDARD_HOUSE_IMAGE;
+  if (houseType === "standard" || houseType == null) return STANDARD_HOUSE_IMAGE;
   return null;
 }
 
 export const DEFAULT_HOME_LAYOUT: HomeLayout = {
   animal: { x: 0.5, y: 0.55 },
   decorations: [],
-  houseType: "none",
+  houseType: "standard",
 };
 
 /** 장식품 최대 배치 개수 */
@@ -103,8 +103,7 @@ export function parseHomeLayout(raw: unknown): HomeLayout {
       seen.add(id);
       decs.push({ id, x: clamp01(d.x), y: clamp01(d.y) });
     }
-    let houseType: HouseType = "none";
-    if ((o as HomeLayout).houseType === "standard") houseType = "standard";
+    const houseType: HouseType = "standard";
 
     return { animal: { x: ax, y: ay }, decorations: decs, houseType };
   } catch {
