@@ -35,6 +35,7 @@ import { APP_COLORS } from "../../constants/theme";
 import { getBackgroundTypeFromImage, getClockTypeFromImage, getBackgroundImageFromType, getClockImageFromType } from "../../utils/customizationUtils";
 import { parseHomeLayout, getHouseOverlaySource, FLOOR_PLACE_RATIO } from "../../utils/homeLayout";
 import { getDailyScripts, getPlaceholderPhrase } from "../../utils/dailyScripts";
+import { getHeldTooLongAfterScripts, getHeldTooLongDuringScripts } from "../../utils/liftScripts";
 
 // 홈/하단 메뉴 아이콘 – home-icons 폴더의 AI 커스텀 이미지 사용
 // 상단 메뉴용 (퀘스트 / AI CHAT / 랭킹)
@@ -74,24 +75,6 @@ const ANIMAL_OPTIONS = [
 ] as const;
 
 type AnimalId = (typeof ANIMAL_OPTIONS)[number]["id"];
-
-const HELD_TOO_LONG_DURING_SCRIPTS = [
-  "어지러워! 제발 내려줘...",
-  "야, 나 무섭다고!",
-  "너무 높아~ 내려줘!",
-  "흔들흔들... 어지러...",
-  "저기... 지금 꽤 높은데?",
-  "심장이 쿵쿵거려...",
-];
-
-const HELD_TOO_LONG_AFTER_SCRIPTS = [
-  "그렇게 오래 들고 있으면 어지럽다구!",
-  "다음엔 좀 살살 다뤄줘...",
-  "하... 심장 떨렸잖아.",
-  "땅이 그리웠어. 진짜로.",
-  "이제 좀 쉬고 싶다...",
-  "공중은 나한테 안 맞아.",
-];
 
 type ProfileResponse = {
   account?: { id: number; name: string; email: string } | null;
@@ -199,12 +182,24 @@ const HomeScreen = () => {
 
   const dailyScripts = useMemo(() => getDailyScripts(ctxAnimalId ?? null), [ctxAnimalId]);
   const placeholderPhrase = useMemo(() => getPlaceholderPhrase(ctxAnimalId ?? null), [ctxAnimalId]);
+  const heldTooLongDuringScripts = useMemo(() => getHeldTooLongDuringScripts(ctxAnimalId ?? null), [ctxAnimalId]);
+  const heldTooLongAfterScripts = useMemo(() => getHeldTooLongAfterScripts(ctxAnimalId ?? null), [ctxAnimalId]);
   const currentScript = useMemo(() => (scriptIndex >= 0 ? dailyScripts[scriptIndex] : ""), [scriptIndex, dailyScripts]);
 
   const dailyScriptsRef = useRef(dailyScripts);
   useEffect(() => {
     dailyScriptsRef.current = dailyScripts;
   }, [dailyScripts]);
+
+  const heldTooLongDuringScriptsRef = useRef(heldTooLongDuringScripts);
+  useEffect(() => {
+    heldTooLongDuringScriptsRef.current = heldTooLongDuringScripts;
+  }, [heldTooLongDuringScripts]);
+
+  const heldTooLongAfterScriptsRef = useRef(heldTooLongAfterScripts);
+  useEffect(() => {
+    heldTooLongAfterScriptsRef.current = heldTooLongAfterScripts;
+  }, [heldTooLongAfterScripts]);
 
   const getAnimalImage = (animalId: AnimalId | null): ImageSourcePropType => {
     if (!animalId) return DEFAULT_ANIMAL_IMAGE;
@@ -575,9 +570,11 @@ const HomeScreen = () => {
         if (!heldTooLongStartedRef.current && (Math.abs(g.dx) > 6 || Math.abs(g.dy) > 6)) {
           heldTooLongStartedRef.current = true;
           heldTooLongTimerRef.current = setTimeout(() => {
+            const scripts = heldTooLongDuringScriptsRef.current;
+            if (scripts.length === 0) return;
             const text =
-              HELD_TOO_LONG_DURING_SCRIPTS[
-                Math.floor(Math.random() * HELD_TOO_LONG_DURING_SCRIPTS.length)
+              scripts[
+                Math.floor(Math.random() * scripts.length)
               ];
             setIsHeldTooLongRef.current(true);
             setHeldTooLongTextRef.current(text);
@@ -623,9 +620,11 @@ const HomeScreen = () => {
         if (hadLift) {
           snapLiftBack();
           if (heldLong) {
+            const scripts = heldTooLongAfterScriptsRef.current;
+            if (scripts.length === 0) return;
             const text =
-              HELD_TOO_LONG_AFTER_SCRIPTS[
-                Math.floor(Math.random() * HELD_TOO_LONG_AFTER_SCRIPTS.length)
+              scripts[
+                Math.floor(Math.random() * scripts.length)
               ];
             showInjectScriptRef.current(text);
           } else if (tap) {
