@@ -5,6 +5,8 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   Alert,
+  ImageBackground,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -13,90 +15,107 @@ import HomeButton from "../../../components/HomeButton";
 import { APP_COLORS } from "../../../constants/theme";
 import { DEFENSE_CHALLENGE_MODE_LOCKED } from "../../../data/defenseStub";
 
+const DEFENSE_INTRO_BACKGROUND = require("../../../assets/images/defence/defense_intro.png");
+const DEFENSE_LOGO = require("../../../assets/images/defence/defense_logo.png");
+
 /**
  * 디펜스 모드 선택 (시나리오 / 도전).
  */
 export default function DefenseIndexScreen() {
-  const { height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   /** 기존 대비 ~1.35–1.45배 — 하단 여밉 완화·시각적 균형 */
   const modeCardRowHeight = Math.min(460, Math.max(350, Math.round(windowHeight * 0.46)));
+  const logoWidth = Math.min(460, windowWidth * 0.84);
+  const logoHeight = Math.round(logoWidth * (320 / 677));
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-      <HomeButton />
+      <ImageBackground
+        source={DEFENSE_INTRO_BACKGROUND}
+        style={styles.background}
+        imageStyle={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        <View style={styles.backgroundOverlay} pointerEvents="none" />
+        <HomeButton />
 
-      <View style={styles.pickRoot}>
-        <View style={styles.pickHeader}>
-          <Text style={styles.titleHero}>디펜스!</Text>
-          <Text style={styles.titleSub}>PETS 방범대</Text>
-        </View>
+        <View style={styles.pickRoot}>
+          <View style={styles.pickHeader}>
+            <Image
+              source={DEFENSE_LOGO}
+              style={[styles.logo, { width: logoWidth, height: logoHeight }]}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
+            />
+          </View>
 
-        <View style={styles.modeCardsWrap}>
-          <View style={[styles.modeCards, { height: modeCardRowHeight }]}>
-            <TouchableOpacity
-              style={[styles.modeCard, styles.modeCardScenario]}
-              onPress={() => router.push("/(tabs)/defense/scenario" as any)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.modeCardIconCircle}>
-                <Ionicons name="book-outline" size={44} color={APP_COLORS.brown} />
-              </View>
-              <Text style={styles.modeCardTitle}>시나리오</Text>
-              <Text
-                style={styles.modeCardHint}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.82}
+          <View style={styles.modeCardsWrap}>
+            <View style={[styles.modeCards, { height: modeCardRowHeight }]}>
+              <TouchableOpacity
+                style={[styles.modeCard, styles.modeCardScenario]}
+                onPress={() => router.push("/(tabs)/defense/scenario" as any)}
+                activeOpacity={0.85}
               >
-                적을 물리치세요
-              </Text>
-            </TouchableOpacity>
+                <View style={styles.modeCardIconCircle}>
+                  <Ionicons name="book-outline" size={44} color={APP_COLORS.brown} />
+                </View>
+                <Text style={styles.modeCardTitle}>시나리오</Text>
+                <Text
+                  style={styles.modeCardHint}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.82}
+                >
+                  적을 물리치세요
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.modeCard,
-                styles.modeCardChallenge,
-                DEFENSE_CHALLENGE_MODE_LOCKED && styles.modeCardChallengeLocked,
-              ]}
-              onPress={() => {
-                if (DEFENSE_CHALLENGE_MODE_LOCKED) {
-                  Alert.alert("잠금", "도전 모드는 준비 중입니다.");
-                  return;
-                }
-                router.push("/(tabs)/defense/challenge" as any);
-              }}
-              activeOpacity={DEFENSE_CHALLENGE_MODE_LOCKED ? 1 : 0.85}
-            >
-              <View style={[styles.modeCardIconCircle, styles.modeCardIconCircleAlt]}>
-                <Ionicons
-                  name={DEFENSE_CHALLENGE_MODE_LOCKED ? "lock-closed" : "trophy-outline"}
-                  size={44}
-                  color={DEFENSE_CHALLENGE_MODE_LOCKED ? APP_COLORS.brownLight : APP_COLORS.brown}
-                />
-              </View>
-              <Text
+              <TouchableOpacity
                 style={[
-                  styles.modeCardTitle,
-                  DEFENSE_CHALLENGE_MODE_LOCKED && styles.modeCardTitleMuted,
+                  styles.modeCard,
+                  styles.modeCardChallenge,
+                  DEFENSE_CHALLENGE_MODE_LOCKED && styles.modeCardChallengeLocked,
                 ]}
+                onPress={() => {
+                  if (DEFENSE_CHALLENGE_MODE_LOCKED) {
+                    Alert.alert("잠금", "도전 모드는 준비 중입니다.");
+                    return;
+                  }
+                  router.push("/(tabs)/defense/challenge" as any);
+                }}
+                activeOpacity={DEFENSE_CHALLENGE_MODE_LOCKED ? 1 : 0.85}
               >
-                도전
-              </Text>
-              <Text
-                style={[
-                  styles.modeCardHint,
-                  DEFENSE_CHALLENGE_MODE_LOCKED && styles.modeCardHintMuted,
-                ]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.82}
-              >
-                {DEFENSE_CHALLENGE_MODE_LOCKED ? "추후 오픈 예정" : "한계에 도전"}
-              </Text>
-            </TouchableOpacity>
+                <View style={[styles.modeCardIconCircle, styles.modeCardIconCircleAlt]}>
+                  <Ionicons
+                    name={DEFENSE_CHALLENGE_MODE_LOCKED ? "lock-closed" : "trophy-outline"}
+                    size={44}
+                    color={DEFENSE_CHALLENGE_MODE_LOCKED ? APP_COLORS.brownLight : APP_COLORS.brown}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.modeCardTitle,
+                    DEFENSE_CHALLENGE_MODE_LOCKED && styles.modeCardTitleMuted,
+                  ]}
+                >
+                  도전
+                </Text>
+                <Text
+                  style={[
+                    styles.modeCardHint,
+                    DEFENSE_CHALLENGE_MODE_LOCKED && styles.modeCardHintMuted,
+                  ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.82}
+                >
+                  {DEFENSE_CHALLENGE_MODE_LOCKED ? "추후 오픈 예정" : "한계에 도전"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </View>
+      </ImageBackground>
     </SafeAreaView>
   );
 }
@@ -106,6 +125,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: APP_COLORS.ivory,
   },
+  background: {
+    flex: 1,
+  },
+  backgroundImage: {
+    opacity: 0.98,
+  },
+  backgroundOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255, 254, 245, 0.18)",
+  },
   pickRoot: {
     flex: 1,
     paddingHorizontal: 20,
@@ -114,23 +143,10 @@ const styles = StyleSheet.create({
   },
   pickHeader: {
     marginBottom: 12,
-    paddingRight: 58,
+    alignItems: "center",
   },
-  titleHero: {
-    fontSize: 36,
-    fontWeight: "800",
-    color: APP_COLORS.brown,
-    fontFamily: "KotraHope",
-    lineHeight: 42,
-    letterSpacing: 0.5,
-    marginBottom: 6,
-  },
-  titleSub: {
-    fontSize: 19,
-    fontWeight: "700",
-    color: APP_COLORS.brownLight,
-    fontFamily: "KotraHope",
-    letterSpacing: 0.3,
+  logo: {
+    marginTop: 4,
   },
   modeCardsWrap: {
     flex: 1,
