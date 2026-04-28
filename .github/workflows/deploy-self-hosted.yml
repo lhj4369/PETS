@@ -1,0 +1,23 @@
+name: Deploy (self-hosted)
+
+on:
+  push:
+    branches: ["main"]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, pets-server]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker compose up
+        working-directory: /home/lee/PETS/PETS
+        run: |
+          docker compose up -d --build
+          docker image prune -f
+
