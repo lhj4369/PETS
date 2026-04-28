@@ -171,7 +171,7 @@ INSERT IGNORE INTO achievements (id, name, description, category, condition_type
 (9, '일일퀘스트 1회 완료', '일일 퀘스트를 1회 완료하세요', 'special', 'daily_quest', 1, 150, '🎯'),
 (10, '주간 목표 달성', '주간 운동 목표를 달성하세요', 'special', 'weekly_goal', 1, 300, '🏆');
 
--- Quests seed (idempotent) – matches backend/sql/migrate_quests.sql baseline
+-- Quests seed (idempotent)
 INSERT IGNORE INTO quests (id, name, description, quest_type, condition_type, condition_value, condition_extra, reward_type, reward_value, reward_amount, icon, is_repeatable, tier_step, sort_order) VALUES
 (1, '유산소 20분', '유산소 20분 운동하세요', 'daily', 'aerobic_min', 20, NULL, 'stat', 'stamina', 1, '🏃', FALSE, NULL, 1),
 (2, '웨이트 30분', '웨이트 30분 운동하세요', 'daily', 'weight_min', 30, NULL, 'stat', 'strength', 1, '💪', FALSE, NULL, 2),

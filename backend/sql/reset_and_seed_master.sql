@@ -1,5 +1,5 @@
 -- 전체 사용자 데이터 초기화 후 마스터 계정 1개 시드
--- 사전: migrate_master_unlocks.sql 등 스키마 마이그레이션 적용됨을 가정합니다.
+-- 사전: accounts.is_master, user_unlocks/user_items/user_accessories 등 최신 스키마가 적용되어 있어야 합니다.
 -- 실행 예: mysql -u pets -p pets < backend/sql/reset_and_seed_master.sql
 --
 -- 마스터 로그인(기본):
