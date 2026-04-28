@@ -24,11 +24,6 @@ interface HeartRateCameraProps {
 
 // 네이티브용 컴포넌트 (카메라 사용)
 function NativeHeartRateCamera({ visible, onComplete, onCancel }: HeartRateCameraProps) {
-  if (!useCameraPermissions) {
-    // expo-camera를 사용할 수 없는 경우 웹 모드로 전환
-    return <WebHeartRateCamera visible={visible} onComplete={onComplete} onCancel={onCancel} />;
-  }
-  
   const [permission, requestPermission] = useCameraPermissions();
   const [isMeasuring, setIsMeasuring] = useState(false);
   const [countdown, setCountdown] = useState(10);
@@ -341,26 +336,15 @@ function WebHeartRateCamera({ visible, onComplete, onCancel }: HeartRateCameraPr
 
 // 메인 컴포넌트
 export default function HeartRateCamera(props: HeartRateCameraProps) {
-  const isWeb = Platform.OS === 'web';
-  
-  if (isWeb) {
+  if (Platform.OS === 'web') {
     return <WebHeartRateCamera {...props} />;
   }
-  
-  // 네이티브에서는 expo-camera를 동적으로 로드
-  if (!CameraView) {
-    try {
-      const cameraModule = require('expo-camera');
-      CameraView = cameraModule.CameraView;
-      const { useCameraPermissions } = cameraModule;
-      // NativeHeartRateCamera를 동적으로 생성
-      return <NativeHeartRateCamera {...props} />;
-    } catch (e) {
-      console.warn('expo-camera를 로드할 수 없습니다. 웹 모드로 전환합니다.');
-      return <WebHeartRateCamera {...props} />;
-    }
+
+  // 네이티브에서 expo-camera를 사용할 수 없으면 시뮬레이션 모드로 폴백
+  if (!CameraView || !useCameraPermissions) {
+    return <WebHeartRateCamera {...props} />;
   }
-  
+
   return <NativeHeartRateCamera {...props} />;
 }
 

@@ -708,7 +708,9 @@ export default function Index() {
 
                 {findIdResult !== null && (
                   <View style={styles.resultBox}>
-                    <Text style={styles.resultText}>회원님의 아이디는 "{findIdResult}" 입니다</Text>
+                    <Text style={styles.resultText}>
+                      회원님의 아이디는 {`"${findIdResult}"`} 입니다
+                    </Text>
                   </View>
                 )}
 
