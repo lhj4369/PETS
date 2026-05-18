@@ -17,11 +17,10 @@ export default function DefenseSubHeader({ title }: Props) {
         style={styles.back}
         onPress={() => router.back()}
         activeOpacity={0.7}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityRole="button"
-        accessibilityLabel="뒤로"
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Ionicons name="chevron-back" size={26} color={APP_COLORS.brown} />
+        <Ionicons name="chevron-back" size={22} color={APP_COLORS.brown} />
+        <Text style={styles.backText}>뒤로</Text>
       </TouchableOpacity>
       <Text style={styles.title} numberOfLines={1}>
         {title}
@@ -34,21 +33,24 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 6,
     marginBottom: 6,
-    minHeight: 36,
   },
   back: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    width: 36,
-    height: 36,
-    marginLeft: -4,
+    gap: 2,
+  },
+  backText: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: APP_COLORS.brown,
+    fontFamily: "KotraHope",
   },
   title: {
     flex: 1,
-    fontSize: 22,
-    fontWeight: "800",
+    fontSize: 20,
+    fontWeight: "700",
     color: APP_COLORS.brown,
     fontFamily: "KotraHope",
   },

@@ -22,5 +22,7 @@ export function getDefenseFieldSlotHeight(windowHeight: number): number {
 /** 하단 타워 선택 영역 최소 높이 */
 export const DEFENSE_TOWER_DOCK_MIN_HEIGHT = 248;
 
+import { DEFENSE_TOWER_IMAGE_SCALE } from "./defenseTowerVisuals";
+
 /** 유닛 존에 배치되는 타워 이미지 한 변 크기 (px) */
-export const DEFENSE_TOWER_SIZE = 52;
+export const DEFENSE_TOWER_SIZE = Math.round(52 * DEFENSE_TOWER_IMAGE_SCALE);

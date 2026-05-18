@@ -35,6 +35,7 @@ export default function Navigator() {
     { label: '채팅', path: '/chatting' },
     { label: '퀘스트', path: '/(tabs)/home?openQuest=1' },
     { label: '커스터마이징', path: '/customize' },
+    { label: '디펜스', path: '/defense' },
     { label: '설정', path: '/settings' },
   ];
 
@@ -94,8 +95,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
-    elevation: 5,
-    zIndex: 999,
+    zIndex: 9999,
+    elevation: 10,
   },
   buttonText: {
     color: '#fff',

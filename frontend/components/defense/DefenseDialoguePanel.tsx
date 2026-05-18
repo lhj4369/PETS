@@ -3,68 +3,64 @@ import { APP_COLORS } from "../../constants/theme";
 
 type Props = {
   lines: string[];
+  lineIndex: number;
   speakerLabel?: string;
-  /** 나레이션 라벨 + 대화 스킵 행 표시 (모달에선 보통 false) */
-  showSpeakerAndSkip?: boolean;
   onNext: () => void;
   onSkipToBattle: () => void;
   nextLabel?: string;
-  /** 기본 200 — 모달 등에서 넓게 쓸 때 지정 */
+  /** 대사 박스 최대 높이 */
   maxBoxHeight?: number;
-  /** 텍스트 박스 최소 높이 — 스테이지마다 모달 크기를 맞출 때 사용 */
-  minBoxHeight?: number;
-  /** 텍스트 박스 안쪽 패딩 */
-  boxPadding?: number;
-  /** 본문 글자 크기·행간 (모달 등에서 키울 때) */
   lineFontSize?: number;
   lineHeight?: number;
 };
 
 /**
- * 시나리오 스테이지 진입 시 대화 출력 — `lines` 전체를 한 번에 표시하고, 입장은 `onNext`로 진행.
+ * 시나리오 스테이지 진입 시 대화·나레이션 출력 (`getStubDialogueForStage` / `DIALOGUE_BY_STAGE`).
  */
 export default function DefenseDialoguePanel({
   lines,
+  lineIndex,
   speakerLabel = "나레이션",
-  showSpeakerAndSkip = true,
   onNext,
   onSkipToBattle,
-  nextLabel = "입장",
+  nextLabel = "다음",
   maxBoxHeight = 200,
-  minBoxHeight,
-  boxPadding = 16,
   lineFontSize = 15,
-  lineHeight: lineHeightProp = 22,
+  lineHeight = 22,
 }: Props) {
+  const safeIndex = Math.max(0, Math.min(lineIndex, Math.max(0, lines.length - 1)));
+  const isLast = lines.length === 0 || safeIndex >= lines.length - 1;
+  const visible = lines.length > 0 ? lines.slice(0, safeIndex + 1) : [];
+
   return (
-    <View style={[styles.wrap, !showSpeakerAndSkip && styles.wrapCompact]}>
-      {showSpeakerAndSkip ? (
-        <View style={styles.speakerRow}>
-          <Text style={styles.speaker}>{speakerLabel}</Text>
-          <TouchableOpacity onPress={onSkipToBattle} hitSlop={12}>
-            <Text style={styles.skip}>대화 스킵 ▶</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
+    <View style={styles.wrap}>
+      <View style={styles.speakerRow}>
+        <Text style={styles.speaker}>{speakerLabel}</Text>
+        <TouchableOpacity onPress={onSkipToBattle} hitSlop={12}>
+          <Text style={styles.skip}>대화 스킵 ▶</Text>
+        </TouchableOpacity>
+      </View>
       <ScrollView
-        style={[
-          styles.box,
-          { maxHeight: maxBoxHeight },
-          minBoxHeight != null && { minHeight: minBoxHeight },
-        ]}
-        contentContainerStyle={[styles.boxInner, { padding: boxPadding }]}
+        style={[styles.box, { maxHeight: maxBoxHeight }]}
+        contentContainerStyle={styles.boxInner}
       >
-        {lines.map((line, i) => (
-          <Text
-            key={`${i}-${line.slice(0, 8)}`}
-            style={[styles.line, { fontSize: lineFontSize, lineHeight: lineHeightProp }]}
-          >
-            {line}
+        {visible.length === 0 ? (
+          <Text style={[styles.line, { fontSize: lineFontSize, lineHeight }]}>
+            (대사 없음)
           </Text>
-        ))}
+        ) : (
+          visible.map((line, i) => (
+            <Text
+              key={`${i}-${line.slice(0, 12)}`}
+              style={[styles.line, { fontSize: lineFontSize, lineHeight }]}
+            >
+              {line}
+            </Text>
+          ))
+        )}
       </ScrollView>
       <TouchableOpacity style={styles.primaryBtn} onPress={onNext} activeOpacity={0.85}>
-        <Text style={styles.primaryBtnText}>{nextLabel}</Text>
+        <Text style={styles.primaryBtnText}>{isLast ? "전투 시작" : nextLabel}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -73,9 +69,6 @@ export default function DefenseDialoguePanel({
 const styles = StyleSheet.create({
   wrap: {
     gap: 12,
-  },
-  wrapCompact: {
-    gap: 14,
   },
   speakerRow: {
     flexDirection: "row",
@@ -100,7 +93,8 @@ const styles = StyleSheet.create({
     borderColor: APP_COLORS.ivoryDark,
   },
   boxInner: {
-    gap: 12,
+    padding: 16,
+    gap: 10,
   },
   line: {
     color: APP_COLORS.brown,

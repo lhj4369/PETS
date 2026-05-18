@@ -1,43 +1,956 @@
-import { View, StyleSheet, Image } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Image,
+  LayoutChangeEvent,
+  Pressable,
+  Text,
+} from "react-native";
 import type { RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { PlacedTowerData } from "./defenseTypes";
-import { DEFENSE_TOWER_SIZE } from "./defenseScreenTokens";
+import { DEFENSE_GRID_COLS, DEFENSE_GRID_ROWS } from "./defenseGrid";
+import { pointOnLoopCCWFromTopLeft } from "./defensePathMath";
+import {
+  DEFENSE_ENEMY_MAX_HP,
+  DEFENSE_PROJECTILE_FLIGHT_MS,
+  DEFENSE_PROJECTILE_SIZE,
+  getDefenseTowerCombat,
+} from "./defenseCombatConstants";
+import {
+  DEFENSE_BOSS_ENEMY_SIZE_MULT,
+  DEFENSE_BOSS_WAVE_ENEMY_MAX_HP,
+  DEFENSE_BOSS_WAVE_NUMBER,
+} from "./defenseWaveConstants";
 
-const WAVE_BORDER = "#E57373";
-const PLACE_BORDER = "#42A5F5";
-const DROP_BORDER = "#1E90FF";
-const ZONE_GAP = 22;
-const HALF = DEFENSE_TOWER_SIZE / 2;
+const CELL_GAP = 6;
+
+/** 광역 타격 시 링 펄스 길이(ms) — 배속과 함께 짧아짐 */
+const AOE_PULSE_BASE_DURATION_MS = 420;
+
+import {
+  DEFENSE_TOWER_CELL_IMAGE_RATIO,
+  getEnemySlowTintRgba,
+  getTowerAoePulseColors,
+  getTowerProjectileColors,
+  getTowerProjectileImage,
+  getTowerProjectileImageOpacity,
+  getTowerProjectileImageSize,
+  getTowerRangeRingColors,
+} from "./defenseTowerVisuals";
+
+/** 한 바퀴 주기(ms). 기존 18000 대비 약 1.3배 빠름 */
+const ENEMY_LAP_DURATION_MS = Math.round(18000 / 1.3);
+
+/** 라운드 시작 후 첫 스폰까지 간격 + 이후 스폰 간격 */
+const ENEMY_SPAWN_INTERVAL_MS = 1500;
+
+const MONSTER_IMAGE = require("../../assets/images/animation/fox/fox_running/0.png");
+
+type FieldEnemy = {
+  id: string;
+  hp: number;
+  /** 보스 스폰 시 최대 체력(HUD용) */
+  maxHp?: number;
+  /** 보스 웨이브 등 — 스프라이트 크기·스폰 HP 구분 */
+  isBoss?: boolean;
+  /** 게임오버 등 정지 시 경로 위상(0~1) 스냅 */
+  pausedPhase?: number;
+};
+
+type Projectile = {
+  id: string;
+  unitId: string;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  targetId: string;
+  startTime: number;
+  damage: number;
+  /** 미지정 시 `DEFENSE_PROJECTILE_SIZE` */
+  diameterPx?: number;
+};
+
+type AoePulseVisual = {
+  id: string;
+  unitId: string;
+  cx: number;
+  cy: number;
+  radius: number;
+  startTime: number;
+  durationMs: number;
+  /** 테두리·채움 알파에 곱함 (1=기본, fox는 약 50% 선명도) */
+  clarityMul?: number;
+};
+
+function towerCellCenterPx(
+  col: number,
+  row: number,
+  cellSide: number
+): { x: number; y: number } {
+  const ox = cellSide;
+  const oy = cellSide;
+  const x = ox + col * (cellSide + CELL_GAP) + cellSide / 2;
+  const y = oy + row * (cellSide + CELL_GAP) + cellSide / 2;
+  return { x, y };
+}
+
+/** lapAccMs = 1배 기준으로 경로를 따라 누적된 ms; 배속은 ref 갱신 시에만 곱해짐 */
+function enemyTravelPhase(
+  e: FieldEnemy,
+  lapAccMs: number,
+  isFrozen: boolean
+): number {
+  if (isFrozen && e.pausedPhase !== undefined) {
+    const ph = e.pausedPhase;
+    return ph - Math.floor(ph);
+  }
+  const m = lapAccMs % ENEMY_LAP_DURATION_MS;
+  const norm = (m + ENEMY_LAP_DURATION_MS) % ENEMY_LAP_DURATION_MS;
+  return norm / ENEMY_LAP_DURATION_MS;
+}
+
+export type BossHpHudPayload = { hp: number; maxHp: number };
 
 type Props = {
   unitZoneRef?: RefObject<View | null>;
   placedTowers?: PlacedTowerData[];
   onUnitZoneLayout?: () => void;
   isDropTarget?: boolean;
+  onCellSideChange?: (side: number) => void;
+  onFieldEnemyCountChange?: (count: number) => void;
+  isFrozen?: boolean;
+  /** false면 적 스폰 타이머 비활성(웨이브 배너·후반 무스폰 구간) */
+  spawnEnemiesEnabled?: boolean;
+  /** 배치 타워 삭제(선택 UI의 '삭제') */
+  onRemovePlacedTower?: (towerId: string) => void;
+  /** 배치 타워 '정보' 탭 */
+  onPlacedTowerInfoPress?: (tower: PlacedTowerData) => void;
+  /** 이번 틱에서 처치된 적 수(투사체 명중으로 사망 처리된 경우만) */
+  onEnemiesKilled?: (count: number) => void;
+  /** 2면 적 경로 누적·스폰·타워·투사체가 실시간 기준 2배(경로 위치는 1배 기준 누적만 사용) */
+  speedMultiplier?: number;
+  /** 스폰 시 적 초기 hp (미지정 시 DEFENSE_ENEMY_MAX_HP) */
+  enemySpawnMaxHp?: number;
+  /** 현재 웨이브 번호. `DEFENSE_BOSS_WAVE_NUMBER`와 같으면 보스 적 스폰 */
+  activeWaveNumber?: number;
+  /** 보스 웨이브 적 최대 HP (미지정 시 `DEFENSE_BOSS_WAVE_ENEMY_MAX_HP`) */
+  bossWaveEnemyMaxHp?: number;
+  /** 보스 적 지름 배수 (미지정 시 `DEFENSE_BOSS_ENEMY_SIZE_MULT`) */
+  bossEnemySizeMult?: number;
+  /** 보스 웨이브 HUD용 — 남은 체력 갱신(null이면 보스 없음·사망) */
+  onBossHpForHud?: (payload: BossHpHudPayload | null) => void;
 };
+
+function computeCellSideForAvail(availW: number, availH: number): number {
+  const COLS = DEFENSE_GRID_COLS;
+  const ROWS = DEFENSE_GRID_ROWS;
+  const G = CELL_GAP;
+  if (availW < 56 || availH < 56) return 18;
+  const sW = Math.floor((availW - (COLS - 1) * G) / (COLS + 2));
+  const sH = Math.floor((availH - (ROWS - 1) * G) / (ROWS + 2));
+  return Math.max(14, Math.min(sW, sH));
+}
 
 export default function DefenseBattleFieldPlaceholder({
   unitZoneRef,
   placedTowers = [],
   onUnitZoneLayout,
   isDropTarget = false,
+  onCellSideChange,
+  onFieldEnemyCountChange,
+  isFrozen = false,
+  spawnEnemiesEnabled = true,
+  onRemovePlacedTower,
+  onPlacedTowerInfoPress,
+  onEnemiesKilled,
+  speedMultiplier = 1,
+  enemySpawnMaxHp,
+  activeWaveNumber = 1,
+  bossWaveEnemyMaxHp,
+  bossEnemySizeMult,
+  onBossHpForHud,
 }: Props) {
+  const sm = Math.max(1, speedMultiplier);
+  const speedMultRef = useRef(sm);
+  speedMultRef.current = sm;
+
+  const enemySpawnMaxHpRef = useRef(
+    enemySpawnMaxHp ?? DEFENSE_ENEMY_MAX_HP
+  );
+  enemySpawnMaxHpRef.current = enemySpawnMaxHp ?? DEFENSE_ENEMY_MAX_HP;
+
+  const bossHpOverrideRef = useRef(bossWaveEnemyMaxHp);
+  bossHpOverrideRef.current = bossWaveEnemyMaxHp;
+
+  const lapMsByEnemyRef = useRef<Record<string, number>>({});
+  /** 감속 만료 시각(ms, Date.now 기준). 배속과 맞추기 위해 지속시간은 틱에서 `÷ mult`로 줄임 */
+  const slowUntilByEnemyRef = useRef<Record<string, number>>({});
+  const slowSourceUnitByEnemyRef = useRef<Record<string, string>>({});
+  /** 감속 중 경로 진행 배율(예: 0.8 = 20% 느림). `slowUntil`과 함께 갱신 */
+  const slowLapFactorByEnemyRef = useRef<Record<string, number>>({});
+  const lastEnemySimTickRef = useRef(Date.now());
+
+  const enemySpawnIntervalMs = useMemo(
+    () => Math.max(1, Math.round(ENEMY_SPAWN_INTERVAL_MS / sm)),
+    [sm],
+  );
+  const projectileFlightMs = useMemo(
+    () => Math.max(1, Math.round(DEFENSE_PROJECTILE_FLIGHT_MS / sm)),
+    [sm],
+  );
+  const [avail, setAvail] = useState({ w: 0, h: 0 });
+  const [roundActive] = useState(true);
+  const [enemies, setEnemies] = useState<FieldEnemy[]>([]);
+  const [projectiles, setProjectiles] = useState<Projectile[]>([]);
+  const [, setRenderTick] = useState(0);
+  const [selectedCell, setSelectedCell] = useState<{
+    col: number;
+    row: number;
+  } | null>(null);
+
+  const towerLastFireRef = useRef<Record<string, number>>({});
+  const prevFrozenRef = useRef(false);
+  const enemiesRef = useRef<FieldEnemy[]>([]);
+  const projectilesRef = useRef<Projectile[]>([]);
+  const placedTowersRef = useRef<PlacedTowerData[]>([]);
+  const projectileIdRef = useRef(0);
+  /** 광역 즉시 타격 시 짧게 표시하는 충격파 링 */
+  const aoePulsesRef = useRef<AoePulseVisual[]>([]);
+  const onEnemiesKilledRef = useRef(onEnemiesKilled);
+  onEnemiesKilledRef.current = onEnemiesKilled;
+
+  const onBossHpForHudRef = useRef(onBossHpForHud);
+  onBossHpForHudRef.current = onBossHpForHud;
+  const lastBossHudSigRef = useRef<string | null>("__init__");
+
+  enemiesRef.current = enemies;
+  projectilesRef.current = projectiles;
+  placedTowersRef.current = placedTowers;
+
+  const cellSide = useMemo(() => {
+    if (avail.w < 56 || avail.h < 56) return 28;
+    return computeCellSideForAvail(avail.w, avail.h);
+  }, [avail.w, avail.h]);
+
+  const gridBoardW =
+    DEFENSE_GRID_COLS * cellSide + (DEFENSE_GRID_COLS - 1) * CELL_GAP;
+  const gridBoardH =
+    DEFENSE_GRID_ROWS * cellSide + (DEFENSE_GRID_ROWS - 1) * CELL_GAP;
+
+  const outerW = gridBoardW + 2 * cellSide;
+  const outerH = gridBoardH + 2 * cellSide;
+
+  const pathP = cellSide;
+
+  useEffect(() => {
+    onCellSideChange?.(cellSide);
+  }, [cellSide, onCellSideChange]);
+
+  useEffect(() => {
+    onFieldEnemyCountChange?.(enemies.length);
+  }, [enemies.length, onFieldEnemyCountChange]);
+
+  useEffect(() => {
+    const cb = onBossHpForHudRef.current;
+    if (!cb) return;
+    const boss = enemies.find((e) => e.isBoss && e.hp > 0);
+    if (boss) {
+      const maxHp = boss.maxHp ?? boss.hp;
+      const sig = `${boss.hp}:${maxHp}`;
+      if (lastBossHudSigRef.current === sig) return;
+      lastBossHudSigRef.current = sig;
+      cb({ hp: boss.hp, maxHp });
+    } else {
+      if (lastBossHudSigRef.current === "__none__") return;
+      lastBossHudSigRef.current = "__none__";
+      cb(null);
+    }
+  }, [enemies]);
+
+  useEffect(() => {
+    setSelectedCell((prev) => {
+      if (!prev) return prev;
+      const still = placedTowers.some(
+        (t) => t.col === prev.col && t.row === prev.row
+      );
+      return still ? prev : null;
+    });
+  }, [placedTowers]);
+
+  useLayoutEffect(() => {
+    if (isFrozen && !prevFrozenRef.current) {
+      setEnemies((prev) =>
+        prev.map((e) => {
+          const acc = lapMsByEnemyRef.current[e.id] ?? 0;
+          return {
+            ...e,
+            pausedPhase:
+              (acc % ENEMY_LAP_DURATION_MS) / ENEMY_LAP_DURATION_MS,
+          };
+        })
+      );
+    }
+    if (!isFrozen && prevFrozenRef.current) {
+      setEnemies((prev) =>
+        prev.map((e) => {
+          const { pausedPhase: _p, ...rest } = e;
+          return rest;
+        })
+      );
+    }
+    prevFrozenRef.current = isFrozen;
+  }, [isFrozen]);
+
+  useEffect(() => {
+    for (const t of placedTowers) {
+      if (towerLastFireRef.current[t.id] === undefined) {
+        towerLastFireRef.current[t.id] = Date.now();
+      }
+    }
+  }, [placedTowers]);
+
+  const bossSingleSpawnDoneRef = useRef(false);
+
+  useEffect(() => {
+    if (activeWaveNumber !== DEFENSE_BOSS_WAVE_NUMBER) {
+      bossSingleSpawnDoneRef.current = false;
+      lastBossHudSigRef.current = "__init__";
+    }
+  }, [activeWaveNumber]);
+
+  useEffect(() => {
+    if (!roundActive || isFrozen || !spawnEnemiesEnabled) return;
+
+    if (activeWaveNumber === DEFENSE_BOSS_WAVE_NUMBER) {
+      if (bossSingleSpawnDoneRef.current) return;
+      bossSingleSpawnDoneRef.current = true;
+      const hp =
+        bossHpOverrideRef.current ?? DEFENSE_BOSS_WAVE_ENEMY_MAX_HP;
+      setEnemies((prev) => [
+        ...prev,
+        {
+          id: `enemy-${Date.now()}-${prev.length}`,
+          hp,
+          maxHp: hp,
+          isBoss: true,
+        },
+      ]);
+      return;
+    }
+
+    const id = setInterval(() => {
+      setEnemies((prev) => [
+        ...prev,
+        {
+          id: `enemy-${Date.now()}-${prev.length}`,
+          hp: enemySpawnMaxHpRef.current,
+        },
+      ]);
+    }, enemySpawnIntervalMs);
+    return () => clearInterval(id);
+  }, [
+    roundActive,
+    isFrozen,
+    spawnEnemiesEnabled,
+    enemySpawnIntervalMs,
+    activeWaveNumber,
+    bossWaveEnemyMaxHp,
+  ]);
+
+  useEffect(() => {
+    if (isFrozen) return;
+
+    lastEnemySimTickRef.current = Date.now();
+
+    let frame = 0;
+    const tick = () => {
+      const now = Date.now();
+      aoePulsesRef.current = aoePulsesRef.current.filter(
+        (p) => now - p.startTime < p.durationMs
+      );
+      const deltaReal = now - lastEnemySimTickRef.current;
+      lastEnemySimTickRef.current = now;
+      const mult = speedMultRef.current;
+      const W = outerW;
+      const H = outerH;
+      const P = pathP;
+      let E = enemiesRef.current;
+      for (const en of E) {
+        if (en.hp <= 0) continue;
+        const id = en.id;
+        const slowUntil = slowUntilByEnemyRef.current[id];
+        const slowed = slowUntil != null && now < slowUntil;
+        const lapSpeed = slowed
+          ? (slowLapFactorByEnemyRef.current[id] ?? 0.8)
+          : 1;
+        lapMsByEnemyRef.current[id] =
+          (lapMsByEnemyRef.current[id] ?? 0) + deltaReal * mult * lapSpeed;
+      }
+      let Pr = projectilesRef.current;
+      let changedE = false;
+      let changedP = false;
+
+      const stillFlying: Projectile[] = [];
+      let killsThisTick = 0;
+      for (const p of Pr) {
+        if (now - p.startTime >= projectileFlightMs) {
+          const dmg = p.damage;
+          const target = E.find((en) => en.id === p.targetId);
+          if (target && target.hp > 0) {
+            const nextHp = target.hp - dmg;
+            if (nextHp <= 0) killsThisTick += 1;
+          }
+          changedE = true;
+          changedP = true;
+          E = E.map((en) =>
+            en.id === p.targetId ? { ...en, hp: en.hp - dmg } : en
+          ).filter((en) => en.hp > 0);
+          const aliveIds = new Set(E.map((x) => x.id));
+          for (const k of Object.keys(lapMsByEnemyRef.current)) {
+            if (!aliveIds.has(k)) delete lapMsByEnemyRef.current[k];
+          }
+          for (const k of Object.keys(slowUntilByEnemyRef.current)) {
+            if (!aliveIds.has(k)) delete slowUntilByEnemyRef.current[k];
+          }
+          for (const k of Object.keys(slowSourceUnitByEnemyRef.current)) {
+            if (!aliveIds.has(k)) delete slowSourceUnitByEnemyRef.current[k];
+          }
+          for (const k of Object.keys(slowLapFactorByEnemyRef.current)) {
+            if (!aliveIds.has(k)) delete slowLapFactorByEnemyRef.current[k];
+          }
+        } else {
+          stillFlying.push(p);
+        }
+      }
+      if (killsThisTick > 0) {
+        onEnemiesKilledRef.current?.(killsThisTick);
+      }
+      if (changedP) {
+        Pr = stillFlying;
+      }
+
+      const newShots: Projectile[] = [];
+
+      for (const tower of placedTowersRef.current) {
+        const combat = getDefenseTowerCombat(tower.unitId);
+        const towerAttackIntervalMs = Math.max(
+          1,
+          Math.round(combat.attackIntervalMs)
+        );
+        const last = towerLastFireRef.current[tower.id] ?? 0;
+        if (now - last < towerAttackIntervalMs) continue;
+
+        const rangeR = combat.rangeRadiusCellMult * cellSide;
+        const tc = towerCellCenterPx(tower.col, tower.row, cellSide);
+        const aliveNow = E.filter((e) => e.hp > 0);
+        const attackStyle = combat.attackStyle ?? "projectile_single";
+
+        if (attackStyle === "instant_aoe_all_in_range") {
+          const inRangeIds: string[] = [];
+          for (const en of aliveNow) {
+            const acc = lapMsByEnemyRef.current[en.id] ?? 0;
+            const ph = enemyTravelPhase(en, acc, false);
+            const { x: ex, y: ey } = pointOnLoopCCWFromTopLeft(ph, W, H, P);
+            const dx = ex - tc.x;
+            const dy = ey - tc.y;
+            if (dx * dx + dy * dy <= rangeR * rangeR) {
+              inRangeIds.push(en.id);
+            }
+          }
+          if (inRangeIds.length === 0) continue;
+
+          towerLastFireRef.current[tower.id] = now;
+          const dmg = combat.damage;
+          const hasSlowDebuff =
+            combat.slowPercent != null &&
+            combat.slowDurationMs != null &&
+            combat.slowDurationMs > 0;
+          if (hasSlowDebuff) {
+            const slowPct = combat.slowPercent!;
+            const lapFactor = Math.max(0.05, 1 - slowPct / 100);
+            const slowDurReal = Math.max(
+              1,
+              Math.round(combat.slowDurationMs! / mult)
+            );
+            const slowUntil = now + slowDurReal;
+            for (const hid of inRangeIds) {
+              slowUntilByEnemyRef.current[hid] = slowUntil;
+              slowSourceUnitByEnemyRef.current[hid] = tower.unitId;
+              slowLapFactorByEnemyRef.current[hid] = lapFactor;
+            }
+          }
+
+          const hitSet = new Set(inRangeIds);
+          let killsFromPulse = 0;
+          E = E.map((en) => {
+            if (!hitSet.has(en.id)) return en;
+            const nextHp = en.hp - dmg;
+            if (nextHp <= 0) killsFromPulse += 1;
+            return { ...en, hp: nextHp };
+          }).filter((en) => en.hp > 0);
+
+          const aliveIds = new Set(E.map((x) => x.id));
+          for (const k of Object.keys(lapMsByEnemyRef.current)) {
+            if (!aliveIds.has(k)) delete lapMsByEnemyRef.current[k];
+          }
+          for (const k of Object.keys(slowUntilByEnemyRef.current)) {
+            if (!aliveIds.has(k)) delete slowUntilByEnemyRef.current[k];
+          }
+          for (const k of Object.keys(slowSourceUnitByEnemyRef.current)) {
+            if (!aliveIds.has(k)) delete slowSourceUnitByEnemyRef.current[k];
+          }
+          for (const k of Object.keys(slowLapFactorByEnemyRef.current)) {
+            if (!aliveIds.has(k)) delete slowLapFactorByEnemyRef.current[k];
+          }
+
+          changedE = true;
+          if (killsFromPulse > 0) {
+            onEnemiesKilledRef.current?.(killsFromPulse);
+          }
+          const pulseMs = Math.max(
+            200,
+            Math.round(AOE_PULSE_BASE_DURATION_MS / mult)
+          );
+          projectileIdRef.current += 1;
+          const pulseClarityMul = combat.aoePulseClarityMul ?? 1;
+          aoePulsesRef.current.push({
+            id: `aoe-pulse-${projectileIdRef.current}`,
+            unitId: tower.unitId,
+            cx: tc.x,
+            cy: tc.y,
+            radius: rangeR,
+            startTime: now,
+            durationMs: pulseMs,
+            clarityMul: pulseClarityMul,
+          });
+          continue;
+        }
+
+        let best: { id: string; x: number; y: number; d2: number } | null =
+          null;
+
+        for (const en of aliveNow) {
+          const acc = lapMsByEnemyRef.current[en.id] ?? 0;
+          const ph = enemyTravelPhase(en, acc, false);
+          const { x: ex, y: ey } = pointOnLoopCCWFromTopLeft(ph, W, H, P);
+          const dx = ex - tc.x;
+          const dy = ey - tc.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 > rangeR * rangeR) continue;
+          if (!best || d2 < best.d2) {
+            best = { id: en.id, x: ex, y: ey, d2 };
+          }
+        }
+
+        if (best) {
+          towerLastFireRef.current[tower.id] = now;
+          projectileIdRef.current += 1;
+          const mul = combat.projectileSizeMul ?? 1;
+          const diameterPx = Math.max(
+            2,
+            Math.round(DEFENSE_PROJECTILE_SIZE * mul)
+          );
+          newShots.push({
+            id: `proj-${projectileIdRef.current}`,
+            unitId: tower.unitId,
+            fromX: tc.x,
+            fromY: tc.y,
+            toX: best.x,
+            toY: best.y,
+            targetId: best.id,
+            startTime: now,
+            damage: combat.damage,
+            diameterPx,
+          });
+        }
+      }
+
+      if (newShots.length > 0) {
+        Pr = [...Pr, ...newShots];
+        changedP = true;
+      }
+
+      if (changedE) {
+        enemiesRef.current = E;
+        setEnemies(E);
+      }
+      if (changedP) {
+        projectilesRef.current = Pr;
+        setProjectiles(Pr);
+      }
+
+      setRenderTick((n) => n + 1);
+      frame = requestAnimationFrame(tick);
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [
+    isFrozen,
+    outerW,
+    outerH,
+    pathP,
+    cellSide,
+    projectileFlightMs,
+  ]);
+
+  const onFieldLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setAvail({ w: width, h: height });
+  };
+
+  const monsterPixel = Math.max(40, Math.round(cellSide * 0.62 * 2));
+  const bossSizeMultResolved =
+    bossEnemySizeMult ?? DEFENSE_BOSS_ENEMY_SIZE_MULT;
+
+  /** 경로–타워 구역 사이 링 두께(기존 대비 약 2/3) */
+  const pathTowerSeparator = Math.max(
+    3,
+    Math.round((cellSide * 0.16 * 2) / 3),
+  );
+
+  const towerAt = (col: number, row: number) =>
+    placedTowers.find((t) => t.col === col && t.row === row);
+
+  const placedTowerForRange =
+    selectedCell != null ? towerAt(selectedCell.col, selectedCell.row) : null;
+  const placedRange =
+    selectedCell != null && placedTowerForRange != null
+      ? (() => {
+          const sc = selectedCell;
+          const { x, y } = towerCellCenterPx(sc.col, sc.row, cellSide);
+          const mult = getDefenseTowerCombat(
+            placedTowerForRange.unitId
+          ).rangeRadiusCellMult;
+          const d = 2 * mult * cellSide;
+          const r = d / 2;
+          const ringColors = getTowerRangeRingColors(placedTowerForRange.unitId);
+          return { cx: x, cy: y, d, r, ringColors };
+        })()
+      : null;
+
+  /** `pointOnLoopCCWFromTopLeft` 기준 t=0 — 적이 루프에 진입하는 지점(시각만 살짝 오른쪽·아래) */
+  const enemySpawnMarker = useMemo(() => {
+    const { x, y } = pointOnLoopCCWFromTopLeft(0, outerW, outerH, pathP);
+    const sz = Math.max(24, Math.round(cellSide * 0.55));
+    const r = sz / 2;
+    const nudge = Math.max(4, Math.min(10, Math.round(cellSide * 0.09)));
+    return { cx: x + nudge, cy: y + nudge, sz, r };
+  }, [outerW, outerH, pathP, cellSide]);
+
+  const drawNow = Date.now();
+
   return (
-    <View style={styles.field}>
-      <View style={styles.waveZone}>
+    <View style={styles.field} onLayout={onFieldLayout}>
+      <View style={[styles.boardShell, { width: outerW, height: outerH }]}>
         <View
-          ref={unitZoneRef}
-          style={[styles.unitZone, isDropTarget && styles.unitZoneTarget]}
-          onLayout={onUnitZoneLayout}
+          style={[
+            styles.pathRing,
+            {
+              width: outerW,
+              height: outerH,
+              padding: cellSide,
+            },
+          ]}
         >
-          {placedTowers.map((t) => (
-            <Image
-              key={t.id}
-              source={t.image}
-              style={[styles.tower, { left: t.x - HALF, top: t.y - HALF }]}
-              resizeMode="contain"
+          <Pressable
+            style={styles.pathRingDeselect}
+            onPress={() => setSelectedCell(null)}
+          />
+          <View
+            style={[
+              styles.towerZoneWrap,
+              { width: gridBoardW, height: gridBoardH },
+            ]}
+          >
+            <View
+              ref={unitZoneRef}
+              style={[
+                styles.gridBoard,
+                {
+                  width: gridBoardW,
+                  height: gridBoardH,
+                },
+                isDropTarget && styles.gridBoardTarget,
+              ]}
+              onLayout={onUnitZoneLayout}
+            >
+              {Array.from({ length: DEFENSE_GRID_ROWS }, (_, row) => (
+                <View key={row} style={styles.gridRow}>
+                  {Array.from({ length: DEFENSE_GRID_COLS }, (_, col) => {
+                    const t = towerAt(col, row);
+                    const marginRight = col < DEFENSE_GRID_COLS - 1 ? CELL_GAP : 0;
+                    const marginBottom = row < DEFENSE_GRID_ROWS - 1 ? CELL_GAP : 0;
+                    const isSel =
+                      selectedCell?.col === col && selectedCell?.row === row;
+                    return (
+                      <View
+                        key={`${row}-${col}`}
+                        style={[
+                          styles.cell,
+                          {
+                            width: cellSide,
+                            height: cellSide,
+                            marginRight,
+                            marginBottom,
+                          },
+                        ]}
+                      >
+                        <Pressable
+                          style={t ? styles.cellMainTapTower : styles.cellMainTapEmpty}
+                          onPress={() => {
+                            if (t) {
+                              setSelectedCell((prev) =>
+                                prev?.col === col && prev?.row === row
+                                  ? null
+                                  : { col, row }
+                              );
+                            } else {
+                              setSelectedCell(null);
+                            }
+                          }}
+                        >
+                          {t ? (
+                            <Image
+                              source={t.image}
+                              style={[
+                                styles.towerInCell,
+                                isSel && {
+                                  width: Math.round(cellSide * 0.55),
+                                  height: Math.round(cellSide * 0.4),
+                                },
+                              ]}
+                              resizeMode="contain"
+                            />
+                          ) : null}
+                        </Pressable>
+                        {isSel && t ? (
+                          <View style={styles.towerActionsRow}>
+                            <Pressable
+                              style={[styles.towerActionBtn, styles.towerActionBtnInfo]}
+                              onPress={() => onPlacedTowerInfoPress?.(t)}
+                              hitSlop={10}
+                            >
+                              <Text style={[styles.towerActionBtnText, styles.towerActionBtnTextInfo]}>
+                                정보
+                              </Text>
+                            </Pressable>
+                            <Pressable
+                              style={[styles.towerActionBtn, styles.towerActionBtnDelete]}
+                              onPress={() => {
+                                onRemovePlacedTower?.(t.id);
+                                setSelectedCell(null);
+                              }}
+                              hitSlop={10}
+                            >
+                              <Text style={[styles.towerActionBtnText, styles.towerActionBtnTextDelete]}>
+                                삭제
+                              </Text>
+                            </Pressable>
+                          </View>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+            <View
+              pointerEvents="none"
+              style={[
+                styles.pathTowerDivider,
+                {
+                  left: -pathTowerSeparator / 2,
+                  top: -pathTowerSeparator / 2,
+                  width: gridBoardW + pathTowerSeparator,
+                  height: gridBoardH + pathTowerSeparator,
+                  borderRadius: 12 + pathTowerSeparator / 2,
+                  borderWidth: pathTowerSeparator,
+                },
+              ]}
             />
-          ))}
+          </View>
+        </View>
+
+        {placedRange ? (
+          <View
+            style={styles.placedRangeLayer}
+            pointerEvents="none"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            <View
+              style={[
+                styles.placedRangeRing,
+                {
+                  width: placedRange.d,
+                  height: placedRange.d,
+                  borderRadius: placedRange.r,
+                  left: placedRange.cx - placedRange.r,
+                  top: placedRange.cy - placedRange.r,
+                  backgroundColor: placedRange.ringColors.fill,
+                  borderColor: placedRange.ringColors.border,
+                },
+              ]}
+            />
+          </View>
+        ) : null}
+
+        <View style={styles.monsterLayer} pointerEvents="none">
+          <View
+            style={[
+              styles.enemySpawnMarker,
+              {
+                width: enemySpawnMarker.sz,
+                height: enemySpawnMarker.sz,
+                borderRadius: enemySpawnMarker.r,
+                left: enemySpawnMarker.cx - enemySpawnMarker.r,
+                top: enemySpawnMarker.cy - enemySpawnMarker.r,
+              },
+            ]}
+            accessibilityLabel="적 출현 지점"
+            accessibilityRole="image"
+          />
+          {enemies.map((e) => {
+            const acc = lapMsByEnemyRef.current[e.id] ?? 0;
+            const t = enemyTravelPhase(e, acc, isFrozen);
+            const { x, y } = pointOnLoopCCWFromTopLeft(t, outerW, outerH, pathP);
+            const m = e.isBoss ? monsterPixel * bossSizeMultResolved : monsterPixel;
+            const half = m / 2;
+            const slowUntil = slowUntilByEnemyRef.current[e.id];
+            const isSlowed = slowUntil != null && drawNow < slowUntil;
+            const slowTint = getEnemySlowTintRgba(
+              slowSourceUnitByEnemyRef.current[e.id]
+            );
+            return (
+              <View
+                key={e.id}
+                style={[
+                  styles.monsterWrap,
+                  {
+                    transform: [
+                      { translateX: x - half },
+                      { translateY: y - half },
+                    ],
+                  },
+                ]}
+              >
+                <View
+                  style={[styles.monsterSpriteBox, { width: m, height: m }]}
+                >
+                  <Image
+                    source={MONSTER_IMAGE}
+                    style={{ width: m, height: m }}
+                    resizeMode="contain"
+                  />
+                  {isSlowed ? (
+                    <View
+                      pointerEvents="none"
+                      style={[
+                        styles.monsterSlowTint,
+                        {
+                          width: m * 0.5,
+                          height: m * 0.5,
+                          borderRadius: m * 0.25,
+                          left: m * 0.25,
+                          top: m * 0.25,
+                          backgroundColor: slowTint,
+                        },
+                      ]}
+                    />
+                  ) : null}
+                </View>
+              </View>
+            );
+          })}
+
+          {aoePulsesRef.current.map((p) => {
+            const u = Math.min(1, (drawNow - p.startTime) / p.durationMs);
+            const ease = 1 - (1 - u) * (1 - u);
+            const ringR = p.radius * (0.28 + 0.72 * ease);
+            const fade = 1 - u;
+            const d = 2 * ringR;
+            const borderW = 2 + 4 * fade;
+            const cm = p.clarityMul ?? 1;
+            const borderA = (0.2 + 0.65 * fade) * cm;
+            const fillA = (0.1 + 0.2 * fade) * cm;
+            const pulseColors = getTowerAoePulseColors(
+              p.unitId,
+              borderA,
+              fillA
+            );
+            return (
+              <View
+                key={p.id}
+                pointerEvents="none"
+                style={[
+                  styles.aoePulseBurst,
+                  {
+                    left: p.cx - ringR,
+                    top: p.cy - ringR,
+                    width: d,
+                    height: d,
+                    borderRadius: ringR,
+                    borderWidth: borderW,
+                    borderColor: pulseColors.borderColor,
+                    backgroundColor: pulseColors.backgroundColor,
+                  },
+                ]}
+              />
+            );
+          })}
+
+          {projectiles.map((p) => {
+            const u = Math.min(
+              1,
+              (drawNow - p.startTime) / projectileFlightMs
+            );
+            const x = p.fromX + (p.toX - p.fromX) * u;
+            const y = p.fromY + (p.toY - p.fromY) * u;
+            const baseD = p.diameterPx ?? DEFENSE_PROJECTILE_SIZE;
+            const projImage = getTowerProjectileImage(p.unitId);
+            const d = getTowerProjectileImageSize(p.unitId, baseD);
+            const half = d / 2;
+            if (projImage) {
+              return (
+                <Image
+                  key={p.id}
+                  source={projImage}
+                  style={[
+                    styles.projectileImage,
+                    {
+                      width: d,
+                      height: d,
+                      left: x - half,
+                      top: y - half,
+                      opacity: getTowerProjectileImageOpacity(p.unitId),
+                    },
+                  ]}
+                  resizeMode="contain"
+                />
+              );
+            }
+            const projColors = getTowerProjectileColors(p.unitId);
+            return (
+              <View
+                key={p.id}
+                style={[
+                  styles.projectile,
+                  {
+                    width: d,
+                    height: d,
+                    borderRadius: half,
+                    left: x - half,
+                    top: y - half,
+                    backgroundColor: projColors.backgroundColor,
+                    borderColor: projColors.borderColor,
+                  },
+                ]}
+              />
+            );
+          })}
         </View>
       </View>
     </View>
@@ -48,35 +961,152 @@ const styles = StyleSheet.create({
   field: {
     flex: 1,
     width: "100%",
+    minHeight: 0,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  waveZone: {
-    flex: 1,
-    width: "100%",
-    borderWidth: 2,
-    borderStyle: "dashed",
-    borderColor: WAVE_BORDER,
+  boardShell: {
+    position: "relative",
+    zIndex: 0,
+  },
+  pathRing: {
     borderRadius: 14,
-    backgroundColor: "rgba(229,115,115,0.10)",
-    padding: ZONE_GAP,
+    backgroundColor: "rgba(200, 200, 200, 0.45)",
+    borderWidth: (2 * 2) / 3,
+    borderColor: "#C62828",
+    overflow: "hidden",
+    position: "relative",
   },
-  unitZone: {
-    flex: 1,
-    width: "100%",
-    borderWidth: 2,
+  /** 패딩(경로) 영역 탭 시 타워 선택 해제 — 그리드보다 뒤 */
+  pathRingDeselect: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
+  },
+  towerZoneWrap: {
+    position: "relative",
+    zIndex: 1,
+  },
+  pathTowerDivider: {
+    position: "absolute",
+    borderColor: "#1B2631",
+    backgroundColor: "transparent",
+    zIndex: 1,
+  },
+  gridBoard: {
+    borderRadius: 14,
+    borderWidth: (2 * 2) / 3,
     borderStyle: "dashed",
-    borderColor: PLACE_BORDER,
-    borderRadius: 10,
-    backgroundColor: "rgba(66,165,245,0.14)",
+    borderColor: "#64B5F6",
+    backgroundColor: "rgba(230, 240, 250, 0.5)",
     overflow: "hidden",
   },
-  unitZoneTarget: {
-    borderColor: DROP_BORDER,
+  gridBoardTarget: {
+    borderColor: "#1E90FF",
     borderStyle: "solid",
-    backgroundColor: "rgba(30,144,255,0.22)",
+    backgroundColor: "rgba(30, 144, 255, 0.18)",
   },
-  tower: {
+  gridRow: {
+    flexDirection: "row",
+  },
+  cell: {
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.06)",
+    flexDirection: "column",
+    alignItems: "stretch",
+    justifyContent: "flex-start",
+    paddingVertical: 2,
+    paddingHorizontal: 2,
+  },
+  cellMainTapEmpty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cellMainTapTower: {
+    flex: 1,
+    minHeight: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  towerInCell: {
+    width: `${Math.round(DEFENSE_TOWER_CELL_IMAGE_RATIO * 100)}%`,
+    height: `${Math.round(DEFENSE_TOWER_CELL_IMAGE_RATIO * 100)}%`,
+  },
+  towerActionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 2,
+    paddingBottom: 2,
+  },
+  towerActionBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  towerActionBtnInfo: {
+    backgroundColor: "#FFF9C4",
+    borderColor: "rgba(241, 196, 15, 0.55)",
+  },
+  towerActionBtnDelete: {
+    backgroundColor: "#FFCDD2",
+    borderColor: "rgba(229, 57, 53, 0.45)",
+  },
+  towerActionBtnText: {
+    fontSize: 18,
+    fontWeight: "800",
+    fontFamily: "KotraHope",
+  },
+  towerActionBtnTextInfo: {
+    color: "#5D4E37",
+  },
+  towerActionBtnTextDelete: {
+    color: "#B71C1C",
+  },
+  /** 배치 타워 선택 시 사거리(전투와 동일: 지름 3×cellSide) — 적·투사체 아래 */
+  placedRangeLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+  },
+  placedRangeRing: {
     position: "absolute",
-    width: DEFENSE_TOWER_SIZE,
-    height: DEFENSE_TOWER_SIZE,
+    borderWidth: 2,
+  },
+  monsterLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
+  },
+  /** 경로상 적 스폰(t=0) 위치 — 적 스프라이트보다 아래에 그려짐 */
+  enemySpawnMarker: {
+    position: "absolute",
+    borderWidth: 2,
+    borderColor: "rgba(192, 57, 43, 0.9)",
+    backgroundColor: "rgba(231, 76, 60, 0.12)",
+  },
+  /** 광역 타격 충격파 — 적·투사체 사이(반투명 링이 적 위에 겹침) */
+  aoePulseBurst: {
+    position: "absolute",
+  },
+  monsterWrap: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+  },
+  monsterSpriteBox: {
+    position: "relative",
+  },
+  monsterSlowTint: {
+    position: "absolute",
+  },
+  projectile: {
+    position: "absolute",
+    borderWidth: 1,
+  },
+  projectileImage: {
+    position: "absolute",
   },
 });

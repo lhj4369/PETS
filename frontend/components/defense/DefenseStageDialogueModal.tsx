@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -23,7 +23,7 @@ type Props = {
 };
 
 /**
- * 시나리오 목록에서 스테이지 선택 시 — 퀘스트 모달과 유사한 중앙 카드로 나레이션.
+ * 시나리오 목록에서 스테이지 선택 시 — `DIALOGUE_BY_STAGE` 나레이션을 순서대로 표시.
  */
 export default function DefenseStageDialogueModal({
   visible,
@@ -32,18 +32,36 @@ export default function DefenseStageDialogueModal({
   onProceedToBattle,
 }: Props) {
   const { width, height } = useWindowDimensions();
+  const [lineIndex, setLineIndex] = useState(0);
 
   const lines = useMemo(
     () => (stage ? getStubDialogueForStage(stage.id) : []),
     [stage]
   );
 
-  /** 가로·세로 상한 — 본문은 세로 중앙 정렬로 버튼 아래 빈 여백 완화 */
+  useEffect(() => {
+    if (visible && stage) {
+      setLineIndex(0);
+    }
+  }, [visible, stage?.id]);
+
   const modalWidth = Math.min(width - 20, 440);
   const modalHeight = Math.round(Math.min(height * 0.5, 500, height * 0.85));
 
   const goBattle = () => {
     if (stage) onProceedToBattle(stage.id);
+  };
+
+  const handleNext = () => {
+    if (lines.length === 0) {
+      goBattle();
+      return;
+    }
+    if (lineIndex < lines.length - 1) {
+      setLineIndex((i) => i + 1);
+    } else {
+      goBattle();
+    }
   };
 
   if (!stage) return null;
@@ -71,12 +89,11 @@ export default function DefenseStageDialogueModal({
           <View style={styles.body}>
             <DefenseDialoguePanel
               lines={lines}
-              showSpeakerAndSkip={false}
-              onNext={goBattle}
+              lineIndex={lineIndex}
+              speakerLabel="나레이션"
+              onNext={handleNext}
               onSkipToBattle={goBattle}
               maxBoxHeight={280}
-              minBoxHeight={200}
-              boxPadding={22}
               lineFontSize={18}
               lineHeight={28}
             />

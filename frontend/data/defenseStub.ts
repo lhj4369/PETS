@@ -9,6 +9,8 @@ export type StubScenarioStage = {
   /** 난이도 라벨 (쉬움/보통/어려움 등) */
   tier: string;
   locked: boolean;
+  /** 이 스테이지에서 진행되는 웨이브 수(마지막은 보스 웨이브) */
+  totalWaves: number;
 };
 
 /** 메인 챕터(n) — 서브 스테이지는 n-1, n-2 … 형식으로 `StubScenarioStage.id`에 둠 */
@@ -28,36 +30,36 @@ export const STUB_SCENARIO_CHAPTERS: StubScenarioChapter[] = [
     chapterId: "1",
     name: "숲의 길",
     stages: [
-      { id: "1-1", area: "초원", tier: "쉬움", locked: false },
-      { id: "1-2", area: "풀숲", tier: "쉬움", locked: false },
-      { id: "1-3", area: "깊은 숲속", tier: "보통", locked: false },
+      { id: "1-1", area: "초원", tier: "쉬움", locked: false, totalWaves: 3 },
+      { id: "1-2", area: "풀숲", tier: "쉬움", locked: false, totalWaves: 3 },
+      { id: "1-3", area: "깊은 숲속", tier: "보통", locked: false, totalWaves: 2 },
     ],
   },
   {
     chapterId: "2",
     name: "마을로",
     stages: [
-      { id: "2-1", area: "마을 초입", tier: "보통", locked: true },
-      { id: "2-2", area: "돌담 골목", tier: "보통", locked: true },
-      { id: "2-3", area: "마을 광장", tier: "보통", locked: true },
+      { id: "2-1", area: "마을 초입", tier: "보통", locked: true, totalWaves: 3 },
+      { id: "2-2", area: "돌담 골목", tier: "보통", locked: true, totalWaves: 3 },
+      { id: "2-3", area: "마을 광장", tier: "보통", locked: true, totalWaves: 2 },
     ],
   },
   {
     chapterId: "3",
     name: "도시로",
     stages: [
-      { id: "3-1", area: "비탈길", tier: "보통", locked: true },
-      { id: "3-2", area: "소도시 입구", tier: "보통", locked: true },
-      { id: "3-3", area: "소도시 외곽", tier: "보통", locked: true },
+      { id: "3-1", area: "비탈길", tier: "보통", locked: true, totalWaves: 3 },
+      { id: "3-2", area: "소도시 입구", tier: "보통", locked: true, totalWaves: 3 },
+      { id: "3-3", area: "소도시 외곽", tier: "보통", locked: true, totalWaves: 2 },
     ],
   },
   {
     chapterId: "4",
     name: "대도시로!",
     stages: [
-      { id: "4-1", area: "소도시 광장", tier: "보통", locked: true },
-      { id: "4-2", area: "대도시 입구", tier: "보통", locked: true },
-      { id: "4-3", area: "대도시 외곽", tier: "보통", locked: true },
+      { id: "4-1", area: "소도시 광장", tier: "보통", locked: true, totalWaves: 3 },
+      { id: "4-2", area: "대도시 입구", tier: "보통", locked: true, totalWaves: 3 },
+      { id: "4-3", area: "대도시 외곽", tier: "보통", locked: true, totalWaves: 2 },
     ],
   },
 ];

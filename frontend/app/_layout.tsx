@@ -3,7 +3,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useEffect } from "react";
 import { useFonts } from "expo-font";
 import { CustomizationProvider } from "../context/CustomizationContext";
-import { SessionProvider, useSession } from "../context/SessionContext";
+import { SessionProvider } from "../context/SessionContext";
 import API_BASE_URL from "../config/api";
 import Navigator from "../components/Navigator";
 import SettingsModal from "../components/SettingsModal";
@@ -18,10 +18,9 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 function RootOverlays() {
   const { isVisible } = useNavigatorVisibility();
-  const { isMaster } = useSession();
   return (
     <>
-      {ENABLE_NAVIGATOR && isMaster && isVisible && <Navigator />}
+      {ENABLE_NAVIGATOR && isVisible && <Navigator />}
       <SettingsModal />
     </>
   );
