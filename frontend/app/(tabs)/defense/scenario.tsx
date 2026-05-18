@@ -1,14 +1,19 @@
-import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from "react-native";
+import { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  SectionList,
+  ImageBackground,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { useFocusEffect } from "@react-navigation/native";
+import * as Haptics from "expo-haptics";
+import { Ionicons } from "@expo/vector-icons";
 import HomeButton from "../../../components/HomeButton";
 import DefenseStageDialogueModal from "../../../components/defense/DefenseStageDialogueModal";
 import { APP_COLORS } from "../../../constants/theme";
-import { STUB_SCENARIO_STAGES } from "../../../data/defenseStub";
-import { loadClearedScenarioStageIds } from "../../../utils/defenseScenarioProgress";
-=======
 import {
   STUB_SCENARIO_CHAPTERS,
   type StubScenarioChapter,
@@ -25,29 +30,20 @@ type Section = StubScenarioChapter & { data: StubScenarioStage[] };
  * 시나리오 스테이지 목록 — 챕터(메인 n)별 구역 + 서브 스테이지(n-m).
  */
 export default function DefenseScenarioScreen() {
-  const [clearedStageIds, setClearedStageIds] = useState<Set<string>>(() => new Set());
+  const [dialogueStage, setDialogueStage] = useState<StubScenarioStage | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      loadClearedScenarioStageIds().then((ids) => {
-        if (active) setClearedStageIds(ids);
-      });
-      return () => {
-        active = false;
-      };
-    }, []),
-  );
+  const sections: Section[] = STUB_SCENARIO_CHAPTERS.map((ch) => ({
+    ...ch,
+    data: ch.stages,
+  }));
 
-  const openStage = (id: string, locked: boolean) => {
-    if (locked) {
-      Alert.alert("잠금", "이전 스테이지를 먼저 클리어해 주세요. (뼈대)");
+  const openStage = (stage: StubScenarioStage) => {
+    if (stage.locked) {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
-    router.push(`/(tabs)/defense/stage/${id}` as any);
+    setDialogueStage(stage);
   };
-=======
-  }, []);
 
   const proceedToBattle = (stageId: string) => {
     setDialogueStage(null);
@@ -92,20 +88,22 @@ export default function DefenseScenarioScreen() {
           <HomeButton />
         </View>
 
-        {STUB_SCENARIO_STAGES.map((s) => (
-          <TouchableOpacity
-            key={s.id}
-            style={[
-              styles.stageRow,
-              s.locked && styles.stageRowLocked,
-              clearedStageIds.has(s.id) && styles.stageRowCleared,
-            ]}
-            onPress={() => openStage(s.id, s.locked)}
-            activeOpacity={0.85}
-          >
-            <View style={styles.stageMeta}>
-              <Text style={styles.stageId}>{s.id}</Text>
-              <Text style={styles.stageArea}>{s.area}</Text>
+        <View style={[styles.fixedTop, fixedTopStyle]}>
+          {headerTitleVisible ? (
+            <View style={styles.headerBlock}>
+              <View style={styles.headerRow}>
+                <TouchableOpacity
+                  style={styles.backButton}
+                  onPress={() => router.back()}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="뒤로"
+                >
+                  <Ionicons name="chevron-back" size={26} color={APP_COLORS.brown} />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>시나리오</Text>
+              </View>
             </View>
           ) : (
             <View style={styles.headerBlockCompact}>
@@ -120,10 +118,6 @@ export default function DefenseScenarioScreen() {
                 <Ionicons name="chevron-back" size={24} color={APP_COLORS.brown} />
               </TouchableOpacity>
             </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-=======
           )}
         </View>
         <View style={[styles.listShell, listShellStyle]}>
@@ -350,7 +344,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#fff",
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -375,26 +368,10 @@ const styles = StyleSheet.create({
   rowSep: {
     height: 10,
   },
-  stageRowCleared: {
-    backgroundColor: "rgba(200, 230, 201, 0.72)",
-    borderColor: "rgba(129, 199, 132, 0.75)",
-  },
-  skullCenter: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  skullEmoji: {
-    fontSize: 30,
-    lineHeight: 36,
-  },
-	
   stageMeta: {
     flex: 1,
     marginRight: 12,
     gap: 4,
-    maxWidth: "42%",
-    zIndex: 1,
   },
   stageId: {
     fontSize: 12,
@@ -412,15 +389,6 @@ const styles = StyleSheet.create({
   stageRight: {
     justifyContent: "center",
     alignItems: "center",
-    zIndex: 1,
-  },
-  stageTier: {
-    fontSize: 14,
-    color: APP_COLORS.brownLight,
-    fontFamily: "KotraHope",
-  },
-  stageLock: {
-    fontSize: 18,
     width: 28,
   },
 });
