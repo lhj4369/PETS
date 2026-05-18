@@ -17,9 +17,26 @@ import {
   DEFENSE_PROJECTILE_SIZE,
   getDefenseTowerCombat,
 } from "./defenseCombatConstants";
+<<<<<<< Updated upstream
 
 const CELL_GAP = 6;
 
+=======
+import {
+  DEFENSE_BOSS_ENEMY_SIZE_MULT,
+  DEFENSE_BOSS_WAVE_ENEMY_MAX_HP,
+  DEFENSE_BOSS_WAVE_NUMBER,
+} from "./defenseWaveConstants";
+
+const CELL_GAP = 6;
+
+/** 광역 타격 시 링 펄스 길이(ms) — 배속과 함께 짧아짐 */
+const AOE_PULSE_BASE_DURATION_MS = 420;
+
+/** 감속 디버프 시 적 스프라이트 위 파란 틴트(알파 약 40%) */
+const ENEMY_SLOW_BLUE_TINT_RGBA = "rgba(100, 175, 255, 0.4)";
+
+>>>>>>> Stashed changes
 /** 한 바퀴 주기(ms). 기존 18000 대비 약 1.3배 빠름 */
 const ENEMY_LAP_DURATION_MS = Math.round(18000 / 1.3);
 
@@ -31,6 +48,13 @@ const MONSTER_IMAGE = require("../../assets/images/animation/fox/fox_running/0.p
 type FieldEnemy = {
   id: string;
   hp: number;
+<<<<<<< Updated upstream
+=======
+  /** 보스 스폰 시 최대 체력(HUD용) */
+  maxHp?: number;
+  /** 보스 웨이브 등 — 스프라이트 크기·스폰 HP 구분 */
+  isBoss?: boolean;
+>>>>>>> Stashed changes
   /** 게임오버 등 정지 시 경로 위상(0~1) 스냅 */
   pausedPhase?: number;
 };
@@ -44,6 +68,22 @@ type Projectile = {
   targetId: string;
   startTime: number;
   damage: number;
+<<<<<<< Updated upstream
+=======
+  /** 미지정 시 `DEFENSE_PROJECTILE_SIZE` */
+  diameterPx?: number;
+};
+
+type AoePulseVisual = {
+  id: string;
+  cx: number;
+  cy: number;
+  radius: number;
+  startTime: number;
+  durationMs: number;
+  /** 테두리·채움 알파에 곱함 (1=기본, fox는 약 50% 선명도) */
+  clarityMul?: number;
+>>>>>>> Stashed changes
 };
 
 function towerCellCenterPx(
@@ -72,6 +112,11 @@ function enemyTravelPhase(
   const norm = (m + ENEMY_LAP_DURATION_MS) % ENEMY_LAP_DURATION_MS;
   return norm / ENEMY_LAP_DURATION_MS;
 }
+<<<<<<< Updated upstream
+=======
+
+export type BossHpHudPayload = { hp: number; maxHp: number };
+>>>>>>> Stashed changes
 
 type Props = {
   unitZoneRef?: RefObject<View | null>;
@@ -93,6 +138,17 @@ type Props = {
   speedMultiplier?: number;
   /** 스폰 시 적 초기 hp (미지정 시 DEFENSE_ENEMY_MAX_HP) */
   enemySpawnMaxHp?: number;
+<<<<<<< Updated upstream
+=======
+  /** 현재 웨이브 번호. `DEFENSE_BOSS_WAVE_NUMBER`와 같으면 보스 적 스폰 */
+  activeWaveNumber?: number;
+  /** 보스 웨이브 적 최대 HP (미지정 시 `DEFENSE_BOSS_WAVE_ENEMY_MAX_HP`) */
+  bossWaveEnemyMaxHp?: number;
+  /** 보스 적 지름 배수 (미지정 시 `DEFENSE_BOSS_ENEMY_SIZE_MULT`) */
+  bossEnemySizeMult?: number;
+  /** 보스 웨이브 HUD용 — 남은 체력 갱신(null이면 보스 없음·사망) */
+  onBossHpForHud?: (payload: BossHpHudPayload | null) => void;
+>>>>>>> Stashed changes
 };
 
 function computeCellSideForAvail(availW: number, availH: number): number {
@@ -119,6 +175,13 @@ export default function DefenseBattleFieldPlaceholder({
   onEnemiesKilled,
   speedMultiplier = 1,
   enemySpawnMaxHp,
+<<<<<<< Updated upstream
+=======
+  activeWaveNumber = 1,
+  bossWaveEnemyMaxHp,
+  bossEnemySizeMult,
+  onBossHpForHud,
+>>>>>>> Stashed changes
 }: Props) {
   const sm = Math.max(1, speedMultiplier);
   const speedMultRef = useRef(sm);
@@ -129,7 +192,18 @@ export default function DefenseBattleFieldPlaceholder({
   );
   enemySpawnMaxHpRef.current = enemySpawnMaxHp ?? DEFENSE_ENEMY_MAX_HP;
 
+<<<<<<< Updated upstream
   const lapMsByEnemyRef = useRef<Record<string, number>>({});
+=======
+  const bossHpOverrideRef = useRef(bossWaveEnemyMaxHp);
+  bossHpOverrideRef.current = bossWaveEnemyMaxHp;
+
+  const lapMsByEnemyRef = useRef<Record<string, number>>({});
+  /** 감속 만료 시각(ms, Date.now 기준). 배속과 맞추기 위해 지속시간은 틱에서 `÷ mult`로 줄임 */
+  const slowUntilByEnemyRef = useRef<Record<string, number>>({});
+  /** 감속 중 경로 진행 배율(예: 0.8 = 20% 느림). `slowUntil`과 함께 갱신 */
+  const slowLapFactorByEnemyRef = useRef<Record<string, number>>({});
+>>>>>>> Stashed changes
   const lastEnemySimTickRef = useRef(Date.now());
 
   const enemySpawnIntervalMs = useMemo(
@@ -156,9 +230,21 @@ export default function DefenseBattleFieldPlaceholder({
   const projectilesRef = useRef<Projectile[]>([]);
   const placedTowersRef = useRef<PlacedTowerData[]>([]);
   const projectileIdRef = useRef(0);
+<<<<<<< Updated upstream
   const onEnemiesKilledRef = useRef(onEnemiesKilled);
   onEnemiesKilledRef.current = onEnemiesKilled;
 
+=======
+  /** 광역 즉시 타격 시 짧게 표시하는 충격파 링 */
+  const aoePulsesRef = useRef<AoePulseVisual[]>([]);
+  const onEnemiesKilledRef = useRef(onEnemiesKilled);
+  onEnemiesKilledRef.current = onEnemiesKilled;
+
+  const onBossHpForHudRef = useRef(onBossHpForHud);
+  onBossHpForHudRef.current = onBossHpForHud;
+  const lastBossHudSigRef = useRef<string | null>("__init__");
+
+>>>>>>> Stashed changes
   enemiesRef.current = enemies;
   projectilesRef.current = projectiles;
   placedTowersRef.current = placedTowers;
@@ -187,6 +273,26 @@ export default function DefenseBattleFieldPlaceholder({
   }, [enemies.length, onFieldEnemyCountChange]);
 
   useEffect(() => {
+<<<<<<< Updated upstream
+=======
+    const cb = onBossHpForHudRef.current;
+    if (!cb) return;
+    const boss = enemies.find((e) => e.isBoss && e.hp > 0);
+    if (boss) {
+      const maxHp = boss.maxHp ?? boss.hp;
+      const sig = `${boss.hp}:${maxHp}`;
+      if (lastBossHudSigRef.current === sig) return;
+      lastBossHudSigRef.current = sig;
+      cb({ hp: boss.hp, maxHp });
+    } else {
+      if (lastBossHudSigRef.current === "__none__") return;
+      lastBossHudSigRef.current = "__none__";
+      cb(null);
+    }
+  }, [enemies]);
+
+  useEffect(() => {
+>>>>>>> Stashed changes
     setSelectedCell((prev) => {
       if (!prev) return prev;
       const still = placedTowers.some(
@@ -228,8 +334,40 @@ export default function DefenseBattleFieldPlaceholder({
     }
   }, [placedTowers]);
 
+<<<<<<< Updated upstream
   useEffect(() => {
     if (!roundActive || isFrozen || !spawnEnemiesEnabled) return;
+=======
+  const bossSingleSpawnDoneRef = useRef(false);
+
+  useEffect(() => {
+    if (activeWaveNumber !== DEFENSE_BOSS_WAVE_NUMBER) {
+      bossSingleSpawnDoneRef.current = false;
+      lastBossHudSigRef.current = "__init__";
+    }
+  }, [activeWaveNumber]);
+
+  useEffect(() => {
+    if (!roundActive || isFrozen || !spawnEnemiesEnabled) return;
+
+    if (activeWaveNumber === DEFENSE_BOSS_WAVE_NUMBER) {
+      if (bossSingleSpawnDoneRef.current) return;
+      bossSingleSpawnDoneRef.current = true;
+      const hp =
+        bossHpOverrideRef.current ?? DEFENSE_BOSS_WAVE_ENEMY_MAX_HP;
+      setEnemies((prev) => [
+        ...prev,
+        {
+          id: `enemy-${Date.now()}-${prev.length}`,
+          hp,
+          maxHp: hp,
+          isBoss: true,
+        },
+      ]);
+      return;
+    }
+
+>>>>>>> Stashed changes
     const id = setInterval(() => {
       setEnemies((prev) => [
         ...prev,
@@ -240,7 +378,18 @@ export default function DefenseBattleFieldPlaceholder({
       ]);
     }, enemySpawnIntervalMs);
     return () => clearInterval(id);
+<<<<<<< Updated upstream
   }, [roundActive, isFrozen, spawnEnemiesEnabled, enemySpawnIntervalMs]);
+=======
+  }, [
+    roundActive,
+    isFrozen,
+    spawnEnemiesEnabled,
+    enemySpawnIntervalMs,
+    activeWaveNumber,
+    bossWaveEnemyMaxHp,
+  ]);
+>>>>>>> Stashed changes
 
   useEffect(() => {
     if (isFrozen) return;
@@ -250,10 +399,19 @@ export default function DefenseBattleFieldPlaceholder({
     let frame = 0;
     const tick = () => {
       const now = Date.now();
+<<<<<<< Updated upstream
       const deltaReal = now - lastEnemySimTickRef.current;
       lastEnemySimTickRef.current = now;
       const mult = speedMultRef.current;
 
+=======
+      aoePulsesRef.current = aoePulsesRef.current.filter(
+        (p) => now - p.startTime < p.durationMs
+      );
+      const deltaReal = now - lastEnemySimTickRef.current;
+      lastEnemySimTickRef.current = now;
+      const mult = speedMultRef.current;
+>>>>>>> Stashed changes
       const W = outerW;
       const H = outerH;
       const P = pathP;
@@ -261,8 +419,18 @@ export default function DefenseBattleFieldPlaceholder({
       for (const en of E) {
         if (en.hp <= 0) continue;
         const id = en.id;
+<<<<<<< Updated upstream
         lapMsByEnemyRef.current[id] =
           (lapMsByEnemyRef.current[id] ?? 0) + deltaReal * mult;
+=======
+        const slowUntil = slowUntilByEnemyRef.current[id];
+        const slowed = slowUntil != null && now < slowUntil;
+        const lapSpeed = slowed
+          ? (slowLapFactorByEnemyRef.current[id] ?? 0.8)
+          : 1;
+        lapMsByEnemyRef.current[id] =
+          (lapMsByEnemyRef.current[id] ?? 0) + deltaReal * mult * lapSpeed;
+>>>>>>> Stashed changes
       }
       let Pr = projectilesRef.current;
       let changedE = false;
@@ -287,6 +455,15 @@ export default function DefenseBattleFieldPlaceholder({
           for (const k of Object.keys(lapMsByEnemyRef.current)) {
             if (!aliveIds.has(k)) delete lapMsByEnemyRef.current[k];
           }
+<<<<<<< Updated upstream
+=======
+          for (const k of Object.keys(slowUntilByEnemyRef.current)) {
+            if (!aliveIds.has(k)) delete slowUntilByEnemyRef.current[k];
+          }
+          for (const k of Object.keys(slowLapFactorByEnemyRef.current)) {
+            if (!aliveIds.has(k)) delete slowLapFactorByEnemyRef.current[k];
+          }
+>>>>>>> Stashed changes
         } else {
           stillFlying.push(p);
         }
@@ -298,24 +475,117 @@ export default function DefenseBattleFieldPlaceholder({
         Pr = stillFlying;
       }
 
+<<<<<<< Updated upstream
       const alive = E.filter((e) => e.hp > 0);
+=======
+>>>>>>> Stashed changes
       const newShots: Projectile[] = [];
 
       for (const tower of placedTowersRef.current) {
         const combat = getDefenseTowerCombat(tower.unitId);
         const towerAttackIntervalMs = Math.max(
           1,
+<<<<<<< Updated upstream
           Math.round(combat.attackIntervalMs / mult)
+=======
+          Math.round(combat.attackIntervalMs)
+>>>>>>> Stashed changes
         );
         const last = towerLastFireRef.current[tower.id] ?? 0;
         if (now - last < towerAttackIntervalMs) continue;
 
         const rangeR = combat.rangeRadiusCellMult * cellSide;
         const tc = towerCellCenterPx(tower.col, tower.row, cellSide);
+<<<<<<< Updated upstream
         let best: { id: string; x: number; y: number; d2: number } | null =
           null;
 
         for (const en of alive) {
+=======
+        const aliveNow = E.filter((e) => e.hp > 0);
+        const attackStyle = combat.attackStyle ?? "projectile_single";
+
+        if (attackStyle === "instant_aoe_all_in_range") {
+          const inRangeIds: string[] = [];
+          for (const en of aliveNow) {
+            const acc = lapMsByEnemyRef.current[en.id] ?? 0;
+            const ph = enemyTravelPhase(en, acc, false);
+            const { x: ex, y: ey } = pointOnLoopCCWFromTopLeft(ph, W, H, P);
+            const dx = ex - tc.x;
+            const dy = ey - tc.y;
+            if (dx * dx + dy * dy <= rangeR * rangeR) {
+              inRangeIds.push(en.id);
+            }
+          }
+          if (inRangeIds.length === 0) continue;
+
+          towerLastFireRef.current[tower.id] = now;
+          const dmg = combat.damage;
+          const hasSlowDebuff =
+            combat.slowPercent != null &&
+            combat.slowDurationMs != null &&
+            combat.slowDurationMs > 0;
+          if (hasSlowDebuff) {
+            const slowPct = combat.slowPercent!;
+            const lapFactor = Math.max(0.05, 1 - slowPct / 100);
+            const slowDurReal = Math.max(
+              1,
+              Math.round(combat.slowDurationMs! / mult)
+            );
+            const slowUntil = now + slowDurReal;
+            for (const hid of inRangeIds) {
+              slowUntilByEnemyRef.current[hid] = slowUntil;
+              slowLapFactorByEnemyRef.current[hid] = lapFactor;
+            }
+          }
+
+          const hitSet = new Set(inRangeIds);
+          let killsFromPulse = 0;
+          E = E.map((en) => {
+            if (!hitSet.has(en.id)) return en;
+            const nextHp = en.hp - dmg;
+            if (nextHp <= 0) killsFromPulse += 1;
+            return { ...en, hp: nextHp };
+          }).filter((en) => en.hp > 0);
+
+          const aliveIds = new Set(E.map((x) => x.id));
+          for (const k of Object.keys(lapMsByEnemyRef.current)) {
+            if (!aliveIds.has(k)) delete lapMsByEnemyRef.current[k];
+          }
+          for (const k of Object.keys(slowUntilByEnemyRef.current)) {
+            if (!aliveIds.has(k)) delete slowUntilByEnemyRef.current[k];
+          }
+          for (const k of Object.keys(slowLapFactorByEnemyRef.current)) {
+            if (!aliveIds.has(k)) delete slowLapFactorByEnemyRef.current[k];
+          }
+
+          changedE = true;
+          if (killsFromPulse > 0) {
+            onEnemiesKilledRef.current?.(killsFromPulse);
+          }
+          const pulseMs = Math.max(
+            200,
+            Math.round(AOE_PULSE_BASE_DURATION_MS / mult)
+          );
+          projectileIdRef.current += 1;
+          const pulseClarityMul = combat.aoePulseClarityMul ?? 1;
+          aoePulsesRef.current.push({
+            id: `aoe-pulse-${projectileIdRef.current}`,
+            cx: tc.x,
+            cy: tc.y,
+            radius: rangeR,
+            startTime: now,
+            durationMs: pulseMs,
+            clarityMul: pulseClarityMul,
+          });
+          continue;
+        }
+
+        let best: { id: string; x: number; y: number; d2: number } | null =
+          null;
+
+        for (const en of aliveNow) {
+>>>>>>> Stashed changes
           const acc = lapMsByEnemyRef.current[en.id] ?? 0;
           const ph = enemyTravelPhase(en, acc, false);
           const { x: ex, y: ey } = pointOnLoopCCWFromTopLeft(ph, W, H, P);
@@ -331,6 +601,14 @@ export default function DefenseBattleFieldPlaceholder({
         if (best) {
           towerLastFireRef.current[tower.id] = now;
           projectileIdRef.current += 1;
+<<<<<<< Updated upstream
+=======
+          const mul = combat.projectileSizeMul ?? 1;
+          const diameterPx = Math.max(
+            2,
+            Math.round(DEFENSE_PROJECTILE_SIZE * mul)
+          );
+>>>>>>> Stashed changes
           newShots.push({
             id: `proj-${projectileIdRef.current}`,
             fromX: tc.x,
@@ -340,6 +618,10 @@ export default function DefenseBattleFieldPlaceholder({
             targetId: best.id,
             startTime: now,
             damage: combat.damage,
+<<<<<<< Updated upstream
+=======
+            diameterPx,
+>>>>>>> Stashed changes
           });
         }
       }
@@ -379,7 +661,12 @@ export default function DefenseBattleFieldPlaceholder({
   };
 
   const monsterPixel = Math.max(40, Math.round(cellSide * 0.62 * 2));
+<<<<<<< Updated upstream
   const monsterHalf = monsterPixel / 2;
+=======
+  const bossSizeMultResolved =
+    bossEnemySizeMult ?? DEFENSE_BOSS_ENEMY_SIZE_MULT;
+>>>>>>> Stashed changes
 
   /** 경로–타워 구역 사이 링 두께(기존 대비 약 2/3) */
   const pathTowerSeparator = Math.max(
@@ -590,7 +877,14 @@ export default function DefenseBattleFieldPlaceholder({
             const acc = lapMsByEnemyRef.current[e.id] ?? 0;
             const t = enemyTravelPhase(e, acc, isFrozen);
             const { x, y } = pointOnLoopCCWFromTopLeft(t, outerW, outerH, pathP);
+<<<<<<< Updated upstream
             const m = monsterHalf * 2;
+=======
+            const m = e.isBoss ? monsterPixel * bossSizeMultResolved : monsterPixel;
+            const half = m / 2;
+            const slowUntil = slowUntilByEnemyRef.current[e.id];
+            const isSlowed = slowUntil != null && drawNow < slowUntil;
+>>>>>>> Stashed changes
             return (
               <View
                 key={e.id}
@@ -598,21 +892,87 @@ export default function DefenseBattleFieldPlaceholder({
                   styles.monsterWrap,
                   {
                     transform: [
+<<<<<<< Updated upstream
                       { translateX: x - monsterHalf },
                       { translateY: y - monsterHalf },
+=======
+                      { translateX: x - half },
+                      { translateY: y - half },
+>>>>>>> Stashed changes
                     ],
                   },
                 ]}
               >
+<<<<<<< Updated upstream
                 <Image
                   source={MONSTER_IMAGE}
                   style={{ width: m, height: m }}
                   resizeMode="contain"
                 />
+=======
+                <View
+                  style={[styles.monsterSpriteBox, { width: m, height: m }]}
+                >
+                  <Image
+                    source={MONSTER_IMAGE}
+                    style={{ width: m, height: m }}
+                    resizeMode="contain"
+                  />
+                  {isSlowed ? (
+                    <View
+                      pointerEvents="none"
+                      style={[
+                        styles.monsterSlowBlueTint,
+                        {
+                          width: m * 0.5,
+                          height: m * 0.5,
+                          borderRadius: m * 0.25,
+                          left: m * 0.25,
+                          top: m * 0.25,
+                        },
+                      ]}
+                    />
+                  ) : null}
+                </View>
+>>>>>>> Stashed changes
               </View>
             );
           })}
 
+<<<<<<< Updated upstream
+=======
+          {aoePulsesRef.current.map((p) => {
+            const u = Math.min(1, (drawNow - p.startTime) / p.durationMs);
+            const ease = 1 - (1 - u) * (1 - u);
+            const ringR = p.radius * (0.28 + 0.72 * ease);
+            const fade = 1 - u;
+            const d = 2 * ringR;
+            const borderW = 2 + 4 * fade;
+            const cm = p.clarityMul ?? 1;
+            const borderA = (0.2 + 0.65 * fade) * cm;
+            const fillA = (0.1 + 0.2 * fade) * cm;
+            return (
+              <View
+                key={p.id}
+                pointerEvents="none"
+                style={[
+                  styles.aoePulseBurst,
+                  {
+                    left: p.cx - ringR,
+                    top: p.cy - ringR,
+                    width: d,
+                    height: d,
+                    borderRadius: ringR,
+                    borderWidth: borderW,
+                    borderColor: `rgba(210, 255, 255, ${borderA})`,
+                    backgroundColor: `rgba(30, 190, 215, ${fillA})`,
+                  },
+                ]}
+              />
+            );
+          })}
+
+>>>>>>> Stashed changes
           {projectiles.map((p) => {
             const u = Math.min(
               1,
@@ -620,15 +980,25 @@ export default function DefenseBattleFieldPlaceholder({
             );
             const x = p.fromX + (p.toX - p.fromX) * u;
             const y = p.fromY + (p.toY - p.fromY) * u;
+<<<<<<< Updated upstream
             const half = DEFENSE_PROJECTILE_SIZE / 2;
+=======
+            const d = p.diameterPx ?? DEFENSE_PROJECTILE_SIZE;
+            const half = d / 2;
+>>>>>>> Stashed changes
             return (
               <View
                 key={p.id}
                 style={[
                   styles.projectile,
                   {
+<<<<<<< Updated upstream
                     width: DEFENSE_PROJECTILE_SIZE,
                     height: DEFENSE_PROJECTILE_SIZE,
+=======
+                    width: d,
+                    height: d,
+>>>>>>> Stashed changes
                     borderRadius: half,
                     left: x - half,
                     top: y - half,
@@ -775,11 +1145,28 @@ const styles = StyleSheet.create({
     borderColor: "rgba(192, 57, 43, 0.9)",
     backgroundColor: "rgba(231, 76, 60, 0.12)",
   },
+<<<<<<< Updated upstream
+=======
+  /** 광역 타격 충격파 — 적·투사체 사이(반투명 링이 적 위에 겹침) */
+  aoePulseBurst: {
+    position: "absolute",
+  },
+>>>>>>> Stashed changes
   monsterWrap: {
     position: "absolute",
     left: 0,
     top: 0,
   },
+<<<<<<< Updated upstream
+=======
+  monsterSpriteBox: {
+    position: "relative",
+  },
+  monsterSlowBlueTint: {
+    position: "absolute",
+    backgroundColor: ENEMY_SLOW_BLUE_TINT_RGBA,
+  },
+>>>>>>> Stashed changes
   projectile: {
     position: "absolute",
     backgroundColor: "#F1C40F",

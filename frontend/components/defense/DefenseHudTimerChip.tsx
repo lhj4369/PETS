@@ -2,6 +2,8 @@ import { View, Text, StyleSheet } from "react-native";
 
 type Props = {
   waveTimerSec?: number;
+  /** 보스 웨이브: 남은 시간을 「제한 시간」으로 표시하고 칩을 적색 톤으로 */
+  isBossWave?: boolean;
 };
 
 function formatTime(sec: number): string {
@@ -10,13 +12,18 @@ function formatTime(sec: number): string {
   return `${m}:${s}`;
 }
 
-export default function DefenseHudTimerChip({ waveTimerSec }: Props) {
+export default function DefenseHudTimerChip({
+  waveTimerSec,
+  isBossWave = false,
+}: Props) {
   const label = waveTimerSec !== undefined ? formatTime(waveTimerSec) : "--:--";
 
   return (
-    <View style={styles.chip}>
-      <Text style={styles.subLabel}>다음 웨이브</Text>
-      <Text style={styles.digits}>{label}</Text>
+    <View style={[styles.chip, isBossWave && styles.chipBoss]}>
+      <Text style={[styles.subLabel, isBossWave && styles.subLabelBoss]}>
+        {isBossWave ? "제한 시간" : "다음 웨이브"}
+      </Text>
+      <Text style={[styles.digits, isBossWave && styles.digitsBoss]}>{label}</Text>
     </View>
   );
 }
@@ -31,12 +38,26 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     paddingVertical: 22,
     paddingHorizontal: 18,
+<<<<<<< Updated upstream
+=======
+  },
+  chipBoss: {
+    backgroundColor: "#7D1A1A",
+    borderWidth: 2,
+    borderColor: "rgba(255, 120, 120, 0.45)",
+>>>>>>> Stashed changes
   },
   subLabel: {
     fontSize: 18,
     color: "rgba(255,255,255,0.6)",
     fontFamily: "KotraHope",
     letterSpacing: 0.8,
+<<<<<<< Updated upstream
+=======
+  },
+  subLabelBoss: {
+    color: "rgba(255, 210, 210, 0.95)",
+>>>>>>> Stashed changes
   },
   digits: {
     fontSize: 48,
@@ -45,5 +66,11 @@ const styles = StyleSheet.create({
     fontFamily: "KotraHope",
     fontVariant: ["tabular-nums"],
     lineHeight: 54,
+<<<<<<< Updated upstream
+=======
+  },
+  digitsBoss: {
+    color: "#FFF5F5",
+>>>>>>> Stashed changes
   },
 });

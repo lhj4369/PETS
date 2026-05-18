@@ -13,6 +13,10 @@ export type StubScenarioStage = {
 export const STUB_SCENARIO_STAGES: StubScenarioStage[] = [
   { id: "1-1", area: "베란다", tier: "쉬움", locked: false, totalWaves: 3 },
   { id: "1-2", area: "거실", tier: "쉬움", locked: false, totalWaves: 3 },
+<<<<<<< Updated upstream
+=======
+  { id: "1-3", area: "거실", tier: "쉬움", locked: false, totalWaves: 2 },
+>>>>>>> Stashed changes
   { id: "2-1", area: "주방", tier: "보통", locked: true, totalWaves: 3 },
 ];
 
@@ -23,6 +27,12 @@ const DIALOGUE_BY_STAGE: Record<string, string[]> = {
   ],
   "1-2": [
     "거실 소파 아래는 늘 전쟁터다. 이번엔 뭉치가 좀 더 단단해 보인다.",
+<<<<<<< Updated upstream
+=======
+  ],
+  "1-3": [
+    "거실 소파 아래는 늘 전쟁터다. 이번엔 뭉치가 좀 더 단단해 보인다.",
+>>>>>>> Stashed changes
   ],
   "2-1": ["주방의 음식 냄새를 맡고 날아든 녀석들이 있다. 준비는 됐나?"],
 };
