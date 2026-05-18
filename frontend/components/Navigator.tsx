@@ -27,7 +27,7 @@ export default function Navigator() {
   // 모든 화면 목록 (로그인 포함)
   const menuItems = [
     { label: '로그인', path: '/' },
-    { label: '홈', path: '/home' },
+    { label: '홈', path: '/(tabs)/home?devNav=1' },
     { label: '타이머', path: '/timer' },
     { label: '운동 기록', path: '/records' },
     { label: '랭킹', path: '/ranking' },

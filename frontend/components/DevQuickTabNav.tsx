@@ -26,7 +26,7 @@ export default function DevQuickTabNav() {
   const items = useMemo<TabItem[]>(
     () => [
       { label: "로그인", path: "/", activeMatchPath: "/" },
-      { label: "홈", path: "/(tabs)/home", activeMatchPath: "/home" },
+      { label: "홈", path: "/(tabs)/home?devNav=1", activeMatchPath: "/home" },
       { label: "타이머", path: "/(tabs)/timer", activeMatchPath: "/timer" },
       { label: "기록", path: "/(tabs)/records", activeMatchPath: "/records" },
       { label: "랭킹", path: "/(tabs)/ranking", activeMatchPath: "/ranking" },

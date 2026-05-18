@@ -9,8 +9,16 @@ export type StubScenarioStage = {
   /** 난이도 라벨 (쉬움/보통/어려움 등) */
   tier: string;
   locked: boolean;
+  /** 이 스테이지에서 진행되는 웨이브 수(이후 웨이브 없음) */
+  totalWaves: number;
 };
 
+export const STUB_SCENARIO_STAGES: StubScenarioStage[] = [
+  { id: "1-1", area: "베란다", tier: "쉬움", locked: false, totalWaves: 3 },
+  { id: "1-2", area: "거실", tier: "쉬움", locked: false, totalWaves: 3 },
+  { id: "1-3", area: "거실", tier: "쉬움", locked: false, totalWaves: 2 },
+  { id: "2-1", area: "주방", tier: "보통", locked: true, totalWaves: 3 },
+=======
 /** 메인 챕터(n) — 서브 스테이지는 n-1, n-2 … 형식으로 `StubScenarioStage.id`에 둠 */
 export type StubScenarioChapter = {
   chapterId: string;
@@ -73,6 +81,7 @@ const DIALOGUE_BY_STAGE: Record<string, string[]> = {
     "뭔가 움직이는 기척이 느껴진다! 틀림없다. 집을 어지럽히던 벌레! 훌륭한 펫이라면, 벌레를 그냥 지나칠 수는 없지! "
   ],
   "1-2": [
+    "거실 소파 아래는 늘 전쟁터다. 이번엔 뭉치가 좀 더 단단해 보인다.",
     "잡아도 잡아도 끝이 없다! 이렇게 된 이상, 벌레들의 대장을 찾는 수밖에!",
     "그런데, 해가 저물어간다. 주인... 나 없어도 얌전히 집 지킬 수 있지?",
   ],

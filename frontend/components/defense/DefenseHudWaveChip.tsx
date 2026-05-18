@@ -1,16 +1,20 @@
 import { View, Text, StyleSheet } from "react-native";
 
 type Props = {
-  wave: { current: number; total: number };
+  wave: { current: number; total: number | "∞" };
 };
 
 export default function DefenseHudWaveChip({ wave }: Props) {
+  const totalLabel = wave.total === "∞" ? "∞" : String(wave.total);
   return (
-    <View style={styles.chip}>
+    <View
+      style={styles.chip}
+      accessibilityLabel={`웨이브 ${wave.current}, 총 ${totalLabel}`}
+    >
       <Text style={styles.label}>WAVE</Text>
       <Text style={styles.value}>
         {wave.current}
-        <Text style={styles.total}>/{wave.total}</Text>
+        <Text style={styles.total}>/{totalLabel}</Text>
       </Text>
     </View>
   );
@@ -21,28 +25,28 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 2,
+    gap: 4,
     backgroundColor: "#5D4E37",
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    borderRadius: 22,
+    paddingVertical: 22,
+    paddingHorizontal: 18,
   },
   label: {
-    fontSize: 10,
+    fontSize: 18,
     color: "rgba(255,255,255,0.6)",
     fontFamily: "KotraHope",
-    letterSpacing: 1.5,
+    letterSpacing: 2,
   },
   value: {
-    fontSize: 26,
+    fontSize: 48,
     fontWeight: "800",
     color: "#fff",
     fontFamily: "KotraHope",
     fontVariant: ["tabular-nums"],
-    lineHeight: 30,
+    lineHeight: 54,
   },
   total: {
-    fontSize: 16,
+    fontSize: 30,
     fontWeight: "600",
     color: "rgba(255,255,255,0.6)",
   },
