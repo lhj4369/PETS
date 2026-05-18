@@ -7,23 +7,21 @@ import {
   TouchableOpacity,
   Image,
 } from "react-native";
+import { useState, useRef, useMemo } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import HomeButton from "../../../../components/HomeButton";
 import DefenseSubHeader from "../../../../components/defense/DefenseSubHeader";
-import DefenseDialoguePanel from "../../../../components/defense/DefenseDialoguePanel";
 import DefenseHudWaveChip from "../../../../components/defense/DefenseHudWaveChip";
 import DefenseHudTimerChip from "../../../../components/defense/DefenseHudTimerChip";
 import DefenseHudEnemyBar from "../../../../components/defense/DefenseHudEnemyBar";
-<<<<<<< Updated upstream
 import DefenseBattleFieldPlaceholder from "../../../../components/defense/DefenseBattleFieldPlaceholder";
-=======
 import DefenseHudBossHpBar from "../../../../components/defense/DefenseHudBossHpBar";
 import DefenseBattleFieldPlaceholder, {
   type BossHpHudPayload,
 } from "../../../../components/defense/DefenseBattleFieldPlaceholder";
->>>>>>> Stashed changes
 import DefenseTowerDragRangeRing from "../../../../components/defense/DefenseTowerDragRangeRing";
 import DefenseDangerBanner from "../../../../components/defense/DefenseDangerBanner";
 import DefenseDeployBarPlaceholder, {
@@ -31,10 +29,7 @@ import DefenseDeployBarPlaceholder, {
 } from "../../../../components/defense/DefenseDeployBarPlaceholder";
 import { useDefenseDangerAndGameover } from "../../../../components/defense/useDefenseDangerAndGameover";
 import { useDefenseWaves } from "../../../../components/defense/useDefenseWaves";
-<<<<<<< Updated upstream
-=======
 import DefenseBossWaveWarning from "../../../../components/defense/DefenseBossWaveWarning";
->>>>>>> Stashed changes
 import DefenseWaveStartBanner from "../../../../components/defense/DefenseWaveStartBanner";
 import DefenseTowerInfoModal from "../../../../components/defense/DefenseTowerInfoModal";
 import { APP_COLORS } from "../../../../constants/theme";
@@ -58,11 +53,9 @@ import {
   createDefensePlacementState,
   defensePlacementReducer,
 } from "../../../../components/defense/defenseTowerEconomy";
-<<<<<<< Updated upstream
 import { DEFENSE_EARLY_NEXT_WAVE_IF_CLEAR_WITHIN_SEC } from "../../../../components/defense/defenseWaveConstants";
 import DefenseManualNextWaveButton from "../../../../components/defense/DefenseManualNextWaveButton";
 import DefenseStageVictoryBanner from "../../../../components/defense/DefenseStageVictoryBanner";
-=======
 import {
   DEFENSE_BOSS_WAVE_NUMBER,
   DEFENSE_EARLY_NEXT_WAVE_IF_CLEAR_WITHIN_SEC,
@@ -70,8 +63,8 @@ import {
 import DefenseManualNextWaveButton from "../../../../components/defense/DefenseManualNextWaveButton";
 import DefenseStageVictoryOverlay from "../../../../components/defense/DefenseStageVictoryOverlay";
 import DefenseStageDefeatOverlay from "../../../../components/defense/DefenseStageDefeatOverlay";
->>>>>>> Stashed changes
 import { markScenarioStageCleared } from "../../../../utils/defenseScenarioProgress";
+import { STUB_SCENARIO_STAGES } from "../../../../data/defenseStub";
 
 const BACK_BTN_LEFT = 16;
 const BACK_BTN_SIZE = 56;
@@ -81,10 +74,9 @@ const BTN_TO_HUD_GAP = 12;
 const FIELD_ENEMY_MAX = 100;
 
 type Bounds = { x: number; y: number; w: number; h: number };
-type Phase = "dialogue" | "battle";
 
 /**
- * 시나리오 스테이지 1회 세션: 대화 → 전투 뼈대.
+ * 시나리오 스테이지 전투 — 대화는 시나리오 목록 모달에서 진행 후 진입.
  */
 export default function DefenseStageScreen() {
   const router = useRouter();
@@ -106,24 +98,19 @@ export default function DefenseStageScreen() {
     150,
     createDefensePlacementState,
   );
+  const [placedTowers, setPlacedTowers] = useState<PlacedTowerData[]>([]);
   const [dragging, setDragging] = useState<DragState | null>(null);
   const [placementCellSide, setPlacementCellSide] = useState(0);
   const [fieldEnemyCount, setFieldEnemyCount] = useState(0);
-<<<<<<< Updated upstream
-=======
   const [bossHud, setBossHud] = useState<BossHpHudPayload | null>(null);
   const [bossTimedDefeat, setBossTimedDefeat] = useState(false);
   const [defeatOverlayVisible, setDefeatOverlayVisible] = useState(false);
->>>>>>> Stashed changes
   const [towerInfoUnitId, setTowerInfoUnitId] = useState<string | null>(null);
   const [stageVictory, setStageVictory] = useState(false);
   const [gameSpeedMult, setGameSpeedMult] = useState<1 | 2>(1);
   const stageVictoryLatchedRef = useRef(false);
-<<<<<<< Updated upstream
-=======
   /** 보스 웨이브에서 보스가 한 번이라도 살아 있는 상태가 되었을 때만 true — 스폰 전 빈 필드로 즉시 승리하는 오류 방지 */
   const bossHadHpOnFieldRef = useRef(false);
->>>>>>> Stashed changes
   const draggingRef = useRef<DragState | null>(null);
 
   const onBoardCellSide = useCallback((s: number) => {
@@ -134,7 +121,6 @@ export default function DefenseStageScreen() {
     setFieldEnemyCount((prev) => (prev === n ? prev : n));
   }, []);
 
-<<<<<<< Updated upstream
   const exitToDefenseHome = useCallback(() => {
     router.replace("/(tabs)/defense");
   }, [router]);
@@ -144,7 +130,6 @@ export default function DefenseStageScreen() {
     exitToDefenseHome
   );
 
-=======
   const onBossHpForHud = useCallback((payload: BossHpHudPayload | null) => {
     setBossHud((prev) => {
       if (payload == null && prev == null) return prev;
@@ -182,7 +167,6 @@ export default function DefenseStageScreen() {
     setDefeatOverlayVisible(true);
   }, []);
 
->>>>>>> Stashed changes
   const {
     waveNumber,
     showWaveStartBanner,
@@ -190,13 +174,11 @@ export default function DefenseStageScreen() {
     spawnEnemiesEnabled,
     allWavesComplete,
     skipRestOfCurrentWave,
-<<<<<<< Updated upstream
   } = useDefenseWaves(gameFrozen || phase !== "battle" || stageVictory, {
     maxWaves: meta?.totalWaves,
     waveResetKey: stageId,
     speedMultiplier: gameSpeedMult,
   });
-=======
   } = useDefenseWaves(
     gameFrozen ||
       phase !== "battle" ||
@@ -211,16 +193,13 @@ export default function DefenseStageScreen() {
       onBossWaveTimedDefeat,
     }
   );
->>>>>>> Stashed changes
 
   const toggleGameSpeed = useCallback(() => {
     setGameSpeedMult((v) => (v === 1 ? 2 : 1));
   }, []);
 
   useEffect(() => {
-<<<<<<< Updated upstream
     if (stageVictoryLatchedRef.current || stageVictory) return;
-=======
     if (waveNumber !== DEFENSE_BOSS_WAVE_NUMBER) {
       bossHadHpOnFieldRef.current = false;
       return;
@@ -233,15 +212,12 @@ export default function DefenseStageScreen() {
   useEffect(() => {
     if (stageVictoryLatchedRef.current || stageVictory || bossTimedDefeat || defeatOverlayVisible)
       return;
->>>>>>> Stashed changes
     if (phase !== "battle" || gameFrozen) return;
     const totalWaves = meta?.totalWaves;
     if (totalWaves == null || totalWaves < 1) return;
     if (waveNumber !== totalWaves) return;
     if (fieldEnemyCount !== 0) return;
-<<<<<<< Updated upstream
     if (secondsUntilNextWave > DEFENSE_EARLY_NEXT_WAVE_IF_CLEAR_WITHIN_SEC) return;
-=======
     const instantClearOnBossWave =
       waveNumber === DEFENSE_BOSS_WAVE_NUMBER &&
       bossHadHpOnFieldRef.current;
@@ -251,7 +227,6 @@ export default function DefenseStageScreen() {
     ) {
       return;
     }
->>>>>>> Stashed changes
 
     stageVictoryLatchedRef.current = true;
     setStageVictory(true);
@@ -263,11 +238,9 @@ export default function DefenseStageScreen() {
     waveNumber,
     fieldEnemyCount,
     secondsUntilNextWave,
-<<<<<<< Updated upstream
   ]);
 
   useEffect(() => {
-=======
     bossTimedDefeat,
     bossHud,
     defeatOverlayVisible,
@@ -286,12 +259,10 @@ export default function DefenseStageScreen() {
   }, [phase, stageVictory, bossTimedDefeat, defeatOverlayVisible, waveNumber]);
 
   useEffect(() => {
->>>>>>> Stashed changes
     if (!stageVictory) return;
     void markScenarioStageCleared(stageId);
   }, [stageVictory, stageId]);
 
-<<<<<<< Updated upstream
   useEffect(() => {
     if (!stageVictory) return;
     const id = setTimeout(() => {
@@ -303,21 +274,17 @@ export default function DefenseStageScreen() {
   const showManualNextWave =
     phase === "battle" &&
     !gameFrozen &&
-=======
   const showManualNextWave =
     phase === "battle" &&
     !gameFrozen &&
     !bossTimedDefeat &&
     !defeatOverlayVisible &&
->>>>>>> Stashed changes
     !stageVictory &&
     fieldEnemyCount === 0 &&
     secondsUntilNextWave > 0 &&
     secondsUntilNextWave <= DEFENSE_EARLY_NEXT_WAVE_IF_CLEAR_WITHIN_SEC &&
     !allWavesComplete;
 
-<<<<<<< Updated upstream
-=======
   const showBossWaveWarning =
     phase === "battle" &&
     showWaveStartBanner &&
@@ -326,7 +293,6 @@ export default function DefenseStageScreen() {
     !defeatOverlayVisible &&
     !stageVictory;
 
->>>>>>> Stashed changes
   const towerChipSize = useMemo(() => {
     const base = placementCellSide > 0 ? placementCellSide : 36;
     const fromCell = Math.max(40, Math.round((base * 2) / 3));
@@ -349,6 +315,11 @@ export default function DefenseStageScreen() {
 
   const unitZoneRef = useRef<View>(null);
   const unitZoneBounds = useRef<Bounds | null>(null);
+
+  const meta = useMemo(
+    () => STUB_SCENARIO_STAGES.find((s) => s.id === stageId),
+    [stageId]
+  );
 
   const measureUnitZone = () => {
     unitZoneRef.current?.measure((_, __, w, h, px, py) => {
@@ -472,13 +443,11 @@ export default function DefenseStageScreen() {
               <DefenseHudWaveChip
                 wave={{ current: waveNumber, total: meta?.totalWaves ?? 1 }}
               />
-<<<<<<< Updated upstream
               <DefenseHudTimerChip waveTimerSec={secondsUntilNextWave} />
             </View>
             <DefenseHudEnemyBar
               onFieldEnemies={{ current: fieldEnemyCount, max: FIELD_ENEMY_MAX }}
             />
-=======
               <DefenseHudTimerChip
                 waveTimerSec={secondsUntilNextWave}
                 isBossWave={waveNumber === DEFENSE_BOSS_WAVE_NUMBER}
@@ -499,14 +468,12 @@ export default function DefenseStageScreen() {
                 }}
               />
             )}
->>>>>>> Stashed changes
           </View>
 
           {showDangerBanner && dangerSecondsLeft != null ? (
             <DefenseDangerBanner secondsLeft={dangerSecondsLeft} />
           ) : null}
 
-<<<<<<< Updated upstream
           <View style={styles.fieldColumn}>
             <DefenseBattleFieldPlaceholder
               unitZoneRef={unitZoneRef}
@@ -522,12 +489,47 @@ export default function DefenseStageScreen() {
               onEnemiesKilled={onEnemiesKilled}
               speedMultiplier={gameSpeedMult}
             />
+  const btnTop = Math.max(insets.top + 4, 12);
+  const hudTop = btnTop + BACK_BTN_SIZE + BTN_TO_HUD_GAP;
+  const isDropTarget = dragging ? isInZone(dragging.absX, dragging.absY) : false;
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={["left", "right"]}>
+      <TouchableOpacity
+        style={[styles.backBtn, { top: btnTop }]}
+        onPress={() => router.back()}
+        activeOpacity={0.5}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        accessibilityRole="button"
+        accessibilityLabel="이전 화면"
+      >
+        <Image
+          source={require("../../../../assets/images/back_icon.png")}
+          style={[styles.backIcon, { tintColor: APP_COLORS.brown }]}
+          resizeMode="contain"
+        />
+      </TouchableOpacity>
+
+      <View
+        style={[
+          styles.battleBody,
+          {
+            paddingTop: hudTop,
+            paddingBottom: Math.max(insets.bottom, 20),
+          },
+        ]}
+      >
+        <View style={styles.hudSection}>
+          <View style={styles.hudTopRow}>
+            <DefenseHudWaveChip wave={{ current: 1, total: 3 }} />
+            <DefenseHudTimerChip waveTimerSec={0} />
           </View>
+          <DefenseHudEnemyBar onFieldEnemies={{ current: 10, max: 100 }} />
+        </View>
 
           {showWaveStartBanner && !stageVictory ? (
             <DefenseWaveStartBanner waveNumber={waveNumber} />
           ) : null}
-=======
           <View style={styles.battleFieldStack}>
             <View style={styles.fieldColumn}>
               <DefenseBattleFieldPlaceholder
@@ -561,17 +563,14 @@ export default function DefenseStageScreen() {
               </View>
             ) : null}
           </View>
->>>>>>> Stashed changes
 
           {showManualNextWave ? (
             <DefenseManualNextWaveButton onPress={skipRestOfCurrentWave} />
           ) : null}
 
-<<<<<<< Updated upstream
           {stageVictory ? <DefenseStageVictoryBanner /> : null}
 
           <View pointerEvents={stageVictory ? "none" : "auto"}>
-=======
           <View
             pointerEvents={
               stageVictory || bossTimedDefeat || defeatOverlayVisible
@@ -579,7 +578,6 @@ export default function DefenseStageScreen() {
                 : "auto"
             }
           >
->>>>>>> Stashed changes
             <DefenseDeployBarPlaceholder
               currency={currency}
               dragCallbacks={dragCallbacks}
@@ -634,11 +632,8 @@ export default function DefenseStageScreen() {
           <DefenseGameSpeedToggle
             mult={gameSpeedMult}
             onToggle={toggleGameSpeed}
-<<<<<<< Updated upstream
             disabled={stageVictory}
-=======
             disabled={stageVictory || bossTimedDefeat || defeatOverlayVisible}
->>>>>>> Stashed changes
           />
         </View>
 
@@ -647,8 +642,6 @@ export default function DefenseStageScreen() {
           onClose={() => setTowerInfoUnitId(null)}
           unitId={towerInfoUnitId ?? ""}
         />
-<<<<<<< Updated upstream
-=======
 
         <DefenseStageVictoryOverlay
           visible={stageVictory}
@@ -658,32 +651,44 @@ export default function DefenseStageScreen() {
           visible={defeatOverlayVisible}
           onConfirm={exitToScenarioSelect}
         />
->>>>>>> Stashed changes
       </SafeAreaView>
     );
   }
+=======
+        <View style={styles.spacerTop} />
 
-  return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-      <HomeButton />
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <DefenseSubHeader title={`${meta?.area ?? "스테이지"} (${stageId})`} />
-
-        <View style={styles.phaseColumn}>
-          <Text style={styles.phaseTag}>대화</Text>
-          <DefenseDialoguePanel
-            lines={lines}
-            lineIndex={lineIndex}
-            speakerLabel="나레이션"
-            onNext={onDialogueNext}
-            onSkipToBattle={() => setPhase("battle")}
+        <View style={styles.fieldWrapper}>
+          <DefenseBattleFieldPlaceholder
+            unitZoneRef={unitZoneRef}
+            placedTowers={placedTowers}
+            onUnitZoneLayout={measureUnitZone}
+            isDropTarget={isDropTarget}
           />
         </View>
-      </ScrollView>
+
+        <View style={styles.spacerBottom} />
+        <DefenseDeployBarPlaceholder currency={150} dragCallbacks={dragCallbacks} />
+      </View>
+
+      {dragging && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.ghost,
+            {
+              left: dragging.absX - GHOST_HALF,
+              top: dragging.absY - GHOST_HALF,
+              opacity: isDropTarget ? 0.9 : 0.5,
+            },
+          ]}
+        >
+          <Image
+            source={dragging.unit.image}
+            style={styles.ghostImage}
+            resizeMode="contain"
+          />
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -693,15 +698,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: APP_COLORS.ivory,
   },
-  scroll: {
-    paddingHorizontal: DEFENSE_SCREEN.paddingH,
-    paddingTop: DEFENSE_SCREEN.contentTop,
-    paddingBottom: DEFENSE_SCREEN.contentBottom,
-    flexGrow: 1,
-  },
   battleBody: {
     flex: 1,
-    paddingHorizontal: DEFENSE_SCREEN.paddingH,
+    paddingHorizontal: 20,
     flexDirection: "column",
     gap: 20,
   },
@@ -725,8 +724,6 @@ const styles = StyleSheet.create({
     width: ICON_SIZE,
     height: ICON_SIZE,
   },
-<<<<<<< Updated upstream
-=======
   battleFieldStack: {
     flex: 1,
     minHeight: 0,
@@ -742,7 +739,6 @@ const styles = StyleSheet.create({
     zIndex: 26,
     pointerEvents: "none",
   },
->>>>>>> Stashed changes
   fieldColumn: {
     flex: 1,
     minHeight: 0,

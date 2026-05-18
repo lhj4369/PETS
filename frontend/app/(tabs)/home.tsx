@@ -3,9 +3,7 @@ import {
   ActivityIndicator,
   Animated,
   Image,
-  ImageBackground,
   ImageSourcePropType,
-  InteractionManager,
   Modal,
   PanResponder,
   SafeAreaView,
@@ -31,10 +29,14 @@ import RankingButton from "../../components/RankingButton";
 import { useSettingsModal } from "../../context/SettingsModalContext";
 import QuestModal from "../../components/QuestModal";
 import ItemModal from "../../components/ItemModal";
+import HomePlayScene from "../../components/HomePlayScene";
 import { useCustomization, DEFAULT_ANIMAL_IMAGE, DEFAULT_BACKGROUND_IMAGE } from "../../context/CustomizationContext";
 import { APP_COLORS } from "../../constants/theme";
 import { getBackgroundTypeFromImage, getClockTypeFromImage, getBackgroundImageFromType, getClockImageFromType } from "../../utils/customizationUtils";
+import { parseHomeLayout, getHouseOverlaySource, FLOOR_PLACE_RATIO } from "../../utils/homeLayout";
 import { getDailyScripts, getPlaceholderPhrase } from "../../utils/dailyScripts";
+import { getHeldTooLongAfterScripts, getHeldTooLongDuringScripts } from "../../utils/liftScripts";
+import { useSession } from "../../context/SessionContext";
 
 // 홈/하단 메뉴 아이콘 – home-icons 폴더의 AI 커스텀 이미지 사용
 // 상단 메뉴용 (퀘스트 / AI CHAT / 랭킹)
@@ -72,26 +74,25 @@ const ANIMAL_OPTIONS = [
 
 type AnimalId = (typeof ANIMAL_OPTIONS)[number]["id"];
 
-const HELD_TOO_LONG_DURING_SCRIPTS = [
-  "어지러워! 제발 내려줘...",
-  "야, 나 무섭다고!",
-  "너무 높아~ 내려줘!",
-  "흔들흔들... 어지러...",
-  "저기... 지금 꽤 높은데?",
-  "심장이 쿵쿵거려...",
-];
+/** 홈 메인 캐릭터를 좌우로 쓰다듬을 때 표시 (동물별) */
+const STROKE_IMAGES: Record<AnimalId, ImageSourcePropType> = {
+  dog: require("../../assets/images/stroke/stroke_dog.png"),
+  capybara: require("../../assets/images/stroke/stroke_capibara.png"),
+  fox: require("../../assets/images/stroke/stroke_fox.png"),
+  red_panda: require("../../assets/images/stroke/stroke_redpanda.png"),
+  guinea_pig: require("../../assets/images/stroke/stroke_ginipig.png"),
+};
 
-const HELD_TOO_LONG_AFTER_SCRIPTS = [
-  "그렇게 오래 들고 있으면 어지럽다구!",
-  "다음엔 좀 살살 다뤄줘...",
-  "하... 심장 떨렸잖아.",
-  "땅이 그리웠어. 진짜로.",
-  "이제 좀 쉬고 싶다...",
-  "공중은 나한테 안 맞아.",
-];
-
+function getStrokeImageForAnimal(animalId: AnimalId | null | undefined): ImageSourcePropType {
+  if (animalId && animalId in STROKE_IMAGES) {
+    return STROKE_IMAGES[animalId];
+  }
+  return STROKE_IMAGES.dog;
+}
 type ProfileResponse = {
   account?: { id: number; name: string; email: string } | null;
+  isMaster?: boolean;
+  unlocks?: string[];
   profile?: {
     animalType: AnimalId | null;
     nickname: string | null;
@@ -105,10 +106,18 @@ type ProfileResponse = {
     concentration?: number | null;
     backgroundType?: string | null;
     clockType?: string | null;
+    homeLayout?: unknown;
   } | null;
 };
 
 const EXP_PER_LEVEL = 100;
+
+/** 이 시간(ms) 동안 가만히 누른 뒤에만 들어 올리기 가능 */
+const PICKUP_ARM_MS = 420;
+/** 가로 쓰다듬기로 인정하는 최소 이동(px) */
+const STROKE_MIN_DX = 10;
+/** 길게 누르기 전 움직임 허용치 — 초과 시 들기 취소(쓰다듬기 제외) */
+const PRE_ARM_MOVE_CANCEL = 18;
 
 const HomeScreen = () => {
   const insets = useSafeAreaInsets();
@@ -127,15 +136,21 @@ const HomeScreen = () => {
   const [showItemModal, setShowItemModal] = useState(false);
   const [showExpDetailModal, setShowExpDetailModal] = useState(false);
   const petScaleAnim = useRef(new Animated.Value(1)).current;
+  const [isPetStroking, setIsPetStroking] = useState(false);
   const petTranslateX = useRef(new Animated.Value(0)).current;
   const petTranslateY = useRef(new Animated.Value(0)).current;
   const pickupShadowAnim = useRef(new Animated.Value(0)).current;
-  const [isDragging, setIsDragging] = useState(false);
+  /** 들어 올리기 모드(길게 누른 뒤)에서만 true — 말풍선이 동물을 따라감 */
+  const [isLiftDragging, setIsLiftDragging] = useState(false);
   const [isHeldTooLong, setIsHeldTooLong] = useState(false);
   const [heldTooLongText, setHeldTooLongText] = useState("");
   const [injectScript, setInjectScript] = useState<string | null>(null);
   const heldTooLongTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasHeldTooLongRef = useRef(false);
+  const pickupArmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pickupArmedRef = useRef(false);
+  const strokeActiveRef = useRef(false);
+  const heldTooLongStartedRef = useRef(false);
 
   // 위로 올라갈수록(translateY 음수) 그림자가 작아지는 인터폴레이션
   const shadowScale = petTranslateY.interpolate({
@@ -151,8 +166,8 @@ const HomeScreen = () => {
     outputRange: [0, 0, 300],
     extrapolate: "clamp",
   });
-
   const { openSettings } = useSettingsModal();
+  const { setSessionFromLogin, refreshSession } = useSession();
 
   const [selectedAnimalId, setSelectedAnimalId] = useState<AnimalId | null>(null);
   const [nickname, setNickname] = useState("");
@@ -165,7 +180,16 @@ const HomeScreen = () => {
   const [agility, setAgility] = useState(0);
   const [stamina, setStamina] = useState(0);
   const [concentration, setConcentration] = useState(0);
-  const { selectedAnimal, selectedBackground, selectedClock, setCustomization, loadCustomizationFromServer, selectedAnimalId: customizationAnimalId } = useCustomization();
+  const {
+    selectedAnimal,
+    selectedBackground,
+    selectedClock,
+    setCustomization,
+    loadCustomizationFromServer,
+    homeLayout,
+    setHomeLayout,
+    selectedAnimalId: ctxAnimalId,
+  } = useCustomization();
 
   // 말풍선 상호작용
   const [scriptIndex, setScriptIndex] = useState(-1);
@@ -175,13 +199,26 @@ const HomeScreen = () => {
   const scriptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasAutoPlayedGreeting = useRef(false);
 
-  const dailyScripts = useMemo(() => getDailyScripts(customizationAnimalId ?? null), [customizationAnimalId]);
-  const placeholderPhrase = useMemo(() => getPlaceholderPhrase(customizationAnimalId ?? null), [customizationAnimalId]);
+  const dailyScripts = useMemo(() => getDailyScripts(ctxAnimalId ?? null), [ctxAnimalId]);
+  const placeholderPhrase = useMemo(() => getPlaceholderPhrase(ctxAnimalId ?? null), [ctxAnimalId]);
+  const heldTooLongDuringScripts = useMemo(() => getHeldTooLongDuringScripts(ctxAnimalId ?? null), [ctxAnimalId]);
+  const heldTooLongAfterScripts = useMemo(() => getHeldTooLongAfterScripts(ctxAnimalId ?? null), [ctxAnimalId]);
   const currentScript = useMemo(() => (scriptIndex >= 0 ? dailyScripts[scriptIndex] : ""), [scriptIndex, dailyScripts]);
 
-  // PanResponder 내 클로저에서 항상 최신 dailyScripts 참조
   const dailyScriptsRef = useRef(dailyScripts);
-  useEffect(() => { dailyScriptsRef.current = dailyScripts; }, [dailyScripts]);
+  useEffect(() => {
+    dailyScriptsRef.current = dailyScripts;
+  }, [dailyScripts]);
+
+  const heldTooLongDuringScriptsRef = useRef(heldTooLongDuringScripts);
+  useEffect(() => {
+    heldTooLongDuringScriptsRef.current = heldTooLongDuringScripts;
+  }, [heldTooLongDuringScripts]);
+
+  const heldTooLongAfterScriptsRef = useRef(heldTooLongAfterScripts);
+  useEffect(() => {
+    heldTooLongAfterScriptsRef.current = heldTooLongAfterScripts;
+  }, [heldTooLongAfterScripts]);
 
   const getAnimalImage = (animalId: AnimalId | null): ImageSourcePropType => {
     if (!animalId) return DEFAULT_ANIMAL_IMAGE;
@@ -189,9 +226,33 @@ const HomeScreen = () => {
     return animal?.image ?? DEFAULT_ANIMAL_IMAGE;
   };
 
-  const petSize = Math.min(220, screenWidth * 0.55);
+  const petSize = Math.min(178, screenWidth * 0.43);
   const rightIconSize = Math.max(68, Math.min(76, screenWidth * 0.17));
   const bottomIconSize = 84;
+
+  const [floorLayout, setFloorLayout] = useState({ w: 0, h: 0 });
+
+  /** 동물 머리 위(바닥 슬롯 좌표계) — 말풍선 앵커 */
+  const speechAnchorStyle = useMemo(() => {
+    if (floorLayout.w <= 0 || floorLayout.h <= 0) {
+      return { opacity: 0, pointerEvents: "none" as const };
+    }
+    const ax = homeLayout.animal.x * floorLayout.w;
+    const ay = homeLayout.animal.y * floorLayout.h;
+    const bubbleW = 280;
+    const bubbleStackH = 108;
+    const top = ay - petSize * 0.5 - bubbleStackH;
+    const left = Math.max(8, Math.min(ax - bubbleW / 2, floorLayout.w - bubbleW - 8));
+    return {
+      position: "absolute" as const,
+      left,
+      top,
+      width: bubbleW,
+      zIndex: 21,
+      alignItems: "center" as const,
+      pointerEvents: "none" as const,
+    };
+  }, [floorLayout.w, floorLayout.h, homeLayout.animal.x, homeLayout.animal.y, petSize]);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -237,6 +298,10 @@ const HomeScreen = () => {
       }
       if (!response.ok) throw new Error("사용자 정보를 불러오지 못했습니다.");
       const data = (await response.json()) as ProfileResponse;
+      setSessionFromLogin({
+        isMaster: !!data.isMaster,
+        unlocks: Array.isArray(data.unlocks) ? data.unlocks : [],
+      });
       setAccountName(data.account?.name ?? "");
       if (data.profile) {
         const animalType = data.profile.animalType ?? null;
@@ -258,9 +323,10 @@ const HomeScreen = () => {
         const serverClock = getClockImageFromType(data.profile?.clockType);
         if (hasAnimal) {
           const animalImage = getAnimalImage(animalType);
-          setCustomization(animalImage, serverBackground, serverClock);
+          setCustomization(animalImage, serverBackground, serverClock, animalType);
+          setHomeLayout(parseHomeLayout(data.profile?.homeLayout));
         } else {
-          loadCustomizationFromServer(data.profile?.backgroundType, data.profile?.clockType);
+          loadCustomizationFromServer(data.profile?.backgroundType, data.profile?.clockType, data.profile?.homeLayout);
         }
         setShowAnimalModal(!hasAnimal);
         setShowProfileModal(hasAnimal && !hasNickname);
@@ -336,6 +402,7 @@ const HomeScreen = () => {
     return () => {
       if (scriptTimerRef.current) clearTimeout(scriptTimerRef.current);
       if (heldTooLongTimerRef.current) clearTimeout(heldTooLongTimerRef.current);
+      if (pickupArmTimerRef.current) clearTimeout(pickupArmTimerRef.current);
     };
   }, []);
 
@@ -380,6 +447,7 @@ const HomeScreen = () => {
       weight: weight ? Number(weight) : null,
       backgroundType,
       clockType,
+      homeLayout,
     };
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
@@ -394,6 +462,7 @@ const HomeScreen = () => {
       }
       const animalImage = getAnimalImage(selectedAnimalId);
       setCustomization(animalImage, selectedBackground, selectedClock, selectedAnimalId ?? null);
+      await refreshSession();
       Alert.alert("완료", "프로필이 저장되었습니다.");
       setShowProfileModal(false);
     } catch (error) {
@@ -422,13 +491,15 @@ const HomeScreen = () => {
     setShowAnimalConfirm(false);
   };
 
-  const showNextScript = () => {
+  const showNextScript = useCallback(() => {
     setInjectScript(null);
-    setScriptIndex((prev) => (prev + 1) % dailyScriptsRef.current.length);
+    const len = dailyScriptsRef.current.length;
+    if (len === 0) return;
+    setScriptIndex((prev) => (prev + 1) % len);
     setIsScriptVisible(true);
     if (scriptTimerRef.current) clearTimeout(scriptTimerRef.current);
     scriptTimerRef.current = setTimeout(() => setIsScriptVisible(false), 4000);
-  };
+  }, []);
 
   const showInjectScript = useCallback((text: string) => {
     setInjectScript(text);
@@ -451,7 +522,7 @@ const HomeScreen = () => {
   const setIsScriptVisibleRef = useRef(setIsScriptVisible);
   const setInjectScriptRef = useRef(setInjectScript);
 
-  const snapBack = () => {
+  const snapLiftBack = () => {
     Animated.parallel([
       Animated.spring(petTranslateX, { toValue: 0, tension: 180, friction: 8, useNativeDriver: true }),
       Animated.spring(petTranslateY, { toValue: 0, tension: 220, friction: 7, useNativeDriver: true }),
@@ -464,71 +535,215 @@ const HomeScreen = () => {
     ]).start();
   };
 
-  const setIsDraggingRef = useRef(setIsDragging);
-  useEffect(() => { setIsDraggingRef.current = setIsDragging; }, [setIsDragging]);
+  const resetAfterStroke = () => {
+    petTranslateX.setValue(0);
+    petTranslateY.setValue(0);
+    Animated.parallel([
+      Animated.timing(pickupShadowAnim, { toValue: 0, duration: 120, useNativeDriver: true }),
+      Animated.timing(petScaleAnim, { toValue: 1, duration: 120, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const cancelPickupArmTimer = () => {
+    if (pickupArmTimerRef.current) {
+      clearTimeout(pickupArmTimerRef.current);
+      pickupArmTimerRef.current = null;
+    }
+  };
 
   const petPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, g) =>
-        Math.abs(g.dx) > 4 || Math.abs(g.dy) > 4,
+        Math.abs(g.dx) > 3 || Math.abs(g.dy) > 3,
 
       onPanResponderGrant: () => {
-        setIsDraggingRef.current(true);
+        pickupArmedRef.current = false;
+        strokeActiveRef.current = false;
+        heldTooLongStartedRef.current = false;
+        setIsPetStroking(false);
+        setIsLiftDragging(false);
         setIsScriptVisibleRef.current(false);
         setInjectScriptRef.current(null);
         wasHeldTooLongRef.current = false;
-        heldTooLongTimerRef.current = setTimeout(() => {
-          const text = HELD_TOO_LONG_DURING_SCRIPTS[
-            Math.floor(Math.random() * HELD_TOO_LONG_DURING_SCRIPTS.length)
-          ];
-          setIsHeldTooLongRef.current(true);
-          setHeldTooLongTextRef.current(text);
-          wasHeldTooLongRef.current = true;
-        }, 5000);
-        Animated.parallel([
-          Animated.spring(petScaleAnim, { toValue: 1.15, tension: 200, friction: 10, useNativeDriver: true }),
-          Animated.timing(pickupShadowAnim, { toValue: 1, duration: 180, useNativeDriver: true }),
-        ]).start();
+        setIsHeldTooLongRef.current(false);
+        cancelPickupArmTimer();
+        if (heldTooLongTimerRef.current) {
+          clearTimeout(heldTooLongTimerRef.current);
+          heldTooLongTimerRef.current = null;
+        }
+
+        pickupArmTimerRef.current = setTimeout(() => {
+          if (strokeActiveRef.current) return;
+          pickupArmedRef.current = true;
+          setIsLiftDragging(true);
+          Animated.parallel([
+            Animated.spring(petScaleAnim, {
+              toValue: 1.12,
+              tension: 200,
+              friction: 10,
+              useNativeDriver: true,
+            }),
+            Animated.timing(pickupShadowAnim, { toValue: 1, duration: 180, useNativeDriver: true }),
+          ]).start();
+        }, PICKUP_ARM_MS);
       },
 
       onPanResponderMove: (_, g) => {
+        const stroke =
+          Math.abs(g.dx) > STROKE_MIN_DX &&
+          Math.abs(g.dx) >= Math.abs(g.dy) * 1.05;
+
+        if (stroke) {
+          strokeActiveRef.current = true;
+          cancelPickupArmTimer();
+          pickupArmedRef.current = false;
+          setIsLiftDragging(false);
+          setIsPetStroking(true);
+          petTranslateX.setValue(0);
+          petTranslateY.setValue(0);
+          Animated.parallel([
+            Animated.timing(pickupShadowAnim, { toValue: 0, duration: 80, useNativeDriver: true }),
+            Animated.timing(petScaleAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
+          ]).start();
+          return;
+        }
+
+        if (!pickupArmedRef.current) {
+          if (Math.abs(g.dx) + Math.abs(g.dy) > PRE_ARM_MOVE_CANCEL) {
+            cancelPickupArmTimer();
+          }
+          return;
+        }
+
         petTranslateX.setValue(g.dx);
         petTranslateY.setValue(g.dy - 30);
+
+        if (!heldTooLongStartedRef.current && (Math.abs(g.dx) > 6 || Math.abs(g.dy) > 6)) {
+          heldTooLongStartedRef.current = true;
+          heldTooLongTimerRef.current = setTimeout(() => {
+            const scripts = heldTooLongDuringScriptsRef.current;
+            if (scripts.length === 0) return;
+            const text =
+              scripts[
+                Math.floor(Math.random() * scripts.length)
+              ];
+            setIsHeldTooLongRef.current(true);
+            setHeldTooLongTextRef.current(text);
+            wasHeldTooLongRef.current = true;
+          }, 5000);
+        }
       },
 
       onPanResponderRelease: (_, g) => {
-        setIsDraggingRef.current(false);
+        cancelPickupArmTimer();
+        if (heldTooLongTimerRef.current) {
+          clearTimeout(heldTooLongTimerRef.current);
+          heldTooLongTimerRef.current = null;
+        }
+
+        setIsLiftDragging(false);
+        setIsPetStroking(false);
         setIsHeldTooLongRef.current(false);
-        if (heldTooLongTimerRef.current) clearTimeout(heldTooLongTimerRef.current);
-        snapBack();
-        if (wasHeldTooLongRef.current) {
-          const text = HELD_TOO_LONG_AFTER_SCRIPTS[
-            Math.floor(Math.random() * HELD_TOO_LONG_AFTER_SCRIPTS.length)
-          ];
-          showInjectScriptRef.current(text);
-          wasHeldTooLongRef.current = false;
-        } else if (Math.abs(g.dx) < 8 && Math.abs(g.dy) < 8) {
+
+        const heldLong = wasHeldTooLongRef.current;
+        wasHeldTooLongRef.current = false;
+        heldTooLongStartedRef.current = false;
+
+        const tap = Math.abs(g.dx) < 10 && Math.abs(g.dy) < 10;
+        const hadStroke = strokeActiveRef.current;
+        strokeActiveRef.current = false;
+
+        const hadLift = pickupArmedRef.current;
+        pickupArmedRef.current = false;
+
+        const tapBounce = () => {
+          Animated.sequence([
+            Animated.timing(petScaleAnim, { toValue: 1.08, duration: 80, useNativeDriver: true }),
+            Animated.timing(petScaleAnim, { toValue: 1, duration: 120, useNativeDriver: true }),
+          ]).start();
+        };
+
+        if (hadStroke) {
+          resetAfterStroke();
+          return;
+        }
+
+        if (hadLift) {
+          snapLiftBack();
+          if (heldLong) {
+            const scripts = heldTooLongAfterScriptsRef.current;
+            if (scripts.length === 0) return;
+            const text =
+              scripts[
+                Math.floor(Math.random() * scripts.length)
+              ];
+            showInjectScriptRef.current(text);
+          } else if (tap) {
+            showNextScriptRef.current();
+            tapBounce();
+          }
+          return;
+        }
+
+        petTranslateX.setValue(0);
+        petTranslateY.setValue(0);
+        Animated.parallel([
+          Animated.timing(pickupShadowAnim, { toValue: 0, duration: 80, useNativeDriver: true }),
+          Animated.timing(petScaleAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
+        ]).start();
+        if (tap) {
           showNextScriptRef.current();
+          tapBounce();
         }
       },
 
       onPanResponderTerminate: () => {
-        setIsDraggingRef.current(false);
-        setIsHeldTooLongRef.current(false);
-        if (heldTooLongTimerRef.current) clearTimeout(heldTooLongTimerRef.current);
+        cancelPickupArmTimer();
+        if (heldTooLongTimerRef.current) {
+          clearTimeout(heldTooLongTimerRef.current);
+          heldTooLongTimerRef.current = null;
+        }
+        const hadStroke = strokeActiveRef.current;
+        const hadLift = pickupArmedRef.current;
+        strokeActiveRef.current = false;
+        pickupArmedRef.current = false;
         wasHeldTooLongRef.current = false;
-        snapBack();
+        heldTooLongStartedRef.current = false;
+        setIsLiftDragging(false);
+        setIsPetStroking(false);
+        setIsHeldTooLong(false);
+        if (hadStroke) resetAfterStroke();
+        else if (hadLift) snapLiftBack();
+        else resetAfterStroke();
       },
-    })
+    }),
   ).current;
+
+  const strokeAnimalId = (ctxAnimalId ?? selectedAnimalId) as AnimalId | null;
+  const mainPetImage = isPetStroking
+    ? getStrokeImageForAnimal(strokeAnimalId)
+    : (selectedAnimal ?? DEFAULT_ANIMAL_IMAGE);
 
   const currentExp = Math.max(0, experience - (level - 1) * EXP_PER_LEVEL);
   const expProgress = Math.min(1, currentExp / EXP_PER_LEVEL);
   const nextLevelExp = EXP_PER_LEVEL;
 
+  const houseOverlay = useMemo(
+    () => getHouseOverlaySource(homeLayout.houseType),
+    [homeLayout.houseType],
+  );
+
   return (
-    <ImageBackground source={selectedBackground ?? DEFAULT_BACKGROUND_IMAGE} style={styles.background} resizeMode="cover">
+    <View style={styles.background}>
+      <Image
+        source={selectedBackground ?? DEFAULT_BACKGROUND_IMAGE}
+        style={styles.fullBleedLayer}
+        resizeMode="stretch"
+      />
+      {houseOverlay ? (
+        <Image source={houseOverlay} style={styles.fullBleedLayer} resizeMode="stretch" />
+      ) : null}
       <SafeAreaView style={styles.safeArea}>
         {isLoadingProfile && (
           <View style={styles.loadingOverlay}>
@@ -598,78 +813,71 @@ const HomeScreen = () => {
 
         {/* 메인: 캐릭터 + 우측 세로 버튼 3개 + 햄버거 */}
         <View style={styles.mainArea}>
-          <View style={styles.petInteractionArea}>
-            {/* 말풍선: 드래그 중에는 동물과 함께 이동 */}
-            <Animated.View
+          <View
+            style={[styles.floorPlaceSlot, { height: `${FLOOR_PLACE_RATIO * 100}%` }]}
+            onLayout={(e) => {
+              const { width, height } = e.nativeEvent.layout;
+              setFloorLayout({ w: width, h: height });
+            }}
+          >
+            <View
               style={[
-                styles.speechRegion,
-                isDragging && {
-                  transform: [
-                    { translateX: petTranslateX },
-                    { translateY: petTranslateY },
-                  ],
-                },
+                styles.homePlaySceneWrap,
+                Platform.OS === "web" && ({ touchAction: "none" } as object),
               ]}
             >
-              {isDragging && isHeldTooLong ? (
-                <Animated.View style={[styles.homeSpeechBubble, { opacity: speechBubbleOpacity, transform: [{ scale: speechBubbleScale }] }]}>
-                  <Text style={styles.homeSpeechText}>{heldTooLongText}</Text>
-                  <View style={styles.homeSpeechTail} />
-                </Animated.View>
-              ) : isScriptVisible && (injectScript ?? currentScript) !== "" ? (
-                <Animated.View style={[styles.homeSpeechBubble, { opacity: speechBubbleOpacity, transform: [{ scale: speechBubbleScale }] }]}>
-                  <Text style={styles.homeSpeechText}>{injectScript ?? currentScript}</Text>
-                  <View style={styles.homeSpeechTail} />
-                </Animated.View>
-              ) : !isDragging ? (
-                <View style={styles.homeSpeechPlaceholderBubble}>
-                  <Text style={styles.homeSpeechPlaceholderText}>{placeholderPhrase}</Text>
-                  <View style={[styles.homeSpeechTail, styles.homeSpeechPlaceholderTail]} />
-                </View>
-              ) : null}
-            </Animated.View>
-            <Animated.View
-              {...petPanResponder.panHandlers}
-              style={[
-                styles.petTouchArea,
-                Platform.OS === 'web' && ({ touchAction: 'none' } as any),
-              ]}
-            >
+              <HomePlayScene
+                layout={homeLayout}
+                animalSource={mainPetImage}
+                petSize={petSize}
+                petPanHandlers={petPanResponder.panHandlers}
+                petScaleAnim={petScaleAnim}
+                petOffsetX={petTranslateX}
+                petOffsetY={petTranslateY}
+                pickupShadowAnim={pickupShadowAnim}
+                shadowScale={shadowScale}
+                shadowTranslateY={shadowTranslateY}
+                expandPetTouchPad
+              />
+            </View>
+            {/* 말풍선·플레이스홀더는 씬 위에 그려야 동물 좌표와 맞고, pointerEvents none으로 터치는 씬으로 통과 */}
+            <View style={styles.speechOverlay} pointerEvents="box-none">
               <Animated.View
                 style={[
-                  styles.petWrap,
-                  {
-                    transform: [
-                      { translateX: petTranslateX },
-                      { translateY: petTranslateY },
-                      { scale: petScaleAnim },
-                    ],
+                  speechAnchorStyle,
+                  isLiftDragging && {
+                    transform: [{ translateX: petTranslateX }, { translateY: petTranslateY }],
                   },
                 ]}
               >
-                <Image
-                  source={selectedAnimal ?? DEFAULT_ANIMAL_IMAGE}
-                  style={[styles.petImage, { width: petSize, height: petSize }]}
-                  resizeMode="contain"
-                />
+                {isLiftDragging && isHeldTooLong ? (
+                  <Animated.View
+                    style={[
+                      styles.homeSpeechBubble,
+                      { opacity: speechBubbleOpacity, transform: [{ scale: speechBubbleScale }] },
+                    ]}
+                  >
+                    <Text style={styles.homeSpeechText}>{heldTooLongText}</Text>
+                    <View style={styles.homeSpeechTail} />
+                  </Animated.View>
+                ) : isScriptVisible && (injectScript ?? currentScript) !== "" ? (
+                  <Animated.View
+                    style={[
+                      styles.homeSpeechBubble,
+                      { opacity: speechBubbleOpacity, transform: [{ scale: speechBubbleScale }] },
+                    ]}
+                  >
+                    <Text style={styles.homeSpeechText}>{injectScript ?? currentScript}</Text>
+                    <View style={styles.homeSpeechTail} />
+                  </Animated.View>
+                ) : !isLiftDragging ? (
+                  <View style={styles.homeSpeechPlaceholderBubble}>
+                    <Text style={styles.homeSpeechPlaceholderText}>{placeholderPhrase}</Text>
+                    <View style={[styles.homeSpeechTail, styles.homeSpeechPlaceholderTail]} />
+                  </View>
+                ) : null}
               </Animated.View>
-              {/* 드래그 중 발밑 그림자 */}
-              <Animated.View
-                style={[
-                  styles.petShadow,
-                  {
-                    width: petSize * 0.65,
-                    opacity: pickupShadowAnim,
-                    transform: [
-                      { translateX: petTranslateX },
-                      { translateY: shadowTranslateY },
-                      { scaleX: shadowScale },
-                      { scaleY: shadowScale },
-                    ],
-                  },
-                ]}
-              />
-            </Animated.View>
+            </View>
           </View>
 
           {/* 우측 세로 배치: 퀘스트 / 채팅 / 랭킹 (메뉴명 원 안 아래, 아이콘과 약간 겹침) */}
@@ -817,7 +1025,7 @@ const HomeScreen = () => {
         <QuestModal visible={showQuestModal} onClose={() => setShowQuestModal(false)} onProfileRefresh={fetchProfile} />
         <ItemModal visible={showItemModal} onClose={() => setShowItemModal(false)} />
       </SafeAreaView>
-    </ImageBackground>
+    </View>
   );
 };
 
@@ -834,7 +1042,13 @@ const pastel = {
 };
 
 const styles = StyleSheet.create({
-  background: { flex: 1, width: "100%", height: "100%" },
+  background: { flex: 1, width: "100%", height: "100%", backgroundColor: "#FFF8E1" },
+  fullBleedLayer: {
+    ...StyleSheet.absoluteFillObject,
+    width: "100%",
+    height: "100%",
+    ...(Platform.OS === "web" && ({ objectPosition: "center center" } as object)),
+  },
   safeArea: { flex: 1, backgroundColor: "transparent" },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -1028,6 +1242,8 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     alignItems: "center",
     gap: 8,
+    zIndex: 6,
+    elevation: 6,
   },
   rightFloatingBtn: {
     width: 52,
@@ -1064,14 +1280,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF9CC",
   },
   animalImage: {
-    width: 80,
-    height: 80,
+    width: 44,
+    height: 44,
   },
   animalLabel: {
-    fontSize: 18,
+    fontSize: 11,
     color: APP_COLORS.brown,
     fontWeight: "600",
     fontFamily: "KotraHope",
+    textAlign: "center",
   },
   animalConfirmBox: {
     marginTop: 16,
@@ -1112,9 +1329,21 @@ const styles = StyleSheet.create({
     borderColor: pastel.lavender,
   },
   topIcon: {},
-  mainArea: { flex: 1, justifyContent: "center", alignItems: "center" },
-  petInteractionArea: { alignItems: "center", justifyContent: "center" },
-  speechRegion: { minHeight: 110, justifyContent: "flex-end", alignItems: "center", width: "100%", paddingHorizontal: 16 },
+  mainArea: { flex: 1, width: "100%", position: "relative" },
+  floorPlaceSlot: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+  },
+  speechOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 30,
+    elevation: 28,
+    pointerEvents: "box-none",
+  },
+  homePlaySceneWrap: { flex: 1, zIndex: 0 },
   homeSpeechBubble: {
     backgroundColor: "rgba(255,255,255,0.97)",
     paddingHorizontal: 22,
@@ -1150,16 +1379,6 @@ const styles = StyleSheet.create({
     transform: [{ rotate: "45deg" }],
   },
   homeSpeechPlaceholderTail: { backgroundColor: "rgba(255,255,255,0.75)" },
-  petTouchArea: { justifyContent: "center", alignItems: "center" },
-  petWrap: {},
-  petImage: {},
-  petShadow: {
-    height: 18,
-    borderRadius: 999,
-    backgroundColor: "rgba(0,0,0,0.18)",
-    marginTop: -6,
-    alignSelf: "center",
-  },
   bottomBarWrapper: {
     width: "100%",
   },
@@ -1294,8 +1513,27 @@ const styles = StyleSheet.create({
   expDetailSub: { fontSize: 13, color: pastel.textLight, marginTop: 4, fontFamily: "KotraHope" },
   expDetailClose: { marginTop: 20, backgroundColor: pastel.mint, paddingVertical: 14, borderRadius: 16, alignItems: "center" },
   expDetailCloseText: { fontSize: 16, fontWeight: "700", color: pastel.text, fontFamily: "KotraHope" },
-  animalOptions: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 12 },
-  animalOption: { flexBasis: "48%", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 16, borderRadius: 16, backgroundColor: pastel.bg, borderWidth: 2, borderColor: pastel.lavender },
+  animalOptions: {
+    flexDirection: "row",
+    flexWrap: "nowrap",
+    justifyContent: "space-between",
+    alignItems: "stretch",
+    gap: 6,
+    width: "100%",
+  },
+  animalOption: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
+    borderRadius: 12,
+    backgroundColor: pastel.bg,
+    borderWidth: 2,
+    borderColor: pastel.lavender,
+  },
   selectedAnimalImage: { width: 56, height: 56 },
   selectedAnimalLabel: { fontSize: 18, fontWeight: "600", color: pastel.text, fontFamily: "KotraHope" },
   input: { width: "100%", backgroundColor: pastel.bg, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 18, marginBottom: 14, borderWidth: 2, borderColor: pastel.lavender },

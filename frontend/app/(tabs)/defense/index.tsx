@@ -1,59 +1,121 @@
-import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  useWindowDimensions,
+  Alert,
+  ImageBackground,
+  Image,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import HomeButton from "../../../components/HomeButton";
 import { APP_COLORS } from "../../../constants/theme";
+import { DEFENSE_CHALLENGE_MODE_LOCKED } from "../../../data/defenseStub";
+
+const DEFENSE_INTRO_BACKGROUND = require("../../../assets/images/defence/defense_intro.png");
+const DEFENSE_LOGO = require("../../../assets/images/defence/defense_logo.png");
 
 /**
- * 집 지키기 진입 — 모드 선택 (시나리오 / 도전).
+ * 디펜스 모드 선택 (시나리오 / 도전).
  */
 export default function DefenseIndexScreen() {
-  const { height: windowHeight } = useWindowDimensions();
-  const modeCardRowHeight = Math.min(292, Math.max(224, Math.round(windowHeight * 0.32)));
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  /** 기존 대비 ~1.35–1.45배 — 하단 여밉 완화·시각적 균형 */
+  const modeCardRowHeight = Math.min(460, Math.max(350, Math.round(windowHeight * 0.46)));
+  const logoWidth = Math.min(460, windowWidth * 0.84);
+  const logoHeight = Math.round(logoWidth * (320 / 677));
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
-      <HomeButton />
+      <ImageBackground
+        source={DEFENSE_INTRO_BACKGROUND}
+        style={styles.background}
+        imageStyle={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        <View style={styles.backgroundOverlay} pointerEvents="none" />
+        <HomeButton />
 
-      <View style={styles.pickRoot}>
-        <View style={styles.pickHeader}>
-          <Text style={styles.title}>집 지키기</Text>
-          <Text style={styles.pickHint}>플레이할 모드를 선택해 주세요</Text>
-        </View>
+        <View style={styles.pickRoot}>
+          <View style={styles.pickHeader}>
+            <Image
+              source={DEFENSE_LOGO}
+              style={[styles.logo, { width: logoWidth, height: logoHeight }]}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
+            />
+          </View>
 
-        <View style={styles.modeCardsWrap}>
-          <View style={[styles.modeCards, { height: modeCardRowHeight }]}>
-            <TouchableOpacity
-              style={[styles.modeCard, styles.modeCardScenario]}
-              onPress={() => router.push("/(tabs)/defense/scenario" as any)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.modeCardIconCircle}>
-                <Ionicons name="book-outline" size={36} color={APP_COLORS.brown} />
-              </View>
-              <Text style={styles.modeCardTitle}>시나리오</Text>
-              <Text style={styles.modeCardDesc}>
-                스테이지를 순서대로 진행하는 캠페인 모드
-              </Text>
-            </TouchableOpacity>
+          <View style={styles.modeCardsWrap}>
+            <View style={[styles.modeCards, { height: modeCardRowHeight }]}>
+              <TouchableOpacity
+                style={[styles.modeCard, styles.modeCardScenario]}
+                onPress={() => router.push("/(tabs)/defense/scenario" as any)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.modeCardIconCircle}>
+                  <Ionicons name="book-outline" size={44} color={APP_COLORS.brown} />
+                </View>
+                <Text style={styles.modeCardTitle}>시나리오</Text>
+                <Text
+                  style={styles.modeCardHint}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.82}
+                >
+                  적을 물리치세요
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.modeCard, styles.modeCardChallenge]}
-              onPress={() => router.push("/(tabs)/defense/challenge" as any)}
-              activeOpacity={0.85}
-            >
-              <View style={[styles.modeCardIconCircle, styles.modeCardIconCircleAlt]}>
-                <Ionicons name="trophy-outline" size={36} color={APP_COLORS.brown} />
-              </View>
-              <Text style={styles.modeCardTitle}>도전</Text>
-              <Text style={styles.modeCardDesc}>
-                한계에 도전하는 도전 모드
-              </Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modeCard,
+                  styles.modeCardChallenge,
+                  DEFENSE_CHALLENGE_MODE_LOCKED && styles.modeCardChallengeLocked,
+                ]}
+                onPress={() => {
+                  if (DEFENSE_CHALLENGE_MODE_LOCKED) {
+                    Alert.alert("잠금", "도전 모드는 준비 중입니다.");
+                    return;
+                  }
+                  router.push("/(tabs)/defense/challenge" as any);
+                }}
+                activeOpacity={DEFENSE_CHALLENGE_MODE_LOCKED ? 1 : 0.85}
+              >
+                <View style={[styles.modeCardIconCircle, styles.modeCardIconCircleAlt]}>
+                  <Ionicons
+                    name={DEFENSE_CHALLENGE_MODE_LOCKED ? "lock-closed" : "trophy-outline"}
+                    size={44}
+                    color={DEFENSE_CHALLENGE_MODE_LOCKED ? APP_COLORS.brownLight : APP_COLORS.brown}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.modeCardTitle,
+                    DEFENSE_CHALLENGE_MODE_LOCKED && styles.modeCardTitleMuted,
+                  ]}
+                >
+                  도전
+                </Text>
+                <Text
+                  style={[
+                    styles.modeCardHint,
+                    DEFENSE_CHALLENGE_MODE_LOCKED && styles.modeCardHintMuted,
+                  ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.82}
+                >
+                  {DEFENSE_CHALLENGE_MODE_LOCKED ? "추후 오픈 예정" : "한계에 도전"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </View>
+      </ImageBackground>
     </SafeAreaView>
   );
 }
@@ -63,6 +125,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: APP_COLORS.ivory,
   },
+  background: {
+    flex: 1,
+  },
+  backgroundImage: {
+    opacity: 0.98,
+  },
+  backgroundOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255, 254, 245, 0.18)",
+  },
   pickRoot: {
     flex: 1,
     paddingHorizontal: 20,
@@ -70,24 +142,17 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   pickHeader: {
-    marginBottom: 16,
+    marginBottom: 12,
+    alignItems: "center",
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: APP_COLORS.brown,
-    fontFamily: "KotraHope",
-    marginBottom: 8,
-  },
-  pickHint: {
-    fontSize: 17,
-    color: APP_COLORS.brownLight,
-    fontFamily: "KotraHope",
+  logo: {
+    marginTop: 4,
   },
   modeCardsWrap: {
     flex: 1,
     justifyContent: "center",
-    paddingVertical: 20,
+    paddingVertical: 8,
+    paddingBottom: 32,
   },
   modeCards: {
     flexDirection: "row",
@@ -98,8 +163,8 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     borderRadius: 24,
-    paddingVertical: 18,
-    paddingHorizontal: 14,
+    paddingVertical: 28,
+    paddingHorizontal: 12,
     borderWidth: 3,
     justifyContent: "center",
     alignItems: "center",
@@ -112,14 +177,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8F5F0",
     borderColor: "#7CB8A8",
   },
+  modeCardChallengeLocked: {
+    opacity: 0.78,
+    backgroundColor: "#D5E8E0",
+    borderColor: "#9BBFB3",
+  },
+  modeCardTitleMuted: {
+    color: APP_COLORS.brownLight,
+  },
   modeCardIconCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
     backgroundColor: "rgba(255,255,255,0.85)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: 16,
     borderWidth: 2,
     borderColor: APP_COLORS.ivoryDark,
   },
@@ -127,19 +200,25 @@ const styles = StyleSheet.create({
     borderColor: "#B8E0D2",
   },
   modeCardTitle: {
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: "800",
     color: APP_COLORS.brown,
     fontFamily: "KotraHope",
-    marginBottom: 8,
     textAlign: "center",
+    marginBottom: 6,
   },
-  modeCardDesc: {
+  modeCardHint: {
     fontSize: 13,
-    lineHeight: 19,
+    fontWeight: "600",
     color: APP_COLORS.brownLight,
     fontFamily: "KotraHope",
     textAlign: "center",
+    lineHeight: 18,
     paddingHorizontal: 2,
+    width: "100%",
+    maxWidth: "100%",
+  },
+  modeCardHintMuted: {
+    opacity: 0.92,
   },
 });

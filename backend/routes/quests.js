@@ -2,6 +2,7 @@
 import express from 'express';
 import { db } from '../db.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
+import { grantUnlock, grantUnlocksForAnimalsAll, isUserMaster } from '../lib/unlocks.js';
 
 const router = express.Router();
 
@@ -434,21 +435,44 @@ router.post('/:id/claim', authMiddleware, async (req, res) => {
         );
       }
     } else if (rewardType === 'item') {
-      await db.query(
-        `INSERT INTO user_items (user_id, item_type, quantity) VALUES (?, ?, ?)
-         ON DUPLICATE KEY UPDATE quantity = quantity + ?`,
-        [userId, rewardValue, rewardAmount, rewardAmount]
-      );
+      const master = await isUserMaster(userId);
+      const isProtein = rewardValue === 'protein_small' || rewardValue === 'protein_big';
+      if (master && isProtein) {
+        await db.query(
+          `INSERT INTO user_items (user_id, item_type, quantity) VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE quantity = LEAST(99, quantity + ?)`,
+          [userId, rewardValue, rewardAmount, rewardAmount]
+        );
+      } else if (master) {
+        await db.query(
+          `INSERT INTO user_items (user_id, item_type, quantity) VALUES (?, ?, 1)
+           ON DUPLICATE KEY UPDATE quantity = LEAST(1, GREATEST(quantity, 1))`,
+          [userId, rewardValue]
+        );
+      } else if (isProtein) {
+        await db.query(
+          `INSERT INTO user_items (user_id, item_type, quantity) VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE quantity = LEAST(99, quantity + ?)`,
+          [userId, rewardValue, rewardAmount, rewardAmount]
+        );
+      } else {
+        await db.query(
+          `INSERT INTO user_items (user_id, item_type, quantity) VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE quantity = LEAST(1, quantity + ?)`,
+          [userId, rewardValue, rewardAmount, rewardAmount]
+        );
+      }
+      await grantUnlock(userId, `item:${rewardValue}`);
     } else if (rewardType === 'accessory') {
       await db.query(
         'INSERT IGNORE INTO user_accessories (user_id, accessory_type) VALUES (?, ?)',
         [userId, rewardValue]
       );
+      await grantUnlock(userId, `accessory:${rewardValue}`);
     } else if (rewardType === 'background') {
-      await db.query(
-        'UPDATE user_profiles SET background_type = ? WHERE user_id = ?',
-        [rewardValue, userId]
-      );
+      await grantUnlock(userId, `bg:${rewardValue}`);
+    } else if (rewardType === 'ability' && rewardValue === 'animal_change') {
+      await grantUnlocksForAnimalsAll(userId);
     }
 
     await db.query(

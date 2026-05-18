@@ -36,11 +36,20 @@ import HeartRateCamera from "../../components/HeartRateCamera";
 import { useCustomization } from "../../context/CustomizationContext";
 import { useFocusEffect } from "@react-navigation/native";
 import { getClockImageFromType } from "../../utils/customizationUtils";
+import { appendDecorationBonuses } from "../../utils/decorationBonuses";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { WorkoutLocationTracker } from "../../utils/WorkoutLocationTracker";
+import { WorkoutLocationTracker, type LocationPoint } from "../../utils/WorkoutLocationTracker";
 import LocationMapModal from "../../components/LocationMapModal";
 import * as Location from "expo-location";
 import { MapView, Marker, Polyline, PROVIDER_GOOGLE } from "../../components/NativeMapView";
+import { APP_COLORS } from "../../constants/theme";
+import {
+  CAPIBARA_RUNNING_FRAMES,
+  DOG_RUNNING_FRAMES,
+  FOX_RUNNING_FRAMES,
+  GUINEA_PIG_RUNNING_FRAMES,
+  RED_PANDA_RUNNING_FRAMES,
+} from "../../features/timer/runningAnimationFrames";
 
 type Mode = "aerobic" | "weight" | "interval";
 type Phase = "idle" | "running" | "summary";
@@ -104,7 +113,7 @@ export default function TimerScreen() {
   const workoutStartTimeRef = useRef<number | null>(null);
   const [animalType, setAnimalType] = useState<string | null>("dog");
   const timer = useWorkoutTimer();
-  const { loadCustomizationFromServer } = useCustomization();
+  const { loadCustomizationFromServer, homeLayout } = useCustomization();
   const locationTrackerRef = useRef<WorkoutLocationTracker | null>(null);
   const [aerobicWorkoutMode, setAerobicWorkoutMode] = useState<'outdoor' | 'gym' | null>(null);
   const [selectedGym, setSelectedGym] = useState<{
@@ -129,7 +138,7 @@ export default function TimerScreen() {
           const response = await fetch(`${API_BASE_URL}/api/auth/me`, { headers });
           if (response.ok) {
             const data = await response.json();
-            loadCustomizationFromServer(data.profile?.backgroundType, data.profile?.clockType);
+            loadCustomizationFromServer(data.profile?.backgroundType, data.profile?.clockType, data.profile?.homeLayout);
             setAnimalType(data.profile?.animalType ?? "dog");
           }
         } catch (error) {
@@ -141,11 +150,11 @@ export default function TimerScreen() {
   );
 
   const handleStart = () => {
-    // 웹 환경이거나 웨이트 모드는 지도 모달 없이 바로 시작
-    if (Platform.OS === 'web' || mode === "weight") {
+    // 웹이거나 웨이트 모드는 지도 모달 없이 바로 시작
+    if (Platform.OS === "web" || mode === "weight") {
       startWorkoutInternal();
     } else {
-      // 모바일 환경에서 유산소 또는 인터벌 모드일 때 지도 모달 표시
+      // 모바일 유산소·인터벌: 위치·운동 방식 확인 모달
       setShowLocationMap(true);
     }
   };
@@ -743,6 +752,9 @@ export default function TimerScreen() {
       : summaryData.mode === "weight" ? "웨이트"
       : "인터벌";
 
+    const placedDecorIds = homeLayout.decorations.map((d) => d.id);
+    const statsWithDecor = appendDecorationBonuses(summaryData.stats, summaryData.mode, placedDecorIds);
+
     const payload = {
       workoutDate: today,
       workoutType,
@@ -750,7 +762,7 @@ export default function TimerScreen() {
       heartRate: summaryData.heartRate,
       hasReward,
       notes: null,
-      stats: summaryData.stats, // 스탯 정보 전송
+      stats: statsWithDecor,
     };
     
     // 유효성 검사
@@ -940,7 +952,12 @@ export default function TimerScreen() {
   }, [restDurationMs, phase]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={[
+        styles.container,
+        phase === "running" && styles.containerRunningPhase,
+      ]}
+    >
       <HomeButton />
       {phase === "idle" && (
         <TimerLanding
@@ -985,6 +1002,12 @@ export default function TimerScreen() {
           isWorking={isWorking}
           workoutRemainingMs={workoutRemainingMs}
           animalType={animalType}
+          aerobicWorkoutMode={aerobicWorkoutMode}
+          isOutOfGymRange={isOutOfGymRange}
+          lowIntensityWarning={lowIntensityWarning}
+          isWorkoutPaused={isWorkoutPaused}
+          isRestPaused={isRestPaused}
+          locationTrackerRef={locationTrackerRef}
         />
       )}
 
@@ -1054,7 +1077,6 @@ function TimerLanding({
   const isWeight = mode === "weight";
   const isInterval = mode === "interval";
 
-  const { selectedClock } = useCustomization();
   const insets = useSafeAreaInsets();
 
   return (
@@ -1069,8 +1091,16 @@ function TimerLanding({
       </View>
       ===== 변경 사항: 설정 영역을 고정 영역으로 분리하여 레이아웃 안정성 확보 ===== */}
       
-      {/* 메인 콘텐츠 영역 */}
+      {/* 메인 콘텐츠 영역: 상단 트랙 → 중단 운동 종류 → 하단 시작 */}
       <View style={styles.landingMainContent}>
+        <View style={styles.trackImageContainer}>
+          <Image
+            source={require("../../assets/images/background/Track.png")}
+            style={styles.trackImage}
+            resizeMode="cover"
+          />
+        </View>
+
         <View style={styles.modeSwitcher}>
           <ModeToggle
             isActive={mode === "aerobic"}
@@ -1089,21 +1119,12 @@ function TimerLanding({
           />
         </View>
 
-        {/* Track 배경 이미지 - 타이머 메뉴 선택 시 표시 */}
-        <View style={styles.trackImageContainer}>
-          <Image
-            source={require("../../assets/images/background/Track.png")}
-            style={styles.trackImage}
-            resizeMode="cover"
-          />
-        </View>
-
         <TouchableOpacity
           style={styles.startWorkoutButton}
           onPress={onStart}
           activeOpacity={0.85}
         >
-          <Ionicons name="play" size={24} color="#fff" />
+          <Ionicons name="play" size={24} color={APP_COLORS.brown} />
           <Text style={styles.startWorkoutLabel}>운동 시작</Text>
         </TouchableOpacity>
       </View>
@@ -1116,14 +1137,14 @@ function TimerLanding({
             onPress={onToggleConfigurator}
             activeOpacity={0.85}
           >
-            <Ionicons name="settings-outline" size={18} color="#4a6cf4" />
+            <Ionicons name="settings-outline" size={18} color={APP_COLORS.brown} />
             <Text style={styles.intervalToggleLabel}>
               {isWeight ? "웨이트 설정" : "인터벌 설정"}
             </Text>
             <Ionicons
               name="chevron-up"
               size={18}
-              color="#4a6cf4"
+              color={APP_COLORS.brown}
             />
           </TouchableOpacity>
         ) : (
@@ -1250,7 +1271,7 @@ function IntervalConfigurator({
           }}
           activeOpacity={0.85}
         >
-          <Ionicons name="refresh" size={16} color="#4a6cf4" />
+          <Ionicons name="refresh" size={16} color={APP_COLORS.yellowDark} />
           <Text style={styles.intervalResetLabel}>초기화</Text>
         </TouchableOpacity>
       </View>
@@ -1317,9 +1338,124 @@ function ConfigStepButton({
       <Ionicons
         name={icon}
         size={18}
-        color={disabled ? "#b2bec3" : "#4a6cf4"}
+        color={disabled ? "#b2bec3" : APP_COLORS.yellowDark}
       />
     </TouchableOpacity>
+  );
+}
+
+function computeWorkoutMapRegion(
+  locations: LocationPoint[]
+): {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+} | null {
+  if (locations.length === 0) return null;
+  if (locations.length === 1) {
+    const p = locations[0];
+    return {
+      latitude: p.latitude,
+      longitude: p.longitude,
+      latitudeDelta: 0.006,
+      longitudeDelta: 0.006,
+    };
+  }
+  const lats = locations.map((l) => l.latitude);
+  const lngs = locations.map((l) => l.longitude);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const latD = Math.max((maxLat - minLat) * 1.35, 0.004);
+  const lngD = Math.max((maxLng - minLng) * 1.35, 0.004);
+  return {
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLng + maxLng) / 2,
+    latitudeDelta: latD,
+    longitudeDelta: lngD,
+  };
+}
+
+const DEFAULT_MAP_REGION = {
+  latitude: 37.5665,
+  longitude: 126.978,
+  latitudeDelta: 0.04,
+  longitudeDelta: 0.04,
+};
+
+function LiveWorkoutMap({ locations }: { locations: LocationPoint[] }) {
+  const mapRef = useRef<{
+    animateToRegion?: (region: Record<string, number>, duration?: number) => void;
+  } | null>(null);
+
+  // 타이머(elapsedMs)마다 배열 참조만 바뀌는 경우가 많아, 매 프레임 region prop을 바꾸면
+  // Android에서 지도 타일이 비거나 멈추는 경우가 있음 → 스냅샷 키로만 카메라 갱신
+  const locationCameraKey =
+    locations.length === 0
+      ? "0"
+      : `${locations.length}:${locations[locations.length - 1].timestamp}`;
+
+  const region = useMemo(
+    () => computeWorkoutMapRegion(locations),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 의도: GPS 포인트가 늘거나 마지막 점이 바뀔 때만 카메라용 region 재계산
+    [locationCameraKey]
+  );
+
+  const initialRegion = region ?? DEFAULT_MAP_REGION;
+
+  useEffect(() => {
+    const target = region ?? DEFAULT_MAP_REGION;
+    const map = mapRef.current;
+    if (!map?.animateToRegion) return;
+    const t = requestAnimationFrame(() => {
+      try {
+        map.animateToRegion?.(target, 450);
+      } catch {
+        /* 일부 환경에서 ref 타이밍 이슈 */
+      }
+    });
+    return () => cancelAnimationFrame(t);
+  }, [locationCameraKey, region]);
+
+  if (!MapView) {
+    return <View style={styles.workoutLiveMapFallback} />;
+  }
+
+  const coordinates = locations.map((p) => ({
+    latitude: p.latitude,
+    longitude: p.longitude,
+  }));
+
+  return (
+    <MapView
+      ref={mapRef}
+      style={styles.workoutLiveMap}
+      provider={PROVIDER_GOOGLE}
+      initialRegion={initialRegion}
+      showsUserLocation={locations.length === 0}
+      showsMyLocationButton={false}
+      followsUserLocation={false}
+      collapsable={false}
+    >
+      {coordinates.length > 1 && Polyline && (
+        <Polyline
+          coordinates={coordinates}
+          strokeColor={APP_COLORS.yellowDark}
+          strokeWidth={5}
+          lineCap="round"
+          lineJoin="round"
+        />
+      )}
+      {coordinates.length > 0 && Marker && (
+        <Marker
+          coordinate={coordinates[coordinates.length - 1]}
+          title="현재 위치"
+          pinColor={APP_COLORS.yellowDark}
+        />
+      )}
+    </MapView>
   );
 }
 
@@ -1343,7 +1479,7 @@ function TimerRunning({
   aerobicWorkoutMode,
   isOutOfGymRange,
   lowIntensityWarning,
-  locationTracker,
+  locationTrackerRef,
   isWorkoutPaused,
   isRestPaused,
 }: {
@@ -1366,100 +1502,27 @@ function TimerRunning({
   aerobicWorkoutMode?: 'outdoor' | 'gym' | null;
   isOutOfGymRange?: boolean;
   lowIntensityWarning?: boolean;
-  locationTracker?: WorkoutLocationTracker | null;
+  locationTrackerRef: React.RefObject<WorkoutLocationTracker | null>;
   isWorkoutPaused?: boolean;
   isRestPaused?: boolean;
 }) {
-  const foxRunningFrames = useMemo(
-    () => [
-      require("../../assets/images/animation/fox/fox_running/0.png"),
-      require("../../assets/images/animation/fox/fox_running/1.png"),
-      require("../../assets/images/animation/fox/fox_running/2.png"),
-      require("../../assets/images/animation/fox/fox_running/3.png"),
-      require("../../assets/images/animation/fox/fox_running/4.png"),
-      require("../../assets/images/animation/fox/fox_running/5.png"),
-      require("../../assets/images/animation/fox/fox_running/6.png"),
-      require("../../assets/images/animation/fox/fox_running/7.png"),
-    ],
-    []
-  );
-  const dogRunningFrames = useMemo(
-    () => [
-      require("../../assets/images/animation/dog/dog_running/0.png"),
-      require("../../assets/images/animation/dog/dog_running/1.png"),
-      require("../../assets/images/animation/dog/dog_running/2.png"),
-      require("../../assets/images/animation/dog/dog_running/3.png"),
-      require("../../assets/images/animation/dog/dog_running/4.png"),
-      require("../../assets/images/animation/dog/dog_running/5.png"),
-      require("../../assets/images/animation/dog/dog_running/6.png"),
-      require("../../assets/images/animation/dog/dog_running/7.png"),
-    ],
-    []
-  );
-  const capybaraRunningFrames = useMemo(
-    () => [
-      require("../../assets/images/animation/capibara/capibara_running/0.png"),
-      require("../../assets/images/animation/capibara/capibara_running/1.png"),
-      require("../../assets/images/animation/capibara/capibara_running/2.png"),
-      require("../../assets/images/animation/capibara/capibara_running/3.png"),
-      require("../../assets/images/animation/capibara/capibara_running/4.png"),
-      require("../../assets/images/animation/capibara/capibara_running/5.png"),
-      require("../../assets/images/animation/capibara/capibara_running/6.png"),
-      require("../../assets/images/animation/capibara/capibara_running/7.png"),
-    ],
-    []
-  );
-  const redPandaRunningFrames = useMemo(
-    () => [
-      require("../../assets/images/animation/red_panda/red_panda_running/0.png"),
-      require("../../assets/images/animation/red_panda/red_panda_running/1.png"),
-      require("../../assets/images/animation/red_panda/red_panda_running/2.png"),
-      require("../../assets/images/animation/red_panda/red_panda_running/3.png"),
-      require("../../assets/images/animation/red_panda/red_panda_running/4.png"),
-      require("../../assets/images/animation/red_panda/red_panda_running/5.png"),
-      require("../../assets/images/animation/red_panda/red_panda_running/6.png"),
-      require("../../assets/images/animation/red_panda/red_panda_running/7.png"),
-    ],
-    []
-  );
-  const guineaPigRunningFrames = useMemo(
-    () => [
-      require("../../assets/images/animation/ginipig/ginipig_running/0.png"),
-      require("../../assets/images/animation/ginipig/ginipig_running/1.png"),
-      require("../../assets/images/animation/ginipig/ginipig_running/2.png"),
-      require("../../assets/images/animation/ginipig/ginipig_running/3.png"),
-      require("../../assets/images/animation/ginipig/ginipig_running/4.png"),
-      require("../../assets/images/animation/ginipig/ginipig_running/5.png"),
-      require("../../assets/images/animation/ginipig/ginipig_running/6.png"),
-      require("../../assets/images/animation/ginipig/ginipig_running/7.png"),
-    ],
-    []
-  );
-
   const getAnimationFrames = useCallback(() => {
     const type = animalType || "dog";
     switch (type) {
       case "dog":
-        return dogRunningFrames;
+        return DOG_RUNNING_FRAMES;
       case "capybara":
-        return capybaraRunningFrames;
+        return CAPIBARA_RUNNING_FRAMES;
       case "fox":
-        return foxRunningFrames;
+        return FOX_RUNNING_FRAMES;
       case "guinea_pig":
-        return guineaPigRunningFrames;
+        return GUINEA_PIG_RUNNING_FRAMES;
       case "red_panda":
-        return redPandaRunningFrames;
+        return RED_PANDA_RUNNING_FRAMES;
       default:
-        return [require("../../assets/images/animation/dog/dog_running/0.png")];
+        return [DOG_RUNNING_FRAMES[0]];
     }
-  }, [
-    animalType,
-    foxRunningFrames,
-    capybaraRunningFrames,
-    dogRunningFrames,
-    redPandaRunningFrames,
-    guineaPigRunningFrames,
-  ]);
+  }, [animalType]);
 
   const animationFrames = useMemo(() => getAnimationFrames(), [getAnimationFrames]);
   const [frameIndex, setFrameIndex] = useState(0);
@@ -1508,7 +1571,7 @@ function TimerRunning({
 
     frameTimerRef.current = setInterval(() => {
       setFrameIndex((prev) => (prev + 1) % animationFrames.length);
-    }, 80);
+    }, 48);
 
     return () => {
       if (frameTimerRef.current) {
@@ -1523,6 +1586,11 @@ function TimerRunning({
   }, [animalType]);
   const safeFrameIndex =
     animationFrames.length > 0 ? frameIndex % animationFrames.length : 0;
+
+  const insets = useSafeAreaInsets();
+  const locations = useMemo(() => {
+    return locationTrackerRef.current?.getLocations() ?? [];
+  }, [elapsedMs, locationTrackerRef]);
 
   const lapEntries = useMemo(() => {
     if (mode !== "aerobic") {
@@ -1559,200 +1627,179 @@ function TimerRunning({
 
   const restButtonDisabled = !isResting && restDurationMs <= 0;
 
-  // 유산소 또는 인터벌 '밖에서 운동' 모드일 때는 지도 중심 UI
-  const isOutdoorAerobic = (mode === "aerobic" || mode === "interval") && aerobicWorkoutMode === 'outdoor';
+  const isOutdoorAerobic =
+    (mode === "aerobic" || mode === "interval") && aerobicWorkoutMode === "outdoor";
+  const hasGpsWorkout =
+    (mode === "aerobic" || mode === "interval") &&
+    (aerobicWorkoutMode === "outdoor" || aerobicWorkoutMode === "gym");
+
+  const mapBackgroundActive = hasGpsWorkout && Platform.OS !== "web";
+
+  const backgroundLayer =
+    mapBackgroundActive ? <LiveWorkoutMap locations={locations} /> : null;
+
+  const runningAnimationOverlay = (
+    <View style={styles.runningHeroAnimationOverlay} pointerEvents="none">
+      {animationFrames.map((frame, index) => (
+        <Image
+          key={index}
+          source={frame}
+          style={[
+            styles.runningHeroAnimationImage,
+            {
+              opacity: framesReady && index === safeFrameIndex ? 1 : 0,
+            },
+          ]}
+          accessibilityRole="image"
+          accessibilityLabel="애니메이션"
+          fadeDuration={0}
+        />
+      ))}
+    </View>
+  );
+
+  const bottomDockClearance = 340 + Math.max(insets.bottom, 12);
 
   return (
-    <View style={styles.runningContainer}>
-      {/* 상단: 타이머와 애니메이션 */}
-      <View style={styles.topSection}>
-        <View style={styles.timerDisplay}>
-          <Text style={styles.timerStateLabel}>{timerStateLabel}</Text>
-          <Text style={styles.timerDigits}>{formatDuration(elapsedMs)}</Text>
-        </View>
-        {!isOutdoorAerobic && (
-          <View style={styles.trackWithAnimationWrapper}>
-            <Image
-              source={require("../../assets/images/background/Track.png")}
-              style={[StyleSheet.absoluteFillObject, styles.trackImage]}
-              resizeMode="cover"
-            />
-            <View style={styles.trackAnimationOverlay}>
-              <View style={[styles.animationContainer, { marginBottom: 0, position: "relative" }]}>
-                {animationFrames.map((frame, index) => (
-                <Image
-                  key={index}
-                  source={frame}
-                  style={[
-                    styles.runningAnimationImage,
-                    {
-                      position: "absolute",
-                      opacity: framesReady && index === safeFrameIndex ? 1 : 0,
-                    },
-                  ]}
-                  accessibilityRole="image"
-                  accessibilityLabel="애니메이션"
-                  fadeDuration={0}
-                />
-              ))}
-              </View>
+    <View
+      style={[
+        styles.runningImmersiveRoot,
+        !mapBackgroundActive ? { backgroundColor: APP_COLORS.ivory } : null,
+      ]}
+    >
+      {mapBackgroundActive ? (
+        <View style={StyleSheet.absoluteFillObject}>{backgroundLayer}</View>
+      ) : null}
+
+      <View
+        style={[
+          styles.runningContentColumn,
+          mapBackgroundActive ? styles.runningContentOverMap : null,
+          { paddingBottom: bottomDockClearance },
+        ]}
+      >
+        <View style={{ paddingTop: Math.max(insets.top, 8) + 52 }}>
+          <View style={styles.runningHeroBlock}>
+            <View style={styles.runningTrackCard}>
+              <Image
+                source={require("../../assets/images/background/Track.png")}
+                style={styles.runningTrackImage}
+                resizeMode="cover"
+              />
+              {runningAnimationOverlay}
             </View>
           </View>
-        )}
-        {isOutdoorAerobic && (
-          <View style={styles.compactAnimationContainer}>
-            {animationFrames.map((frame, index) => (
-              <Image
-                key={index}
-                source={frame}
-                style={[
-                  styles.compactAnimationImage,
-                  {
-                    position: "absolute",
-                    opacity: framesReady && index === safeFrameIndex ? 1 : 0,
-                  },
-                ]}
-                accessibilityRole="image"
-                accessibilityLabel="애니메이션"
-                fadeDuration={0}
-              />
-            ))}
+
+          <View style={styles.runningWarningsColumn}>
+            {(mode === "aerobic" || mode === "interval") &&
+              aerobicWorkoutMode === "gym" &&
+              isOutOfGymRange && (
+                <View style={[styles.outOfRangeWarning, styles.warningBannerDocked]}>
+                  <Ionicons name="warning" size={18} color="#e74c3c" />
+                  <Text style={styles.outOfRangeWarningText}>
+                    헬스장 범위를 벗어났습니다. 10m 이내로 돌아와주세요.
+                  </Text>
+                </View>
+              )}
+            {(mode === "aerobic" || mode === "interval") &&
+              aerobicWorkoutMode === "outdoor" &&
+              lowIntensityWarning && (
+                <View style={[styles.lowIntensityWarning, styles.warningBannerDocked]}>
+                  <Ionicons name="alert-circle" size={18} color="#ff8a3d" />
+                  <Text style={styles.lowIntensityWarningText}>
+                    운동 강도가 너무 약해요. 조금 더 힘내 보아요.
+                  </Text>
+                </View>
+              )}
           </View>
-        )}
+        </View>
+
+        <View style={styles.runningTimerCenter}>
+          <Text style={styles.timerStateLabel}>{timerStateLabel}</Text>
+          <Text style={styles.timerDigitsLarge}>{formatDuration(elapsedMs)}</Text>
+        </View>
       </View>
 
-      {/* 헬스장 범위 벗어남 경고 */}
-      {(mode === "aerobic" || mode === "interval") && aerobicWorkoutMode === 'gym' && isOutOfGymRange && (
-        <View style={styles.outOfRangeWarning}>
-          <Ionicons name="warning" size={18} color="#e74c3c" />
-          <Text style={styles.outOfRangeWarningText}>
-            헬스장 범위를 벗어났습니다. 10m 이내로 돌아와주세요.
-          </Text>
-        </View>
-      )}
+      <View
+        style={[
+          styles.runningBottomDock,
+          { paddingBottom: Math.max(insets.bottom, 12) },
+        ]}
+      >
+        {mode === "interval" && isOutdoorAerobic && (
+          <IntervalPanel
+            isResting={isResting}
+            restRemainingMs={restRemainingMs}
+            restDurationMs={restDurationMs}
+            completedSets={completedSets}
+            isWorking={isWorking}
+            workoutRemainingMs={workoutRemainingMs}
+            compact={true}
+          />
+        )}
 
-      {/* 운동 강도 낮음 경고 (밖에서 운동 모드) */}
-      {(mode === "aerobic" || mode === "interval") && aerobicWorkoutMode === 'outdoor' && lowIntensityWarning && (
-        <View style={styles.lowIntensityWarning}>
-          <Ionicons name="alert-circle" size={18} color="#ff8a3d" />
-          <Text style={styles.lowIntensityWarningText}>
-            운동 강도가 너무 약해요. 조금 더 힘내 보아요.
-          </Text>
-        </View>
-      )}
-
-      {/* 운동 중에는 지도 표시하지 않음 */}
-
-      {/* 인터벌 모드: 지도 중심 UI일 때는 하단에 작은 패널 표시 */}
-      {mode === "interval" && isOutdoorAerobic && (
-        <IntervalPanel
-          isResting={isResting}
-          restRemainingMs={restRemainingMs}
-          restDurationMs={restDurationMs}
-          completedSets={completedSets}
-          isWorking={isWorking}
-          workoutRemainingMs={workoutRemainingMs}
-          compact={true}
-        />
-      )}
-
-      {/* 웨이트 모드 또는 인터벌 모드 (지도 없을 때) */}
-      {mode === "weight" || (mode === "interval" && !isOutdoorAerobic) ? (
-        <>
-          {isNewInterval ? (
-            <IntervalPanel
-              isResting={isResting}
-              restRemainingMs={restRemainingMs}
-              restDurationMs={restDurationMs}
-              completedSets={completedSets}
-              isWorking={isWorking}
-              workoutRemainingMs={workoutRemainingMs}
-            />
-          ) : (
-            <>
+        {mode === "weight" || (mode === "interval" && !isOutdoorAerobic) ? (
+          <>
+            {isNewInterval ? (
               <IntervalPanel
                 isResting={isResting}
                 restRemainingMs={restRemainingMs}
                 restDurationMs={restDurationMs}
                 completedSets={completedSets}
+                isWorking={isWorking}
+                workoutRemainingMs={workoutRemainingMs}
               />
-              <TouchableOpacity
-                style={[
-                  styles.restButton,
-                  isResting ? styles.restButtonActive : undefined,
-                  restButtonDisabled ? styles.restButtonDisabled : undefined,
-                ]}
-                onPress={isResting ? onSkipRest : onStartRest}
-                activeOpacity={0.85}
-                disabled={restButtonDisabled}
-              >
-                <Ionicons
-                  name={isResting ? "play" : "moon"}
-                  size={18}
-                  color={isResting ? "#ffffff" : restButtonDisabled ? "#b2bec3" : "#4a6cf4"}
+            ) : (
+              <>
+                <IntervalPanel
+                  isResting={isResting}
+                  restRemainingMs={restRemainingMs}
+                  restDurationMs={restDurationMs}
+                  completedSets={completedSets}
                 />
-                <Text
+                <TouchableOpacity
                   style={[
-                    styles.restButtonLabel,
-                    isResting ? styles.restButtonLabelActive : undefined,
-                    restButtonDisabled ? styles.restButtonLabelDisabled : undefined,
+                    styles.restButton,
+                    isResting ? styles.restButtonActive : undefined,
+                    restButtonDisabled ? styles.restButtonDisabled : undefined,
                   ]}
+                  onPress={isResting ? onSkipRest : onStartRest}
+                  activeOpacity={0.85}
+                  disabled={restButtonDisabled}
                 >
-                  {isResting ? "휴식 종료" : "휴식 시작"}
-                </Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </>
-      ) : null}
+                  <Ionicons
+                    name={isResting ? "play" : "moon"}
+                    size={18}
+                    color={
+                      isResting
+                        ? "#ffffff"
+                        : restButtonDisabled
+                        ? "#b2bec3"
+                        : APP_COLORS.yellowDark
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.restButtonLabel,
+                      isResting ? styles.restButtonLabelActive : undefined,
+                      restButtonDisabled ? styles.restButtonLabelDisabled : undefined,
+                    ]}
+                  >
+                    {isResting ? "휴식 종료" : "휴식 시작"}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </>
+        ) : null}
 
-      <View style={styles.controlRow}>
-        <ControlButton
-          icon={
-            mode === "interval"
-              ? (isWorking && isWorkoutPaused) || (isResting && isRestPaused)
-                ? "play"
-                : "pause"
-              : isPaused
-              ? "play"
-              : "pause"
-          }
-          label={
-            mode === "interval"
-              ? (isWorking && isWorkoutPaused) || (isResting && isRestPaused)
-                ? "재개"
-                : "일시정지"
-              : isPaused
-              ? "재개"
-              : "일시정지"
-          }
-          onPress={onPauseToggle}
-          variant="primary"
-          disabled={mode === "interval" ? !isWorking && !isResting : isResting}
-        />
-        <ControlButton
-          icon="stop"
-          label="종료"
-          onPress={onRequestStop}
-          variant="danger"
-        />
-      </View>
-
-      {(mode === "aerobic" || (mode === "interval" && isOutdoorAerobic)) && (
-        <>
-          <TouchableOpacity
-            style={styles.lapButton}
-            onPress={onAddLap}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.lapButtonLabel}>구간 기록</Text>
-          </TouchableOpacity>
-          <View style={styles.lapListContainer}>
+        {(mode === "aerobic" || (mode === "interval" && isOutdoorAerobic)) && (
+          <View style={styles.lapListContainerDocked}>
             {lapEntries.length === 0 ? (
               <Text style={styles.lapPlaceholder}>아직 기록된 구간이 없습니다.</Text>
             ) : (
               <ScrollView
-                style={styles.lapScroll}
+                style={styles.lapScrollDocked}
                 contentContainerStyle={styles.lapScrollContent}
               >
                 {lapEntries.map((entry) => (
@@ -1773,8 +1820,50 @@ function TimerRunning({
               </ScrollView>
             )}
           </View>
-        </>
-      )}
+        )}
+
+        <View style={styles.controlRowDocked}>
+          <ControlButton
+            icon={
+              mode === "interval"
+                ? (isWorking && isWorkoutPaused) || (isResting && isRestPaused)
+                  ? "play"
+                  : "pause"
+                : isPaused
+                ? "play"
+                : "pause"
+            }
+            label={
+              mode === "interval"
+                ? (isWorking && isWorkoutPaused) || (isResting && isRestPaused)
+                  ? "재개"
+                  : "일시정지"
+                : isPaused
+                ? "재개"
+                : "일시정지"
+            }
+            onPress={onPauseToggle}
+            variant="primary"
+            disabled={mode === "interval" ? !isWorking && !isResting : isResting}
+          />
+          <ControlButton
+            icon="stop"
+            label="종료"
+            onPress={onRequestStop}
+            variant="danger"
+          />
+        </View>
+
+        {(mode === "aerobic" || (mode === "interval" && isOutdoorAerobic)) && (
+          <TouchableOpacity
+            style={styles.lapButtonDocked}
+            onPress={onAddLap}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.lapButtonLabel}>구간 기록</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
@@ -1940,20 +2029,28 @@ function ControlButton({
   onPress: () => void;
   disabled?: boolean;
 }) {
-  const backgroundColor = variant === "primary" ? "#2d98da" : "#e94e77";
+  const backgroundColor =
+    variant === "primary" ? APP_COLORS.yellow : "#e94e77";
+  const foreground =
+    variant === "primary" ? APP_COLORS.brown : "#fff";
 
   return (
     <TouchableOpacity
       style={[
         styles.controlButton,
-        { backgroundColor, opacity: disabled ? 0.35 : 1 },
+        {
+          backgroundColor,
+          opacity: disabled ? 0.35 : 1,
+          borderWidth: variant === "primary" ? 2 : 0,
+          borderColor: variant === "primary" ? APP_COLORS.yellowDark : "transparent",
+        },
       ]}
       onPress={onPress}
       activeOpacity={0.85}
       disabled={disabled}
     >
-      <Ionicons name={icon} size={20} color="#fff" />
-      <Text style={styles.controlButtonLabel}>{label}</Text>
+      <Ionicons name={icon} size={20} color={foreground} />
+      <Text style={[styles.controlButtonLabel, { color: foreground }]}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -1977,25 +2074,30 @@ function IntervalPanel({
 }) {
   const isNewInterval = isWorking !== undefined;
   
+  const panelStyle = compact ? styles.intervalPanelCompact : styles.intervalPanel;
+
   return (
-    <View style={styles.intervalPanel}>
+    <View style={panelStyle}>
       <View
         style={[
           styles.intervalBadge,
+          compact && styles.intervalBadgeCompact,
           isResting ? styles.intervalBadgeRest : styles.intervalBadgeWork,
         ]}
       >
-        <Text style={styles.intervalBadgeText}>
+        <Text
+          style={[styles.intervalBadgeText, compact && styles.intervalBadgeTextCompact]}
+        >
           {isResting ? "휴식 중" : "운동 중"}
         </Text>
       </View>
       {isResting ? (
         <>
-          <Text style={styles.intervalTimer}>
+          <Text style={[styles.intervalTimer, compact && styles.intervalTimerCompact]}>
             {formatDuration(restRemainingMs)}
           </Text>
-          <Text style={styles.intervalSubLabel}>
-            {isNewInterval 
+          <Text style={[styles.intervalSubLabel, compact && styles.intervalSubLabelCompact]}>
+            {isNewInterval
               ? "휴식이 끝나면 자동으로 운동이 시작됩니다."
               : "휴식이 끝나면 자동으로 운동이 재개됩니다."}
           </Text>
@@ -2004,26 +2106,33 @@ function IntervalPanel({
         <>
           {isNewInterval && isWorking && workoutRemainingMs !== undefined ? (
             <>
-              <Text style={styles.intervalTimer}>
+              <Text style={[styles.intervalTimer, compact && styles.intervalTimerCompact]}>
                 {formatDuration(workoutRemainingMs)}
               </Text>
-              <Text style={styles.intervalSubLabel}>
+              <Text style={[styles.intervalSubLabel, compact && styles.intervalSubLabelCompact]}>
                 운동 시간이 끝나면 자동으로 휴식이 시작됩니다.
               </Text>
             </>
           ) : (
             <>
-              <Text style={styles.intervalConfigSummary}>
+              <Text
+                style={[
+                  styles.intervalConfigSummary,
+                  compact && styles.intervalConfigSummaryCompact,
+                ]}
+              >
                 휴식 {formatDuration(restDurationMs)}
               </Text>
-              <Text style={styles.intervalSubLabel}>
+              <Text style={[styles.intervalSubLabel, compact && styles.intervalSubLabelCompact]}>
                 세트 종료 후 휴식 버튼을 눌러 주세요.
               </Text>
             </>
           )}
         </>
       )}
-      <Text style={styles.intervalRounds}>완료 세트 : {completedSets}회</Text>
+      <Text style={[styles.intervalRounds, compact && styles.intervalRoundsCompact]}>
+        완료 세트 : {completedSets}회
+      </Text>
     </View>
   );
 }
@@ -2239,7 +2348,7 @@ function WorkoutRouteMapModal({
     }
   }, [visible, locationTracker]);
 
-  if (!MapView || !region || Platform.OS === 'web') {
+  if (!region) {
     return (
       <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
         <View style={styles.routeMapModalContainer}>
@@ -2251,7 +2360,48 @@ function WorkoutRouteMapModal({
           </View>
           <View style={styles.mapPlaceholder}>
             <Ionicons name="map-outline" size={48} color="#636e72" />
-            <Text style={styles.mapPlaceholderText}>지도는 모바일에서만 표시됩니다</Text>
+            <Text style={styles.mapPlaceholderText}>표시할 GPS 경로가 없습니다</Text>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+
+  if (!MapView || Platform.OS === "web") {
+    return (
+      <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
+        <View style={styles.routeMapModalContainer}>
+          <View style={styles.routeMapModalHeader}>
+            <Text style={styles.routeMapModalTitle}>달린 경로</Text>
+            <TouchableOpacity onPress={onClose} style={styles.routeMapModalCloseButton}>
+              <Ionicons name="close" size={24} color="#2d3436" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.routeMapStats}>
+            <View style={styles.routeMapStatItem}>
+              <Ionicons name="time-outline" size={20} color="#2d98da" />
+              <Text style={styles.routeMapStatLabel}>운동 시간</Text>
+              <Text style={styles.routeMapStatValue}>{formatDuration(elapsedMs)}</Text>
+            </View>
+            {distance !== undefined && distance > 0 && (
+              <View style={styles.routeMapStatItem}>
+                <Ionicons name="walk-outline" size={20} color="#27ae60" />
+                <Text style={styles.routeMapStatLabel}>이동 거리</Text>
+                <Text style={styles.routeMapStatValue}>
+                  {distance >= 1000
+                    ? `${(distance / 1000).toFixed(2)} km`
+                    : `${Math.round(distance)} m`}
+                </Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.mapPlaceholder}>
+            <Ionicons name="map-outline" size={48} color="#636e72" />
+            <Text style={styles.mapPlaceholderText}>
+              {Platform.OS === "web"
+                ? "지도는 모바일에서만 표시됩니다"
+                : "지도를 불러올 수 없습니다"}
+            </Text>
           </View>
         </View>
       </Modal>
@@ -2295,10 +2445,10 @@ function WorkoutRouteMapModal({
             style={styles.routeMap}
             provider={PROVIDER_GOOGLE}
             initialRegion={region}
-            region={region}
             showsUserLocation={false}
             showsMyLocationButton={false}
             followsUserLocation={false}
+            collapsable={false}
           >
             {/* 시작 지점 마커 */}
             {pathCoordinates.length > 0 && Marker && (

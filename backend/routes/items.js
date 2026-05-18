@@ -2,6 +2,7 @@
 import express from 'express';
 import { db } from '../db.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
+import { isUserMaster } from '../lib/unlocks.js';
 
 const router = express.Router();
 
@@ -35,19 +36,32 @@ router.get('/', authMiddleware, async (req, res) => {
     );
     const itemQuantityMap = new Map(itemRows.map((r) => [r.id, r.quantity]));
 
-    const accessories = ACCESSORY_DEFINITIONS.map((def) => ({
-      ...def,
-      owned: ownedAccessories.has(def.id),
-    }));
+    const master = await isUserMaster(userId);
 
-    const consumables = CONSUMABLE_DEFINITIONS.map((def) => ({
-      ...def,
-      quantity: itemQuantityMap.get(def.id) ?? 0,
-    }));
+    const accessories = ACCESSORY_DEFINITIONS.map((def) => {
+      const owned = ownedAccessories.has(def.id);
+      return {
+        ...def,
+        owned,
+        locked: !master && !owned,
+      };
+    });
+
+    const consumables = CONSUMABLE_DEFINITIONS.map((def) => {
+      const quantity = itemQuantityMap.get(def.id) ?? 0;
+      const isProtein = def.id === 'protein_small' || def.id === 'protein_big';
+      return {
+        ...def,
+        quantity,
+        // 프로틴: 항상 잠금 아님(보유 수량만). 추후 비프로틴 소모품만 잠금 가능
+        locked: isProtein ? false : !master && quantity <= 0,
+      };
+    });
 
     res.json({
       accessories,
       consumables,
+      isMaster: master,
     });
   } catch (err) {
     console.error('아이템 조회 에러:', err);

@@ -4,11 +4,28 @@ import { router } from "expo-router";
 import HomeButton from "../../../components/HomeButton";
 import DefenseSubHeader from "../../../components/defense/DefenseSubHeader";
 import { APP_COLORS } from "../../../constants/theme";
+import { DEFENSE_CHALLENGE_MODE_LOCKED } from "../../../data/defenseStub";
 
 /**
  * 도전 모드 허브 뼈대 (무한·점수 등은 추후).
  */
 export default function DefenseChallengeScreen() {
+  if (DEFENSE_CHALLENGE_MODE_LOCKED) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+        <HomeButton />
+        <View style={styles.body}>
+          <DefenseSubHeader title="도전" />
+          <View style={[styles.card, styles.cardLocked]}>
+            <Text style={styles.cardText}>
+              도전 모드는 준비 중입니다. 시나리오 모드를 먼저 플레이해 주세요.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <HomeButton />
@@ -64,6 +81,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: APP_COLORS.ivoryDark,
     marginBottom: 24,
+  },
+  cardLocked: {
+    opacity: 0.92,
+    backgroundColor: "#F7F7F5",
   },
   cardText: {
     fontSize: 14,

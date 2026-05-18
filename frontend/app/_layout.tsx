@@ -1,9 +1,9 @@
-<<<<<<< Updated upstream
 import { Stack } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useEffect } from "react";
 import { useFonts } from "expo-font";
 import { CustomizationProvider } from "../context/CustomizationContext";
+import { SessionProvider, useSession } from "../context/SessionContext";
 import API_BASE_URL from "../config/api";
 import Navigator from "../components/Navigator";
 import SettingsModal from "../components/SettingsModal";
@@ -21,6 +21,10 @@ function RootOverlays() {
   return (
     <>
       {ENABLE_NAVIGATOR && isVisible && <Navigator />}
+  const { isMaster } = useSession();
+  return (
+    <>
+      {ENABLE_NAVIGATOR && isMaster && isVisible && <Navigator />}
       <SettingsModal />
     </>
   );
@@ -85,99 +89,23 @@ export default function RootLayout() {
             </NavigatorVisibilityProvider>
           </SettingsModalProvider>
         </CustomizationProvider>
+        <SessionProvider>
+          <CustomizationProvider>
+            <SettingsModalProvider>
+              <NavigatorVisibilityProvider>
+                <View style={{ flex: 1 }}>
+                  <Stack
+                    screenOptions={{
+                      headerShown: false,
+                    }}
+                  />
+                  <RootOverlays />
+                </View>
+              </NavigatorVisibilityProvider>
+            </SettingsModalProvider>
+          </CustomizationProvider>
+        </SessionProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }
-=======
-import { Stack } from "expo-router";
-import { SafeAreaProvider } from "react-native-safe-area-context";
-import { useEffect } from "react";
-import { useFonts } from "expo-font";
-import { CustomizationProvider } from "../context/CustomizationContext";
-import API_BASE_URL from "../config/api";
-import Navigator from "../components/Navigator";
-import SettingsModal from "../components/SettingsModal";
-import { SettingsModalProvider } from "../context/SettingsModalContext";
-import {
-  NavigatorVisibilityProvider,
-  useNavigatorVisibility,
-} from "../context/NavigatorVisibilityContext";
-import { ENABLE_NAVIGATOR } from "../config/navigator";
-import { View } from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-
-function RootOverlays() {
-  const { isVisible } = useNavigatorVisibility();
-  return (
-    <>
-      {ENABLE_NAVIGATOR && isVisible && <Navigator />}
-      <SettingsModal />
-    </>
-  );
-}
-
-export default function RootLayout() {
-  // KotraHope 폰트 로드
-  useFonts({
-    'KotraHope': require('../assets/fonts/KotraHope.ttf'),
-  });
-
-  // 전역 fetch 래핑: ngrok 경고 페이지 회피 헤더/쿼리 추가
-  useEffect(() => {
-    const originalFetch = global.fetch;
-    global.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-      try {
-        const urlString = typeof input === "string" ? input : input.toString();
-        let url = urlString;
-
-        // API_BASE_URL로 나가는 요청에만 적용
-        if (url.startsWith(API_BASE_URL)) {
-          const hasQuery = url.includes("?");
-          const skipParam = "ngrok-skip-browser-warning=true";
-          if (!url.includes("ngrok-skip-browser-warning=")) {
-            url = `${url}${hasQuery ? "&" : "?"}${skipParam}`;
-          }
-
-          // 헤더 병합
-          const mergedHeaders: Record<string, string> = {
-            ...(init?.headers as Record<string, string>),
-            "ngrok-skip-browser-warning": "true",
-          };
-
-          return originalFetch(url, { ...init, headers: mergedHeaders });
-        }
-
-        return originalFetch(input as any, init);
-      } catch {
-        return originalFetch(input as any, init);
-      }
-    };
-
-    return () => {
-      global.fetch = originalFetch;
-    };
-  }, []);
-
-  return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <CustomizationProvider>
-          <SettingsModalProvider>
-            <NavigatorVisibilityProvider>
-              <View style={{ flex: 1 }}>
-                <Stack
-                  screenOptions={{
-                    headerShown: false,
-                  }}
-                />
-                <RootOverlays />
-              </View>
-            </NavigatorVisibilityProvider>
-          </SettingsModalProvider>
-        </CustomizationProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
-  );
-}
->>>>>>> Stashed changes
