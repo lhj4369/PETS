@@ -20,7 +20,7 @@ import {
   type StubScenarioStage,
 } from "../../../data/defenseStub";
 
-const DEFENSE_SCENARIO_BACKGROUND = require("../../../assets/images/defence/defense_scenario.png");
+const DEFENSE_SCENARIO_BACKGROUND = require("../../../assets/images/defence/defense_scenario.jpg");
 const USE_SCENARIO_HERO_LAYOUT = true;
 const SHOW_SCENARIO_HEADER_TITLE = false;
 

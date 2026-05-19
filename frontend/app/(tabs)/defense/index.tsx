@@ -15,7 +15,7 @@ import HomeButton from "../../../components/HomeButton";
 import { APP_COLORS } from "../../../constants/theme";
 import { DEFENSE_CHALLENGE_MODE_LOCKED } from "../../../data/defenseStub";
 
-const DEFENSE_INTRO_BACKGROUND = require("../../../assets/images/defence/defense_intro.png");
+const DEFENSE_INTRO_BACKGROUND = require("../../../assets/images/defence/defense_intro.jpg");
 const DEFENSE_LOGO = require("../../../assets/images/defence/defense_logo.png");
 
 /**
