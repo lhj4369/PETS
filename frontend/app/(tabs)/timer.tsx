@@ -41,7 +41,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WorkoutLocationTracker, type LocationPoint } from "../../utils/WorkoutLocationTracker";
 import LocationMapModal from "../../components/LocationMapModal";
 import * as Location from "expo-location";
-import { MapView, Marker, Polyline, PROVIDER_GOOGLE } from "../../components/NativeMapView";
+import { MapView, Marker, Polyline } from "../../components/NativeMapView";
+import { getNativeMapProvider } from "../../utils/mapProvider";
 import { APP_COLORS } from "../../constants/theme";
 import {
   CAPIBARA_RUNNING_FRAMES,
@@ -1432,7 +1433,7 @@ function LiveWorkoutMap({ locations }: { locations: LocationPoint[] }) {
     <MapView
       ref={mapRef}
       style={styles.workoutLiveMap}
-      provider={PROVIDER_GOOGLE}
+      provider={getNativeMapProvider()}
       initialRegion={initialRegion}
       showsUserLocation={locations.length === 0}
       showsMyLocationButton={false}
@@ -2443,7 +2444,7 @@ function WorkoutRouteMapModal({
         <View style={styles.routeMapContainer}>
           <MapView
             style={styles.routeMap}
-            provider={PROVIDER_GOOGLE}
+            provider={getNativeMapProvider()}
             initialRegion={region}
             showsUserLocation={false}
             showsMyLocationButton={false}

@@ -17,7 +17,7 @@
         "NSLocationAlwaysAndWhenInUseUsageDescription": "이 앱은 운동 중 위치 정보를 추적하기 위해 위치 권한이 필요합니다."
       },
       "config": {
-        "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY_HERE"
+        "googleMapsApiKey": "AIzaSyDpUsPiMR85NF8fcZDxQ6ublS505AGBPT8"
       }
     },
     "android": {
@@ -35,7 +35,7 @@
       ],
       "config": {
         "googleMaps": {
-          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY_HERE"
+          "apiKey": "AIzaSyDpUsPiMR85NF8fcZDxQ6ublS505AGBPT8"
         }
       }
     },

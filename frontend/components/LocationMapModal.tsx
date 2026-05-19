@@ -11,7 +11,9 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import { MapView, Marker, PROVIDER_GOOGLE } from "./NativeMapView";
+import { MapView, Marker } from "./NativeMapView";
+import { GOOGLE_MAPS_API_KEY } from "../config/googleMaps";
+import { getNativeMapProvider } from "../utils/mapProvider";
 
 type Region = {
   latitude: number;
@@ -121,7 +123,7 @@ export default function LocationMapModal({
       
       // Google Places API 키 (AndroidManifest.xml에서 가져오거나 환경변수에서)
       // 실제로는 환경변수나 설정에서 가져와야 합니다
-      const apiKey = "AIzaSyDpUsPiMR85NF8fcZDxQ6ublS505AGBPT8"; // TODO: 환경변수로 이동
+      const apiKey = GOOGLE_MAPS_API_KEY;
       
       // Google Places Nearby Search API 호출
       // 헬스장 관련 키워드: gym, fitness_center, health_club
@@ -321,8 +323,9 @@ export default function LocationMapModal({
             <View style={styles.mapInner}>
               <MapView
                 style={styles.map}
-                provider={PROVIDER_GOOGLE}
+                provider={getNativeMapProvider()}
                 initialRegion={region}
+                region={region}
                 showsUserLocation={true}
                 showsMyLocationButton={true}
                 followsUserLocation={false}

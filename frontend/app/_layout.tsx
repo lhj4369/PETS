@@ -13,18 +13,26 @@ import {
   useNavigatorVisibility,
 } from "../context/NavigatorVisibilityContext";
 import { ENABLE_NAVIGATOR } from "../config/navigator";
-import { View } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 function RootOverlays() {
   const { isVisible } = useNavigatorVisibility();
   return (
-    <>
+    <View style={styles.overlays} pointerEvents="box-none">
       {ENABLE_NAVIGATOR && isVisible && <Navigator />}
       <SettingsModal />
-    </>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  overlays: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+    elevation: 9999,
+  },
+});
 
 export default function RootLayout() {
   // KotraHope 폰트 로드

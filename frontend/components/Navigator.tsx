@@ -1,9 +1,31 @@
-import { View, TouchableOpacity, StyleSheet, Modal, Text } from "react-native";
-import { router } from "expo-router";
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  Modal,
+  Text,
+  Pressable,
+  ScrollView,
+} from "react-native";
+import { router, type Href } from "expo-router";
 import { useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWindowDimensions } from "react-native";
 import { useSettingsModal } from "../context/SettingsModalContext";
+
+const MENU_ITEMS: { label: string; path: Href }[] = [
+  { label: "로그인", path: "/" },
+  { label: "홈", path: "/(tabs)/home" },
+  { label: "타이머", path: "/(tabs)/timer" },
+  { label: "운동 기록", path: "/(tabs)/records" },
+  { label: "랭킹", path: "/(tabs)/ranking" },
+  { label: "기록 도전", path: "/(tabs)/challenges" },
+  { label: "채팅", path: "/(tabs)/chatting" },
+  { label: "퀘스트", path: "/(tabs)/home?openQuest=1" },
+  { label: "커스터마이징", path: "/(tabs)/customize" },
+  { label: "디펜스", path: "/(tabs)/defense" },
+  { label: "설정", path: "/settings" },
+];
 
 export default function Navigator() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -11,135 +33,140 @@ export default function Navigator() {
   const { height } = useWindowDimensions();
   const { openSettings } = useSettingsModal();
 
-  const closeMenu = () => {
-    setIsMenuOpen(false);
+  const closeMenu = () => setIsMenuOpen(false);
+
+  const handleMenuSelect = (path: Href) => {
+    closeMenu();
+    // Android: 모달 닫힌 뒤 라우팅해야 메뉴 탭이 overlay에 삼켜지지 않음
+    setTimeout(() => {
+      if (path === "/settings") {
+        openSettings();
+      } else {
+        router.push(path);
+      }
+    }, 80);
   };
 
-  const handleMenuSelect = (path: string) => {
-    setIsMenuOpen(false);
-    if (path === "/settings") {
-      openSettings();
-    } else {
-      router.push(path as any);
-    }
-  };
-
-  // 모든 화면 목록 (로그인 포함)
-  const menuItems = [
-    { label: '로그인', path: '/' },
-    { label: '홈', path: '/home' },
-    { label: '타이머', path: '/timer' },
-    { label: '운동 기록', path: '/records' },
-    { label: '랭킹', path: '/ranking' },
-    { label: '기록 도전', path: '/challenges' },
-    { label: '채팅', path: '/chatting' },
-    { label: '퀘스트', path: '/(tabs)/home?openQuest=1' },
-    { label: '커스터마이징', path: '/customize' },
-    { label: '디펜스', path: '/defense' },
-    { label: '설정', path: '/settings' },
-  ];
-
-  // 좌측 중앙 위치 계산 (9시 방향, 세로 중간)
   const buttonTop = insets.top + (height - insets.top - insets.bottom) / 2 - 25;
 
   return (
-    <>
-      {/* 좌측 중앙 메뉴 버튼 */}
-      <TouchableOpacity 
-          style={[
-            styles.floatingButton,
-            { top: buttonTop }
-          ]} 
-          onPress={() => setIsMenuOpen((prev) => !prev)}
-        >
-          <Text style={styles.buttonText}>☰</Text>
-        </TouchableOpacity>
+    <View style={styles.root} pointerEvents="box-none">
+      <TouchableOpacity
+        style={[styles.floatingButton, { top: buttonTop }]}
+        onPress={() => setIsMenuOpen((prev) => !prev)}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="개발자 메뉴"
+      >
+        <Text style={styles.buttonText}>☰</Text>
+      </TouchableOpacity>
 
-      {/* 플로팅 메뉴 */}
       <Modal
         visible={isMenuOpen}
-        transparent={true}
+        transparent
         animationType="slide"
         onRequestClose={closeMenu}
+        statusBarTranslucent
       >
-        <TouchableOpacity style={styles.modalOverlay} onPress={closeMenu}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={closeMenu} />
           <View style={styles.floatingMenu}>
             <Text style={styles.menuTitle}>메뉴</Text>
-            {menuItems.map((item, index) => (
-              <TouchableOpacity 
-                key={index} 
-                style={styles.menuItem} 
-                onPress={() => handleMenuSelect(item.path)}
-              >
-                <Text style={styles.menuItemText}>{item.label}</Text>
-              </TouchableOpacity>
-            ))}
+            <ScrollView
+              style={styles.menuScroll}
+              contentContainerStyle={styles.menuScrollContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              {MENU_ITEMS.map((item) => (
+                <TouchableOpacity
+                  key={item.label}
+                  style={styles.menuItem}
+                  onPress={() => handleMenuSelect(item.path)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.menuItemText}>{item.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10000,
+    elevation: 10000,
+  },
   floatingButton: {
-    position: 'absolute',
+    position: "absolute",
     left: 20,
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#000',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
+    backgroundColor: "#000",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
-    zIndex: 9999,
-    elevation: 10,
+    zIndex: 10001,
+    elevation: 11,
   },
   buttonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   floatingMenu: {
-    backgroundColor: '#fff',
-    borderTopRightRadius: 20,
-    borderBottomRightRadius: 20,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderBottomLeftRadius: 20,
+    paddingTop: 20,
     width: 250,
-    height: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 2, height: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
+    maxWidth: "82%",
+    height: "100%",
+    shadowColor: "#000",
+    shadowOffset: { width: -2, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  menuScroll: {
+    flex: 1,
+  },
+  menuScrollContent: {
+    paddingBottom: 32,
   },
   menuTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#333',
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 12,
+    paddingHorizontal: 20,
+    color: "#333",
   },
   menuItem: {
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
   },
   menuItemText: {
     fontSize: 16,
-    color: '#333',
-    textAlign: 'center',
+    color: "#333",
+    textAlign: "center",
   },
 });
-
